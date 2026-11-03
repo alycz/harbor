@@ -23,13 +23,16 @@
   display: flex;
   align-items: center;
   height: 64px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
   color: var(--harbor-text-secondary);
 }
 
+.harbor-workspace .workspace-primary-link:hover,
 .harbor-workspace .workspace-primary-link[aria-current="page"] {
-  color: var(--harbor-text);
+  color: var(--harbor-accent);
 }
 
 .harbor-workspace .workspace-primary-link[aria-current="page"]::after {
@@ -43,15 +46,15 @@
 }
 
 .workspace-page-header h1 {
-  font-size: clamp(30px, 2.8vw, 40px);
-  line-height: 1.12;
-  font-weight: 600;
-  letter-spacing: -0.025em;
+  font-size: clamp(32px, 3.4vw, 45px);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -1px;
+  text-transform: uppercase;
 }
 
 .harbor-workspace .workspace-panel {
   border: 1px solid var(--harbor-border);
-  border-radius: var(--radius-xl);
   background: var(--harbor-surface);
 }
 
@@ -60,21 +63,23 @@
   text-wrap: pretty;
 }
 
+/* An ink band under the header, like a ticker. */
 .workspace-runtime-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 40px;
+  min-height: 36px;
   gap: 12px;
   padding: 8px 28px;
-  border-bottom: 1px solid var(--harbor-border);
-  background: var(--harbor-surface);
-  color: var(--harbor-text-secondary);
-  font-size: 12px;
+  background: var(--harbor-band);
+  color: var(--harbor-band-text);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
 }
 
 .workspace-runtime-bar strong {
-  color: var(--harbor-accent);
+  color: var(--harbor-sky);
   font-weight: 500;
 }
 

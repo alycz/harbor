@@ -17,8 +17,8 @@ export function PageHeader({
   return (
     <header className="workspace-page-header flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0 space-y-2">
-        {kicker ? <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-subtle">{kicker}</p> : null}
-        <h1 className={`text-3xl font-semibold tracking-tight sm:text-4xl ${icon ? 'flex items-center gap-3' : ''}`}>
+        {kicker ? <p className="text-xs font-medium tracking-[0.6px] text-primary uppercase">■ {kicker}</p> : null}
+        <h1 className={icon ? 'flex items-center gap-3' : undefined}>
           {icon}
           {title}
         </h1>

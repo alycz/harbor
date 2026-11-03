@@ -102,7 +102,6 @@
   width: 48px;
   padding: 5px;
   border: 1px solid var(--harbor-border);
-  border-radius: 12px;
   background: var(--harbor-accent-tint);
 }
 
@@ -112,10 +111,6 @@
 
 .conversation-strategy .conversation-prompts {
   max-width: 800px;
-}
-
-.conversation-prompts [data-slot="button"] {
-  border-radius: 12px;
 }
 
 .conversation-strategy .conversation-prompts [data-slot="button"] {

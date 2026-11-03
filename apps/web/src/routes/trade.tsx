@@ -7,7 +7,7 @@ import { AssetPicker, type PickerAsset } from '../components/asset-picker.tsx';
 import { ReviewRequirements } from '../components/financial-draft.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
 import { RouteFacts, useSwapDraft, WalletActivity } from '../components/trade-live.tsx';
-import { EmptyState } from '../components/workspace.tsx';
+import { EmptyState, PageHeader } from '../components/workspace.tsx';
 import { execution } from '../lib/execution.ts';
 import { useHealth } from '../lib/health.ts';
 
@@ -48,14 +48,11 @@ export function TradePage() {
 
   return (
     <div className="trade-workspace flex min-w-0 flex-col gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <h1 className="font-serif text-[32px] font-semibold">Swap</h1>
-          <p className="mt-1 text-xs text-subtle">
-            Cross-chain intents · {health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet'} · you sign every action
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        kicker="Cross-chain intents"
+        title="Swap"
+        description={`${health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet'} · you sign every action.`}
+      />
       <div className="trade-grid">
         <section className="workspace-panel trade-routes min-w-0" aria-labelledby="trade-routes-title">
           <div className="border-b px-5 py-4">
