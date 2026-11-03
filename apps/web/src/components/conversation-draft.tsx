@@ -22,11 +22,10 @@ import {
 } from 'lucide-react';
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 
-import accentSymbolUrl from '../../../../design/harbor/assets/harbor-symbol.svg';
-import symbolUrl from '../../../../design/harbor/assets/harbor-symbol-light.svg';
 import { ChatRequestError } from '../lib/agent-chat.ts';
 import { amountDraftIssue } from '../lib/draft-validation.ts';
 import { AssetSelect } from './financial-draft.tsx';
+import { HarborMark } from './harbor-logo.tsx';
 import { MessageContent } from './message-content.tsx';
 import { ProposalCard } from './proposal-card.tsx';
 import { useWorkspaceSession } from './workspace-session.tsx';
@@ -164,7 +163,7 @@ export function ConversationDraft({
                 >
                   {message.role === 'assistant' ? (
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border bg-card sm:size-9">
-                      <img src={symbolUrl} alt="" className="size-4 sm:size-5" />
+                      <HarborMark className="size-5 text-primary sm:size-6" />
                     </div>
                   ) : null}
                   <div className="min-w-0 flex-1">
@@ -233,7 +232,7 @@ export function ConversationDraft({
             <div className="conversation-welcome flex min-h-full flex-col gap-5 py-6">
               <div className={compact ? 'space-y-3' : 'mx-auto max-w-lg space-y-3 text-center'}>
                 <div className="conversation-welcome-title mb-3 flex items-center justify-center gap-3">
-                  <img src={accentSymbolUrl} alt="" className="w-9" />
+                  <HarborMark className="size-9 text-primary" />
                   <h2 className="font-serif text-3xl font-semibold">
                     {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to do?'}
                   </h2>

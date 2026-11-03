@@ -26,10 +26,10 @@ import './workspace-research.css';
 import './workspace-trade.css';
 import './workspace-conversation.css';
 
-import symbolUrl from '../../../../design/harbor/assets/harbor-symbol.svg';
 import { useHealth } from '../lib/health.ts';
 import { shortAddress, useWallet, WalletProvider } from '../lib/wallet.tsx';
 import { AdjacentAssistant, AgentPanel } from './agent-panel.tsx';
+import { HarborLogo } from './harbor-logo.tsx';
 import { PolicyDrawer } from './policy-drawer.tsx';
 import { useWorkspaceSession, WorkspaceSessionProvider } from './workspace-session.tsx';
 
@@ -80,8 +80,7 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
       </a>
       <header className="sticky top-0 z-40 flex h-16 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-3 sm:gap-3 sm:px-5 xl:gap-[30px] xl:px-7">
         <Link to="/research" className="flex shrink-0 items-center gap-2.5" aria-label="Harbor home">
-          <img src={symbolUrl} alt="" className="w-8 sm:w-9" />
-          <span className="font-serif text-[26px] font-semibold leading-none tracking-tight">Harbor</span>
+          <HarborLogo />
         </Link>
         <nav aria-label="Primary" className="hidden h-full items-center gap-6 md:flex">
           {ROUTES.map((route) => (

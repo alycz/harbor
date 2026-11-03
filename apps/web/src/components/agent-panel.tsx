@@ -10,8 +10,8 @@ import {
 import { Link } from '@tanstack/react-router';
 import { ArrowUpRight, X } from 'lucide-react';
 
-import symbolUrl from '../../../../design/harbor/assets/harbor-symbol.svg';
 import { ConversationDraft } from './conversation-draft.tsx';
+import { HarborMark } from './harbor-logo.tsx';
 import { useWorkspaceSession } from './workspace-session.tsx';
 
 export function AgentPanel({ desktop }: { desktop: boolean }) {
@@ -27,7 +27,7 @@ export function AgentPanel({ desktop }: { desktop: boolean }) {
         aria-controls="context-assistant"
         onClick={() => setAssistantOpen(!assistantOpen)}
       >
-        <img src={symbolUrl} alt="" className="mr-2 w-6" /> Ask Harbor <ArrowUpRight className="ml-3 text-primary" />
+        <HarborMark className="mr-2 size-6 text-primary" /> Ask Harbor <ArrowUpRight className="ml-3 text-primary" />
       </Button>
     );
   return (
@@ -42,7 +42,7 @@ export function AgentPanel({ desktop }: { desktop: boolean }) {
           />
         }
       >
-        <img src={symbolUrl} alt="" className="mr-2 w-6" /> Ask Harbor <ArrowUpRight className="ml-3 text-primary" />
+        <HarborMark className="mr-2 size-6 text-primary" /> Ask Harbor <ArrowUpRight className="ml-3 text-primary" />
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-[440px]">
         <SheetHeader>
