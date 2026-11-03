@@ -30,7 +30,7 @@ Harbor follows the NEAR hackathon's visual language: warm cream paper, ink text,
 ## Patterns
 
 - **Eyebrow:** a small accent label above a heading, such as `■ 01 / HOW IT WORKS`.
-- **Primary action:** solid accent, square, and on hover it lifts 3px and leaves a hard ink shadow.
+- **Primary action:** solid accent, square, with an animated rainbow along the bottom edge and a soft rainbow glow underneath. On hover it lifts 3px and leaves a hard ink shadow.
 - **Dark band:** ink background, paper text, sky eyebrows, a faint scanline overlay.
 
 Harbor is light only. Fonts are licensed under the SIL Open Font License; the texts are in `apps/web/public/licenses/`.

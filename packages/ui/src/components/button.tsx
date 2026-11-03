@@ -2,19 +2,15 @@ import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cn } from '@harbor/ui/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-// The default variant is a solid accent fill. On hover it lifts and leaves a hard ink shadow behind it.
+// The default variant is a solid accent fill whose transparent border shows an animated rainbow along the
+// bottom edge, with a blurred copy glowing underneath. On hover it lifts and leaves a hard ink shadow behind it.
 const primary = [
-  'border-primary bg-primary text-primary-foreground',
-  'hover:-translate-x-[3px] hover:-translate-y-[3px] hover:shadow-[4px_4px_0_var(--foreground)]',
-  'motion-reduce:hover:translate-x-0 motion-reduce:hover:translate-y-0',
-].join(' ');
-
-// An ink fill with an animated rainbow edge and glow, for the one action a page leads with.
-const rainbow = [
   'relative animate-rainbow bg-[length:200%] text-primary-foreground [background-clip:padding-box,border-box,border-box] [background-origin:border-box]',
-  'bg-[linear-gradient(var(--foreground),var(--foreground)),linear-gradient(var(--foreground)_50%,color-mix(in_oklab,var(--foreground)_60%,transparent)_80%,transparent),var(--rainbow-gradient)]',
+  'bg-[linear-gradient(var(--primary),var(--primary)),linear-gradient(var(--primary)_50%,color-mix(in_oklab,var(--primary)_60%,transparent)_80%,transparent),var(--rainbow-gradient)]',
   'before:pointer-events-none before:absolute before:bottom-[-20%] before:left-1/2 before:z-0 before:h-1/5 before:w-3/5 before:-translate-x-1/2 before:animate-rainbow before:bg-(image:--rainbow-gradient) before:bg-[length:200%] before:opacity-75 before:blur-md before:transition-opacity hover:before:opacity-100',
-  'motion-reduce:animate-none motion-reduce:before:animate-none disabled:animate-none disabled:before:hidden',
+  'hover:-translate-x-[3px] hover:-translate-y-[3px] hover:shadow-[4px_4px_0_var(--foreground)]',
+  'motion-reduce:animate-none motion-reduce:before:animate-none motion-reduce:hover:translate-x-0 motion-reduce:hover:translate-y-0',
+  'disabled:animate-none disabled:before:hidden',
 ].join(' ');
 
 const buttonVariants = cva(
@@ -23,7 +19,6 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: primary,
-        rainbow,
         outline:
           'border-border bg-background bg-clip-padding hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
         secondary:
