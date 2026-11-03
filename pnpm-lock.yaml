@@ -197,6 +197,9 @@ catalogs:
     '@fontsource/geist-mono':
       specifier: 5.3.0
       version: 5.3.0
+    '@hot-labs/near-connect':
+      specifier: 0.12.0
+      version: 0.12.0
     '@tailwindcss/vite':
       specifier: 4.3.3
       version: 4.3.3
@@ -328,6 +331,9 @@ importers:
       '@harbor/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@hot-labs/near-connect':
+        specifier: 'catalog:'
+        version: 0.12.0
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
@@ -1538,6 +1544,9 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4 || ^5.0.0-0
+
+  '@hot-labs/near-connect@0.12.0':
+    resolution: {integrity: sha512-aBb1UPGr43tHPsj/uk3fEwCn83Y7+cO6Ct8B6G/dm9EkTwXh9/xntXyWhQ6fA1eSt2WtYqSczOCENXlrBAXZqg==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -5392,6 +5401,8 @@ snapshots:
   '@hono/node-server@2.1.6(hono@4.13.13)':
     dependencies:
       hono: 4.13.13
+
+  '@hot-labs/near-connect@0.12.0': {}
 
   '@img/colour@1.1.0': {}
 
