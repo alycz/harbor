@@ -70,7 +70,7 @@ function Hero() {
   return (
     <section className={`flex min-h-[calc(100svh-120px)] flex-col justify-center gap-8 ${GUTTER}`}>
       <p className={`${MONO} text-[var(--harbor-accent)]`}>Cross-chain DeFi agent · built on NEAR</p>
-      <h1 className="m-0 max-w-[1100px] text-[var(--harbor-size-display)] font-semibold leading-[.95] tracking-[-.035em]">
+      <h1 className="m-0 max-w-[1100px] text-[length:var(--harbor-size-display)] font-semibold leading-[.95] tracking-[-.035em]">
         It acts on its own.
         <br />
         <span className="text-[var(--harbor-accent)]">Only inside limits you signed.</span>

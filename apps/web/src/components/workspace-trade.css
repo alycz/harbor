@@ -163,17 +163,3 @@
   font-family: var(--harbor-font-mono);
   overflow-wrap: anywhere;
 }
-
-.trade-positions {
-  grid-column: 1 / -1;
-}
-
-@container workspace (min-width: 1280px) {
-  .trade-positions {
-    grid-column: 1 / span 2;
-    grid-row: 2;
-  }
-  .trade-ticket {
-    grid-row: 1 / span 2;
-  }
-}
