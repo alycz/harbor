@@ -1,5 +1,6 @@
+import { BlackHoleHeroSection } from '@harbor/ui/components/blackhole-hero-section';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useEffect, useId, useState } from 'react';
 
 import lockupUrl from '../../../../design/harbor/assets/harbor-lockup.svg';
 
@@ -31,7 +32,6 @@ const STEPS = [
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-[var(--harbor-background)] font-sans text-[var(--harbor-text)] antialiased">
-      <Header />
       <main>
         <Hero />
         <HowItWorks />
@@ -48,7 +48,7 @@ function Header() {
       <Link to="/" aria-label="Harbor home" className="flex min-h-11 items-center">
         <img src={lockupUrl} alt="Harbor" className="h-9 w-auto" />
       </Link>
-      <nav aria-label="Landing" className="flex gap-x-7 text-sm text-[var(--harbor-text-secondary)]">
+      <nav aria-label="Landing" className="hidden gap-x-7 text-sm text-[var(--harbor-text-secondary)] sm:flex">
         <a href="#how" className="flex min-h-11 items-center hover:text-[var(--harbor-accent)]">
           How it works
         </a>
@@ -66,30 +66,78 @@ function Header() {
   );
 }
 
+/** True while the viewport is narrow. A phone has no room to stand the hole beside the copy. */
+function useNarrow(query = '(max-width: 767px)') {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const sync = () => setNarrow(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, [query]);
+  return narrow;
+}
+
+/**
+ * The hole sits off centre and a veil darkens only the edge the copy is on, so the bright half and
+ * the reading half never overlap. On a phone the arrangement turns: copy on top, hole low.
+ */
 function Hero() {
+  const narrow = useNarrow();
   return (
-    <section className={`flex min-h-[calc(100svh-120px)] flex-col justify-center gap-8 ${GUTTER}`}>
-      <p className={`${MONO} text-[var(--harbor-accent)]`}>Cross-chain DeFi agent · built on NEAR</p>
-      <h1 className="m-0 max-w-[1100px] text-[length:var(--harbor-size-display)] font-semibold leading-[.95] tracking-[-.035em]">
-        It acts on its own.
-        <br />
-        <span className="text-[var(--harbor-accent)]">Only inside limits you signed.</span>
-      </h1>
-      <p className="m-0 max-w-[720px] text-[clamp(17px,1.6vw,21px)] leading-[1.55] text-[var(--harbor-text-secondary)]">
-        Harbor researches venues across chains, proposes a plan and executes it within one policy you sign. Anything
-        outside that policy comes back to you, and you can freeze it at any time.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <Link
-          to="/chat"
-          className={`${PILL} bg-[var(--harbor-accent)] text-[var(--harbor-background)] hover:bg-[var(--harbor-accent-hover)]`}
-        >
-          Ask Harbor
-        </Link>
-        <Link to="/research" className={`${PILL} border ${RULE} hover:border-[var(--harbor-accent)]`}>
-          Compare venues
-        </Link>
-      </div>
+    <section className="relative min-h-[100svh] w-full md:min-h-[clamp(720px,100svh,980px)]">
+      <BlackHoleHeroSection
+        className="absolute inset-0"
+        focus={narrow ? [0.5, 0.8] : [0.72, 0.5]}
+        scrim={narrow ? 'top' : 'left'}
+        scrimStrength={0.9}
+        elevation={narrow ? -7 : -5.5}
+        fov={narrow ? 58 : 42}
+        glow={narrow ? 0.85 : 1}
+        steps={narrow ? 200 : 300}
+        resolution={narrow ? 0.6 : 0.7}
+        hotColor="#FFF6E2"
+        midColor="#F2B544"
+        coolColor="#8A3B0E"
+      >
+        {/* Lets the black of the hero settle into the page colour. It sits behind the copy, not over it. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-[var(--harbor-background)]"
+        />
+        <div className="relative flex h-full flex-col">
+          <Header />
+          <div className={`flex flex-1 items-start pt-6 md:items-center md:pt-0 ${GUTTER}`}>
+            <div className="max-w-[36rem]">
+              <p className={`${MONO} text-[var(--harbor-accent)]`}>Cross-chain DeFi agent · built on NEAR</p>
+              <h1 className="mt-6 text-[2.6rem] font-light leading-[1.05] tracking-[-0.03em] text-white sm:text-6xl lg:text-[4.5rem]">
+                It acts on its own.
+                <br />
+                <span className="text-[var(--harbor-accent)]">Only inside limits you signed.</span>
+              </h1>
+              <p className="mt-6 max-w-md text-[0.98rem] leading-relaxed text-white/65 md:mt-7">
+                Harbor researches venues across chains, proposes a plan and executes it within one policy you sign.
+                Anything outside that policy comes back to you, and you can freeze it at any time.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-3 md:mt-10">
+                <Link
+                  to="/chat"
+                  className="rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition hover:bg-white/90"
+                >
+                  Ask Harbor
+                </Link>
+                <Link
+                  to="/research"
+                  className="rounded-full border border-white/20 px-6 py-3 text-sm text-white/80 transition hover:border-white/40 hover:text-white"
+                >
+                  Compare venues
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </BlackHoleHeroSection>
     </section>
   );
 }
