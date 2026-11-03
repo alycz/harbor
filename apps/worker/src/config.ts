@@ -1,3 +1,4 @@
+import { NEAR_NETWORK_INFO } from '@harbor/domain/near';
 import { type Network, NetworkSchema } from '@harbor/domain/network';
 import { z } from 'zod';
 
@@ -93,6 +94,7 @@ export function decodeAdmissionLimits(env: unknown): AdmissionLimits {
 const ExecutionSchema = z.object({
   ENABLED_WRITE_ADAPTERS: z.string().default(''),
   ONE_CLICK_JWT: optional(z.string().min(1)),
+  NEAR_RPC_URL: optional(z.url()),
 });
 
 export interface ExecutionConfig extends Config {
@@ -100,6 +102,8 @@ export interface ExecutionConfig extends Config {
   writeAdapters: ReadonlySet<string>;
   /** A 1Click partner JWT; quotes work without one and carry the default protocol fee. */
   oneClickJwt: string | null;
+  /** A NEAR RPC for reads: `NEAR_RPC_URL`, or this network's public default. */
+  rpcUrl: string;
 }
 
 export function decodeExecutionConfig(env: unknown): ExecutionConfig {
@@ -115,6 +119,7 @@ export function decodeExecutionConfig(env: unknown): ExecutionConfig {
         .filter(Boolean),
     ),
     oneClickJwt: data.ONE_CLICK_JWT ?? null,
+    rpcUrl: data.NEAR_RPC_URL ?? NEAR_NETWORK_INFO[base.network].rpcUrl,
   };
 }
 

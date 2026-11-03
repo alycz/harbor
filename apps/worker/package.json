@@ -22,6 +22,7 @@
     "@harbor/data": "workspace:*",
     "@harbor/domain": "workspace:*",
     "@harbor/jobs": "workspace:*",
+    "@harbor/near": "workspace:*",
     "@harbor/policy": "workspace:*",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",

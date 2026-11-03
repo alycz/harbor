@@ -76,7 +76,13 @@ describe('decodeExecutionConfig', () => {
     expect(decodeExecutionConfig({ ...base, ENABLED_WRITE_ADAPTERS: '', ONE_CLICK_JWT: '' })).toMatchObject({
       executionEnabled: false,
       oneClickJwt: null,
+      rpcUrl: 'https://free.rpc.fastnear.com',
     });
+    expect(decodeExecutionConfig({ ...base, NEAR_RPC_URL: 'https://rpc.example' }).rpcUrl).toBe('https://rpc.example');
+    expect(decodeExecutionConfig({ ...base, NEAR_NETWORK: 'testnet', NEAR_RPC_URL: '' }).rpcUrl).toBe(
+      'https://test.rpc.fastnear.com',
+    );
+    expect(() => decodeExecutionConfig({ ...base, NEAR_RPC_URL: 'not a url' })).toThrow(/NEAR_RPC_URL/);
     expect([...decodeExecutionConfig(base).writeAdapters]).toEqual([]);
     expect([...decodeExecutionConfig({ ...base, ENABLED_WRITE_ADAPTERS: ' oneclick, ' }).writeAdapters]).toEqual([
       'oneclick',

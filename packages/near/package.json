@@ -5,17 +5,21 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./approval": "./src/approval.ts"
+    "./approval": "./src/approval.ts",
+    "./sign-in": "./src/sign-in.ts"
   },
   "scripts": {
-    "typecheck": "tsc",
+    "typecheck": "tsc && tsc -p tsconfig.node.json",
     "test": "vitest run"
   },
   "dependencies": {
+    "near-api-js": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

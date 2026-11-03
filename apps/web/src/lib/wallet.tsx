@@ -1,11 +1,13 @@
 import type { NearConnector } from '@hot-labs/near-connect';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { call, ExecutionRequestError } from './execution.ts';
 import { useHealth } from './health.ts';
 
 type Network = 'mainnet' | 'testnet';
 
 interface WalletState {
+  /** The account of the verified session, not merely a connected wallet. */
   address: string | null;
   connecting: boolean;
   error: string | null;
@@ -16,16 +18,27 @@ interface Wallet extends WalletState {
   disconnect(): void;
 }
 
-/** Remembers that a wallet was connected, so pages that never touch one don't load the connector. */
-const CONNECTED_HINT = 'harbor.wallet.connected';
+interface Session {
+  accountId: string;
+  network: Network;
+  expiresAt: string;
+}
+
+interface Challenge {
+  nonce: string;
+  message: string;
+  recipient: string;
+}
+
 /** What the connector rejects with when the user closes the wallet picker. */
 const USER_CANCELLED = 'User rejected';
 
 const WalletContext = createContext<Wallet | null>(null);
 
 /**
- * The connected NEAR account, through NEAR Connect. The user signs in their own wallet; Harbor
- * never sees or holds a key.
+ * Sign-in with a NEAR wallet: connect through NEAR Connect, sign a one-time NEP-413 message, and the
+ * Worker verifies it and opens a session. The user signs in their own wallet; Harbor never sees or
+ * holds a key, and signing this message cannot move funds.
  */
 export function WalletProvider({ children }: { children: ReactNode }) {
   const network = useHealth().data?.network;
@@ -37,22 +50,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return connector.current;
   }, []);
 
+  // A returning user keeps their session without loading any wallet code.
   useEffect(() => {
-    if (!network || !readHint()) return;
     let active = true;
-    loadConnector(network)
-      .then((loaded) => loaded.getConnectedWallet())
-      .then(
-        ({ accounts }) => {
-          const address = accounts[0]?.accountId ?? null;
-          if (active) setState((previous) => ({ ...previous, address }));
-        },
-        () => writeHint(false),
-      );
+    call<{ session: Session | null }>('/api/auth/session').then(
+      ({ session }) => {
+        if (active && session) setState((previous) => ({ ...previous, address: session.accountId }));
+      },
+      () => undefined,
+    );
     return () => {
       active = false;
     };
-  }, [network, loadConnector]);
+  }, []);
 
   const connect = useCallback(async () => {
     if (!network) {
@@ -62,25 +72,36 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setState((previous) => ({ ...previous, connecting: true, error: null }));
     try {
       const loaded = await loadConnector(network);
-      await loaded.connect();
+      const wallet = await loaded.connect();
       const { accounts } = await loaded.getConnectedWallet();
-      const address = accounts[0]?.accountId;
-      if (!address) throw new Error('The wallet returned no account.');
-      writeHint(true);
-      setState({ address, connecting: false, error: null });
-    } catch (caught) {
-      const cancelled = caught instanceof Error && caught.message === USER_CANCELLED;
-      setState({
-        address: null,
-        connecting: false,
-        error: cancelled ? null : 'The wallet could not connect. Please try again.',
+      const accountId = accounts[0]?.accountId;
+      if (!accountId) throw new Error('The wallet returned no account.');
+      const challenge = await call<Challenge>('/api/auth/challenge', { method: 'POST', body: { accountId } });
+      const signed = await wallet.signMessage({
+        message: challenge.message,
+        recipient: challenge.recipient,
+        nonce: Uint8Array.from(atob(challenge.nonce), (character) => character.charCodeAt(0)),
+        network,
+        signerId: accountId,
       });
+      const { session } = await call<{ session: Session }>('/api/auth/verify', {
+        method: 'POST',
+        body: {
+          accountId: signed.accountId,
+          publicKey: signed.publicKey,
+          signature: signed.signature,
+          nonce: challenge.nonce,
+        },
+      });
+      setState({ address: session.accountId, connecting: false, error: null });
+    } catch (caught) {
+      setState({ address: null, connecting: false, error: signInProblem(caught) });
     }
   }, [network, loadConnector]);
 
   const disconnect = useCallback(() => {
-    writeHint(false);
     setState({ address: null, connecting: false, error: null });
+    void call('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     void connector.current?.then((loaded) => loaded.disconnect()).catch(() => undefined);
   }, []);
 
@@ -108,19 +129,8 @@ async function createConnector(network: Network): Promise<NearConnector> {
   });
 }
 
-function readHint(): boolean {
-  try {
-    return localStorage.getItem(CONNECTED_HINT) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function writeHint(connected: boolean): void {
-  try {
-    if (connected) localStorage.setItem(CONNECTED_HINT, '1');
-    else localStorage.removeItem(CONNECTED_HINT);
-  } catch {
-    // Without storage the wallet still connects; it just isn't restored on the next visit.
-  }
+function signInProblem(caught: unknown): string | null {
+  if (caught instanceof ExecutionRequestError) return caught.message;
+  if (caught instanceof Error && caught.message === USER_CANCELLED) return null;
+  return 'Sign-in did not complete. Please try again.';
 }

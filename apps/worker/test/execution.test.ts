@@ -43,6 +43,7 @@ function createFixture(overrides: Partial<ExecutionConfig> = {}): Fixture {
       executionEnabled: true,
       writeAdapters: new Set(['oneclick']),
       oneClickJwt: null,
+      rpcUrl: 'https://rpc.test',
       ...overrides,
     },
     venue: {

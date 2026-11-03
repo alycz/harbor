@@ -4,6 +4,8 @@
 OPENROUTER_API_KEY=
 # 1Click partner JWT; quotes work without one and carry the default protocol fee.
 ONE_CLICK_JWT=
+# A NEAR RPC for reads; each network has a public default.
+NEAR_RPC_URL=
 # Execution remains off unless explicitly enabled in this ignored local file.
 EXECUTION_ENABLED=false
 ENABLED_WRITE_ADAPTERS=

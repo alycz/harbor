@@ -1,0 +1,6 @@
+// Test-only Worker configuration with the production compatibility date and flags.
+{
+  "name": "harbor-near-test",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"]
+}

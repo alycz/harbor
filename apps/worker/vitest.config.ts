@@ -29,6 +29,7 @@ export default defineConfig({
           AGENT_MAX_ACTIVE_RUNS: '100',
           // Tests never reach 1Click with a developer's credentials, whatever .dev.vars holds.
           ONE_CLICK_JWT: '',
+          NEAR_RPC_URL: '',
         },
       },
     }),
