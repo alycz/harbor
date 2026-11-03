@@ -2,6 +2,7 @@ CREATE TABLE `asset_registry` (
 	`network` text NOT NULL,
 	`canonical_id` text NOT NULL,
 	`symbol` text NOT NULL,
+	`chain` text NOT NULL,
 	`decimals` integer NOT NULL,
 	`verified_source` text NOT NULL,
 	`verified_at_ms` integer NOT NULL,
@@ -126,7 +127,13 @@ CREATE TABLE `plans` (
 	`policy` text NOT NULL,
 	`valid_until_ms` integer,
 	`approved_at_ms` integer,
+	`quote_hash` text,
+	`deposit_address` text,
+	`deposit_memo` text DEFAULT '' NOT NULL,
 	`tx_hash` text,
+	`one_click_status` text,
+	`delivery_tx_hash` text,
+	`delivery_verified_at_ms` integer,
 	`result` text,
 	`error_code` text,
 	`created_at_ms` integer NOT NULL,
@@ -134,11 +141,12 @@ CREATE TABLE `plans` (
 	FOREIGN KEY (`intent_id`) REFERENCES `intents`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`quote_id`) REFERENCES `quotes`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "plans_network_ck" CHECK(network IN ('mainnet', 'testnet')),
-	CONSTRAINT "plans_status_ck" CHECK(status IN ('policy_checked', 'blocked', 'awaiting_review', 'awaiting_signature', 'submitted', 'confirming', 'confirmed', 'failed', 'expired'))
+	CONSTRAINT "plans_status_ck" CHECK(status IN ('policy_checked', 'blocked', 'awaiting_review', 'awaiting_signature', 'submitted', 'confirming', 'confirmed', 'refunded', 'failed', 'expired', 'outcome_unknown'))
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `plans_idempotency_uq` ON `plans` (`idempotency_key`);--> statement-breakpoint
 CREATE UNIQUE INDEX `plans_network_tx_hash_uq` ON `plans` (`network`,`tx_hash`);--> statement-breakpoint
+CREATE UNIQUE INDEX `plans_network_deposit_uq` ON `plans` (`network`,`deposit_address`,`deposit_memo`);--> statement-breakpoint
 CREATE INDEX `plans_account_idx` ON `plans` (`network`,`account_id`);--> statement-breakpoint
 CREATE TABLE `protocol_registry` (
 	`id` text PRIMARY KEY NOT NULL,

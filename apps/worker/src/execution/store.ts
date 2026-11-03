@@ -74,7 +74,13 @@ export interface PlanRow {
   policy: string;
   valid_until_ms: number | null;
   approved_at_ms: number | null;
+  quote_hash: string | null;
+  deposit_address: string | null;
+  deposit_memo: string;
   tx_hash: string | null;
+  one_click_status: string | null;
+  delivery_tx_hash: string | null;
+  delivery_verified_at_ms: number | null;
   result: string | null;
   error_code: string | null;
   created_at_ms: number;
@@ -82,7 +88,19 @@ export interface PlanRow {
 }
 
 /** Columns a transition may set besides status. */
-const PATCHABLE = ['valid_until_ms', 'approved_at_ms', 'tx_hash', 'result', 'error_code'] as const;
+const PATCHABLE = [
+  'valid_until_ms',
+  'approved_at_ms',
+  'quote_hash',
+  'deposit_address',
+  'deposit_memo',
+  'tx_hash',
+  'one_click_status',
+  'delivery_tx_hash',
+  'delivery_verified_at_ms',
+  'result',
+  'error_code',
+] as const;
 export type Patch = Partial<Record<(typeof PATCHABLE)[number], string | number | null>>;
 
 export async function insertIntent(deps: ExecutionDeps, row: IntentRow): Promise<void> {
@@ -202,7 +220,13 @@ export function newPlanRow(input: {
     policy: input.policy,
     valid_until_ms: null,
     approved_at_ms: null,
+    quote_hash: null,
+    deposit_address: null,
+    deposit_memo: '',
     tx_hash: null,
+    one_click_status: null,
+    delivery_tx_hash: null,
+    delivery_verified_at_ms: null,
     result: null,
     error_code: input.errorCode,
     created_at_ms: input.now,
@@ -318,6 +342,9 @@ export function basePlanView(row: PlanRow) {
     policy: JSON.parse(row.policy) as Decision,
     validUntil: row.valid_until_ms === null ? null : new Date(row.valid_until_ms).toISOString(),
     approvedAt: row.approved_at_ms === null ? null : new Date(row.approved_at_ms).toISOString(),
+    depositAddress: row.deposit_address,
+    oneClickStatus: row.one_click_status,
+    deliveryVerified: row.delivery_verified_at_ms !== null,
     txHash: row.tx_hash,
     explorerUrl: row.tx_hash ? txExplorerUrl(row.network, row.tx_hash) : null,
     errorCode: row.error_code,

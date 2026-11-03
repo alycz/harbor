@@ -94,6 +94,7 @@ export const assetRegistry = sqliteTable(
     network: text('network', { enum: NETWORKS }).notNull(),
     canonicalId: text('canonical_id').notNull(),
     symbol: text('symbol').notNull(),
+    chain: text('chain').notNull(),
     decimals: integer('decimals').notNull(),
     verifiedSource: text('verified_source').notNull(),
     verifiedAtMs: integer('verified_at_ms').notNull(),
@@ -116,8 +117,12 @@ export const PLAN_STATUSES = [
   'submitted',
   'confirming',
   'confirmed',
+  // The provider refunded the deposit. A refund is never a success.
+  'refunded',
   'failed',
   'expired',
+  // The deposit may have executed but nothing proves how it ended; never treated as not executed.
+  'outcome_unknown',
 ] as const;
 const PLAN_STATUS_CHECK = sql.raw(`status IN (${PLAN_STATUSES.map((status) => `'${status}'`).join(', ')})`);
 
@@ -161,7 +166,9 @@ export const quotes = sqliteTable(
 
 /**
  * An immutable proposal for one account. Approval binds its digest; only an action matching exactly
- * that digest can move it forward.
+ * that digest can move it forward. `tx_hash` is the user's signed deposit to `deposit_address`.
+ * `one_click_status` is the provider's last word and is never settlement on its own: `confirmed`
+ * also needs `delivery_verified_at_ms`, from checking the delivery independently of 1Click.
  */
 export const plans = sqliteTable(
   'plans',
@@ -181,7 +188,15 @@ export const plans = sqliteTable(
     policy: text('policy').notNull(),
     validUntilMs: integer('valid_until_ms'),
     approvedAtMs: integer('approved_at_ms'),
+    quoteHash: text('quote_hash'),
+    depositAddress: text('deposit_address'),
+    // Empty when the quote has no memo, not NULL: SQLite's unique index treats NULLs as distinct, and a
+    // deposit address must belong to one plan.
+    depositMemo: text('deposit_memo').notNull().default(''),
     txHash: text('tx_hash'),
+    oneClickStatus: text('one_click_status'),
+    deliveryTxHash: text('delivery_tx_hash'),
+    deliveryVerifiedAtMs: integer('delivery_verified_at_ms'),
     result: text('result'),
     errorCode: text('error_code'),
     createdAtMs: integer('created_at_ms').notNull(),
@@ -190,6 +205,7 @@ export const plans = sqliteTable(
   (table) => [
     uniqueIndex('plans_idempotency_uq').on(table.idempotencyKey),
     uniqueIndex('plans_network_tx_hash_uq').on(table.network, table.txHash),
+    uniqueIndex('plans_network_deposit_uq').on(table.network, table.depositAddress, table.depositMemo),
     index('plans_account_idx').on(table.network, table.accountId),
     check('plans_network_ck', NETWORK_CHECK),
     check('plans_status_ck', PLAN_STATUS_CHECK),

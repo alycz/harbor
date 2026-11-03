@@ -42,8 +42,10 @@ type PlanStatus =
   | 'submitted'
   | 'confirming'
   | 'confirmed'
+  | 'refunded'
   | 'failed'
-  | 'expired';
+  | 'expired'
+  | 'outcome_unknown';
 
 export interface Plan {
   id: string;
@@ -58,6 +60,9 @@ export interface Plan {
   };
   validUntil: string | null;
   approvedAt: string | null;
+  depositAddress: string | null;
+  oneClickStatus: string | null;
+  deliveryVerified: boolean;
   txHash: string | null;
   explorerUrl: string | null;
   errorCode: string | null;

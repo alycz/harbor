@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a3efd303-6314-40ff-8727-1b13e1206385",
+  "id": "6b0294c2-1b78-4746-a218-879f768bb2b8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "asset_registry": {
@@ -23,6 +23,13 @@
         },
         "symbol": {
           "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chain": {
+          "name": "chain",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -839,9 +846,52 @@
           "notNull": false,
           "autoincrement": false
         },
+        "quote_hash": {
+          "name": "quote_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "deposit_address": {
+          "name": "deposit_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "deposit_memo": {
+          "name": "deposit_memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
         "tx_hash": {
           "name": "tx_hash",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "one_click_status": {
+          "name": "one_click_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "delivery_tx_hash": {
+          "name": "delivery_tx_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "delivery_verified_at_ms": {
+          "name": "delivery_verified_at_ms",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -891,6 +941,15 @@
           ],
           "isUnique": true
         },
+        "plans_network_deposit_uq": {
+          "name": "plans_network_deposit_uq",
+          "columns": [
+            "network",
+            "deposit_address",
+            "deposit_memo"
+          ],
+          "isUnique": true
+        },
         "plans_account_idx": {
           "name": "plans_account_idx",
           "columns": [
@@ -937,7 +996,7 @@
         },
         "plans_status_ck": {
           "name": "plans_status_ck",
-          "value": "status IN ('policy_checked', 'blocked', 'awaiting_review', 'awaiting_signature', 'submitted', 'confirming', 'confirmed', 'failed', 'expired')"
+          "value": "status IN ('policy_checked', 'blocked', 'awaiting_review', 'awaiting_signature', 'submitted', 'confirming', 'confirmed', 'refunded', 'failed', 'expired', 'outcome_unknown')"
         }
       }
     },

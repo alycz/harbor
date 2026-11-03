@@ -218,6 +218,8 @@ function StatusBadge({ status }: { status: ActivityItem['status'] }) {
   if (status === 'confirmed') return <Badge variant="secondary">Confirmed</Badge>;
   if (status === 'submitted' || status === 'confirming') return <Badge variant="outline">Pending</Badge>;
   if (status === 'failed') return <Badge variant="destructive">Failed</Badge>;
+  if (status === 'refunded') return <Badge variant="outline">Refunded</Badge>;
+  if (status === 'outcome_unknown') return <Badge variant="destructive">Outcome unknown</Badge>;
   return <Badge variant="outline">{status === 'expired' ? 'Expired' : status.replaceAll('_', ' ')}</Badge>;
 }
 
