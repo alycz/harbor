@@ -1,0 +1,22 @@
+{
+  "name": "@harbor/near",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./approval": "./src/approval.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

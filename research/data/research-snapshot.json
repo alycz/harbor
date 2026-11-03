@@ -1,0 +1,13 @@
+{
+  "schema_version": "harbor.research.v1",
+  "live": false,
+  "executable": false,
+  "constraints": [
+    "A dated research snapshot, not live rates and not executable quotes.",
+    "Pool and protocol names come from the source; asset identities are not verified."
+  ],
+  "sources": [],
+  "chains": [],
+  "protocols": [],
+  "yield_pools": []
+}

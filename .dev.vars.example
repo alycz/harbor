@@ -1,0 +1,9 @@
+# Server-only local settings. Copy to apps/worker/.dev.vars (or .dev.vars.testnet).
+# Every value is optional: without one, the feature that needs it reports itself unavailable.
+# Agent: without a key, chat answers from a scripted model.
+OPENROUTER_API_KEY=
+# 1Click partner JWT; quotes work without one and carry the default protocol fee.
+ONE_CLICK_JWT=
+# Execution remains off unless explicitly enabled in this ignored local file.
+EXECUTION_ENABLED=false
+ENABLED_WRITE_ADAPTERS=

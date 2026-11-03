@@ -1,0 +1,87 @@
+// Harbor's application Worker: same-origin /api/*, SSE and the scheduled handler.
+// D1 resources come from infra/cloudflare/d1-resources.json. The default environment binds
+// mainnet; `--env testnet` binds the Testnet database. Financial writes stay disabled.
+// A one-minute cron wakes the automation dispatcher (src/automations/dispatch.ts); due rules,
+// jobs and leases live in D1, so the cron is only a wake-up signal.
+// Each agent conversation is a SQLite-backed Durable Object (src/agent/conversation.ts).
+// PI_MODEL_ID must be a free OpenRouter model; src/agent/models.ts refuses anything else.
+// Without OPENROUTER_API_KEY the agent answers from a scripted model, so a fresh checkout runs.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "harbor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  // Kept for the planned /mcp endpoint: pi-mcp's OAuth flow (PKCE, state) uses Node's Buffer.
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "preview_urls": false,
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "NEAR_NETWORK": "mainnet",
+    "EXECUTION_ENABLED": "false",
+    "ENABLED_WRITE_ADAPTERS": "",
+    "PI_PROVIDER": "openrouter",
+    "PI_MODEL_ID": "openrouter/free",
+    "AGENT_GUEST_TURNS_PER_15_MIN": "5",
+    "AGENT_MAX_ACTIVE_RUNS": "4"
+  },
+  // Every secret (OPENROUTER_API_KEY, ONE_CLICK_JWT) is optional: without one, the feature that
+  // needs it reports itself unavailable, so none is declared required.
+  "durable_objects": {
+    "bindings": [
+      { "name": "CONVERSATIONS", "class_name": "ConversationAgent" },
+      { "name": "ADMISSION", "class_name": "AgentAdmission" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ConversationAgent"] },
+    { "tag": "v2", "new_sqlite_classes": ["AgentAdmission"] }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "harbor-mainnet",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations",
+      "remote": false
+    }
+  ],
+  "env": {
+    "testnet": {
+      "preview_urls": false,
+      "vars": {
+        "NEAR_NETWORK": "testnet",
+        "EXECUTION_ENABLED": "false",
+        "ENABLED_WRITE_ADAPTERS": "",
+        "PI_PROVIDER": "openrouter",
+        "PI_MODEL_ID": "openrouter/free",
+        "AGENT_GUEST_TURNS_PER_15_MIN": "5",
+        "AGENT_MAX_ACTIVE_RUNS": "4"
+      },
+      "durable_objects": {
+        "bindings": [
+          { "name": "CONVERSATIONS", "class_name": "ConversationAgent" },
+          { "name": "ADMISSION", "class_name": "AgentAdmission" }
+        ]
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "harbor-testnet",
+          "database_id": "00000000-0000-0000-0000-000000000002",
+          "migrations_dir": "migrations",
+          "remote": false
+        }
+      ]
+    }
+  }
+}

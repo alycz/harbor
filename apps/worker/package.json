@@ -1,0 +1,39 @@
+{
+  "name": "@harbor/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc && tsc -p tsconfig.node.json",
+    "test": "vitest run",
+    "types": "wrangler types",
+    "types:check": "wrangler types --check",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:testnet": "wrangler d1 migrations apply DB --remote --env testnet",
+    "cron:local": "node scripts/local-cron.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
+    "@harbor/adapters": "workspace:*",
+    "@harbor/agent-runtime": "workspace:*",
+    "@harbor/data": "workspace:*",
+    "@harbor/domain": "workspace:*",
+    "@harbor/jobs": "workspace:*",
+    "@harbor/policy": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:",
+    "typebox": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "catalog:",
+    "@types/node": "catalog:",
+    "drizzle-kit": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
