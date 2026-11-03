@@ -50,6 +50,7 @@ Open the URL Vite prints. With no keys, the app runs on NEAR mainnet settings wi
 | `pnpm --filter @harbor/worker db:migrate:local` | Apply migrations to the local D1 |
 | `pnpm --filter @harbor/worker cron:local` | Tick the scheduled handler while `pnpm dev` runs |
 | `HARBOR_LIVE_ONECLICK=1 pnpm --filter @harbor/adapters test` | Also fetch 1Click's token list and a verified dry quote |
+| `HARBOR_LIVE_NEAR=1 pnpm --filter @harbor/near test` | Also read access keys from a mainnet RPC |
 
 ## Architecture
 

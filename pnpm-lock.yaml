@@ -564,6 +564,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261023.1
+      '@harbor/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2

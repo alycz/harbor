@@ -56,7 +56,7 @@ describe('1Click client', () => {
     const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       expect(String(input)).toBe('https://1click.chaindefuser.com/v0/quote');
       expect(init?.method).toBe('POST');
-      expect(init?.redirect).toBe('error');
+      expect(init?.redirect).toBe('manual');
       expect(JSON.parse(String(init?.body))).toEqual(request);
       return jsonResponse(quoteResponse());
     });
@@ -68,6 +68,14 @@ describe('1Click client', () => {
     expect(verifier).toHaveBeenCalledOnce();
     expect(result.response.quote.depositAddress).toBeUndefined();
     expect(result.quoteHash).toMatch(/^[1-9A-HJ-NP-Za-km-z]+$/);
+  });
+
+  it('refuses a redirect instead of following it', async () => {
+    const client = createOneClickClient({
+      fetch: async () =>
+        new Response(null, { status: 302, headers: { location: 'https://attacker.example/v0/tokens' } }),
+    });
+    await expect(client.tokens()).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
   });
 
   it('fails closed on an invalid provider signature', async () => {

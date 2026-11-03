@@ -246,8 +246,8 @@ export class OneClickClientError extends Error {
   override name = 'OneClickClientError';
   readonly code: OneClickErrorCode;
 
-  constructor(code: OneClickErrorCode, message: string) {
-    super(message);
+  constructor(code: OneClickErrorCode, message: string, options?: ErrorOptions) {
+    super(message, options);
     this.code = code;
   }
 }
@@ -436,9 +436,14 @@ export class OneClickClient {
       const response = await this.#fetch(url, {
         ...init,
         headers,
-        redirect: 'error',
+        // Workers reject redirect: 'error', so a redirect comes back here and is refused below.
+        redirect: 'manual',
         signal: controller.signal,
       });
+      // A browser reports a refused redirect as status 0.
+      if (response.status === 0 || (response.status >= 300 && response.status < 400)) {
+        throw new OneClickClientError('INVALID_RESPONSE', 'NEAR Intents tried to redirect the request');
+      }
       if (response.status === 404) {
         throw new OneClickClientError(
           'UNKNOWN_OUTCOME',
@@ -456,7 +461,7 @@ export class OneClickClient {
       if (this.#signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
         throw new OneClickClientError('CANCELLED', 'NEAR Intents request was cancelled');
       }
-      throw new OneClickClientError('HTTP_ERROR', 'NEAR Intents request failed');
+      throw new OneClickClientError('HTTP_ERROR', 'NEAR Intents request failed', { cause: error });
     } finally {
       clearTimeout(timeout);
       this.#signal?.removeEventListener('abort', cancelFromCaller);
