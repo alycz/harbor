@@ -24,13 +24,9 @@ export function ResearchPage() {
       />
       <SnapshotNotice />
       <Tabs defaultValue="yields">
-        <TabsList className="h-auto flex-wrap">
-          <TabsTrigger className="min-h-11" value="yields">
-            Yield pools
-          </TabsTrigger>
-          <TabsTrigger className="min-h-11" value="protocols">
-            Protocols
-          </TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="yields">Yield pools</TabsTrigger>
+          <TabsTrigger value="protocols">Protocols</TabsTrigger>
         </TabsList>
         <TabsContent value="yields">
           <YieldTable />

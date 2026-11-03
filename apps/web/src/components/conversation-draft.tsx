@@ -235,7 +235,7 @@ export function ConversationDraft({
                 <div className="conversation-welcome-title mb-3 flex items-center justify-center gap-3">
                   <img src={accentSymbolUrl} alt="" className="w-9" />
                   <h2 className="font-serif text-3xl font-semibold">
-                    {purpose === 'strategy' ? 'What’s Your Thesis?' : 'What Would You Like To Do?'}
+                    {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to do?'}
                   </h2>
                 </div>
                 <p className="text-[13px] leading-6 text-muted-foreground">

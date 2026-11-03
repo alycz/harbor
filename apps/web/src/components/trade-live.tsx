@@ -139,16 +139,10 @@ export function WalletActivity() {
   const pending = items.filter((item) => item.status === 'submitted' || item.status === 'confirming');
   return (
     <Tabs defaultValue="swaps">
-      <TabsList className="h-auto flex-wrap">
-        <TabsTrigger className="min-h-11" value="swaps">
-          Swaps
-        </TabsTrigger>
-        <TabsTrigger className="min-h-11" value="pending">
-          Pending{pending.length > 0 ? ` (${pending.length})` : ''}
-        </TabsTrigger>
-        <TabsTrigger className="min-h-11" value="history">
-          History
-        </TabsTrigger>
+      <TabsList>
+        <TabsTrigger value="swaps">Swaps</TabsTrigger>
+        <TabsTrigger value="pending">Pending{pending.length > 0 ? ` (${pending.length})` : ''}</TabsTrigger>
+        <TabsTrigger value="history">History</TabsTrigger>
       </TabsList>
       <TabsContent value="swaps">
         <ActivityTable

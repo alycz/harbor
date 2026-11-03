@@ -1,7 +1,7 @@
-.harbor-workspace {
-  font-size: 14px;
-  line-height: 1.6;
-}
+/*
+ * Workspace layout only. Components keep their shadcn styling, themed through the variables in
+ * packages/ui; nothing here restyles a shadcn primitive.
+ */
 
 .harbor-workspace main {
   container-type: inline-size;
@@ -23,13 +23,13 @@
   display: flex;
   align-items: center;
   height: 64px;
-  font-family: var(--harbor-font-mono);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--harbor-text-secondary);
 }
 
 .harbor-workspace .workspace-primary-link[aria-current="page"] {
-  color: var(--harbor-accent);
+  color: var(--harbor-text);
 }
 
 .harbor-workspace .workspace-primary-link[aria-current="page"]::after {
@@ -43,146 +43,21 @@
 }
 
 .workspace-page-header h1 {
-  font-size: clamp(30px, 2.8vw, 42px);
+  font-size: clamp(30px, 2.8vw, 40px);
   line-height: 1.12;
-  font-family: var(--harbor-font-display);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.025em;
 }
 
 .harbor-workspace .workspace-panel {
   border: 1px solid var(--harbor-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: var(--harbor-surface);
-  box-shadow: none;
-}
-
-.harbor-workspace .workspace-action {
-  min-height: 44px;
-  padding: 10px 16px;
-  border-radius: 12px;
-  font-family: var(--harbor-font-mono);
-  font-size: 13px;
-}
-
-.workspace-section-title {
-  font-family: var(--harbor-font-display);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.harbor-workspace button,
-.harbor-workspace [role="tab"],
-.harbor-workspace nav a {
-  font-family: var(--harbor-font-mono);
-}
-
-.harbor-workspace [data-slot="card"] {
-  --card-spacing: 24px;
-  border: 1px solid var(--harbor-border);
-  border-radius: 12px;
-  box-shadow: none;
-}
-
-.harbor-workspace [data-slot="card-title"]:not(.font-mono) {
-  font-family: var(--harbor-font-display);
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.harbor-workspace [data-slot="table-head"] {
-  font-family: var(--harbor-font-mono);
-  font-size: 10px;
-}
-
-.harbor-workspace [data-slot="input-group"],
-.harbor-workspace [data-slot="select-trigger"] {
-  background: var(--harbor-background);
-}
-
-.harbor-workspace .workspace-stat [data-slot="card-title"] {
-  font-size: 24px;
-  font-weight: 400;
-}
-
-.harbor-workspace nav[aria-label="Credit views"] [aria-current="page"],
-.harbor-workspace nav[aria-label="Lab navigation"] [aria-current="page"],
-.harbor-workspace nav[aria-label="Portfolio navigation"] [aria-current="page"] {
-  border: 1px solid color-mix(in srgb, var(--harbor-accent) 35%, transparent);
-  background: var(--harbor-accent-tint);
-  color: var(--harbor-accent);
-}
-
-.harbor-workspace [data-slot="input"],
-.harbor-workspace [data-slot="input-group-input"] {
-  background: var(--harbor-background);
-}
-
-.harbor-workspace [data-slot="button"][data-variant="outline"] {
-  border-color: var(--harbor-border-strong);
-  background: transparent;
-}
-
-.harbor-workspace [data-slot="button"][data-variant="outline"]:hover {
-  background: var(--harbor-surface-raised);
-}
-
-.harbor-workspace {
-  --control-font: var(--harbor-font-mono);
 }
 
 .harbor-workspace :is(h1, h2, h3, h4) {
   font-synthesis: none;
   text-wrap: pretty;
-}
-
-.harbor-workspace h1 {
-  font-weight: 700;
-  letter-spacing: -0.025em;
-}
-
-.harbor-workspace :is(button, nav a) {
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.harbor-workspace [data-slot="button"][data-variant="secondary"],
-.harbor-workspace button[aria-pressed="true"],
-.harbor-workspace nav a[aria-current="page"]:not(.workspace-primary-link) {
-  border-color: color-mix(in srgb, var(--harbor-accent) 25%, transparent);
-  background: var(--harbor-accent-tint);
-  color: var(--harbor-accent);
-}
-
-.harbor-workspace :is([data-slot="input"], [data-slot="select-trigger"], select, textarea) {
-  font-family: var(--harbor-font-sans);
-  background: var(--harbor-background);
-  border-radius: 10px;
-}
-
-.harbor-workspace input[inputmode="decimal"] {
-  font-family: var(--harbor-font-mono);
-}
-
-.harbor-workspace [data-slot="card"] {
-  border-radius: 16px;
-  gap: 0;
-  padding-block: 0;
-}
-
-.harbor-workspace [data-slot="card-header"] {
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--harbor-border);
-}
-
-.harbor-workspace [data-slot="card-content"] {
-  padding: 22px;
-}
-
-.harbor-workspace .workspace-stat [data-slot="card-header"] {
-  border-bottom: 0;
 }
 
 .workspace-runtime-bar {
@@ -195,7 +70,7 @@
   border-bottom: 1px solid var(--harbor-border);
   background: var(--harbor-surface);
   color: var(--harbor-text-secondary);
-  font: 400 10px / 1.6 var(--harbor-font-mono);
+  font-size: 12px;
 }
 
 .workspace-runtime-bar strong {
@@ -203,33 +78,14 @@
   font-weight: 500;
 }
 
-.harbor-workspace .workspace-panel {
-  border-radius: 16px;
-}
-
-.harbor-workspace [data-slot="button"] {
-  border-radius: 12px;
-  min-height: 44px;
-}
-
-.harbor-workspace > header [data-slot="button"] {
-  font-size: 12px;
-}
-
 @media (max-width: 767px) {
   .workspace-runtime-bar {
     padding-inline: 16px;
-    font-size: 9px;
+    font-size: 11px;
   }
   .workspace-runtime-bar > :last-child {
     display: none;
   }
-}
-
-.harbor-workspace [data-slot="button"][aria-pressed="true"] {
-  border-color: var(--harbor-accent);
-  background: var(--harbor-accent-tint);
-  color: var(--harbor-accent);
 }
 
 .harbor-workspace input[type="checkbox"] {
