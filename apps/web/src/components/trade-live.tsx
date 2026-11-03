@@ -4,7 +4,7 @@ import { Skeleton } from '@harbor/ui/components/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harbor/ui/components/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@harbor/ui/components/tabs';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Wallet } from 'lucide-react';
+import { ExternalLink, RefreshCw, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { type ActivityItem, ExecutionRequestError, execution, type Quote } from '../lib/execution.ts';
@@ -194,7 +194,18 @@ function ActivityTable({ items, empty }: { items: ActivityItem[]; empty: string 
               <StatusBadge status={item.status} />
             </TableCell>
             <TableCell className="text-right">
-              {item.txHash ? <span className="font-mono text-xs">{item.txHash.slice(0, 12)}…</span> : '—'}
+              {item.explorerUrl ? (
+                <a
+                  href={item.explorerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  View <ExternalLink className="size-3" />
+                </a>
+              ) : (
+                '—'
+              )}
             </TableCell>
           </TableRow>
         ))}

@@ -14,8 +14,15 @@ const ORIGIN = 'https://harbor.test';
 const START_MS = 1_800_000_000_000;
 const ACCOUNT = 'alice.near';
 const ASSETS: AssetRef[] = [
-  { network: 'mainnet', canonicalId: 'nep141:usdc.example.near', symbol: 'USDC', decimals: 6 },
-  { network: 'mainnet', canonicalId: 'nep141:wrap.near', symbol: 'NEAR', decimals: 24 },
+  {
+    network: 'mainnet',
+    canonicalId: 'nep141:usdc.example.near',
+    symbol: 'USDC',
+    name: 'USD Coin',
+    chain: 'near',
+    decimals: 6,
+  },
+  { network: 'mainnet', canonicalId: 'nep141:wrap.near', symbol: 'NEAR', name: 'NEAR', chain: 'near', decimals: 24 },
 ];
 const AMOUNT_OUT = 26_000_000_000_000_000_000_000_000n; // 26 NEAR
 const MIN_OUT = 25_870_000_000_000_000_000_000_000n;
@@ -192,6 +199,7 @@ describe('plans', () => {
   it('refuses a plan for something that is not an account ID', async () => {
     const h = createFixture();
     await expect(quotedPlan(h, 'Not An Account!')).rejects.toThrow('Connect a wallet');
+    await expect(quotedPlan(h, 'alice.testnet')).rejects.toThrow('different network');
   });
 });
 
@@ -214,7 +222,11 @@ describe('activity', () => {
     const { plan } = await quotedPlan(h);
     await env.DB.prepare('UPDATE plans SET tx_hash = ? WHERE id = ?').bind(`tx-${plan.id}`, plan.id).run();
     const { items } = await listActivity(h.deps, ACCOUNT);
-    expect(items.find((item) => item.id === plan.id)).toMatchObject({ title: 'Swap USDC → NEAR', venue: 'oneclick' });
+    expect(items.find((item) => item.id === plan.id)).toMatchObject({
+      title: 'Swap USDC → NEAR',
+      venue: 'oneclick',
+      explorerUrl: `https://nearblocks.io/txns/tx-${plan.id}`,
+    });
     expect((await listActivity(h.deps, 'bob.near')).items.find((item) => item.id === plan.id)).toBeUndefined();
     await expect(listActivity(h.deps, 'G')).rejects.toThrow('valid account');
   });
@@ -237,6 +249,8 @@ describe('execution routes', () => {
   it('list the assets this network can swap', async () => {
     const response = await exports.default.fetch(`${ORIGIN}/api/assets`);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ network: 'mainnet', assets: expect.any(Array) });
+    const body = await response.json<{ network: string; assets: { symbol: string }[] }>();
+    expect(body.network).toBe('mainnet');
+    expect(body.assets.map((asset) => asset.symbol)).toEqual(expect.arrayContaining(['NEAR', 'USDC', 'USDC.arb']));
   });
 });

@@ -1,3 +1,4 @@
+import { isNearAccountId, isOnNetwork } from '@harbor/domain/account';
 import { AppError } from '@harbor/domain/errors';
 import {
   type ExecutionDeps,
@@ -18,7 +19,6 @@ import { compareSwap, swapIntentView, swapPlanPolicy, swapPlanView } from './swa
 const ACTIVITY_LIMIT = 30;
 /** How long an approval stays usable before the plan must be reviewed again. */
 const APPROVAL_WINDOW_MS = 5 * 60_000;
-const ACCOUNT_ID = /^[a-z0-9._-]{2,64}$/;
 
 export async function readIntent(deps: ExecutionDeps, intentId: string) {
   return swapIntentView(deps, await loadIntent(deps, intentId));
@@ -34,7 +34,10 @@ export async function createPlan(
   deps: ExecutionDeps,
   input: { intentId: string; quoteId: string; accountId: string; idempotencyKey: string },
 ) {
-  if (!ACCOUNT_ID.test(input.accountId)) throw new AppError('INVALID_REQUEST', 'Connect a wallet to review this.');
+  if (!isNearAccountId(input.accountId)) throw new AppError('INVALID_REQUEST', 'Connect a wallet to review this.');
+  if (!isOnNetwork(input.accountId, deps.config.network)) {
+    throw new AppError('INVALID_REQUEST', 'That account belongs to a different network.');
+  }
   const existing = await existingPlan(deps, input);
   if (existing) return planView(deps, existing);
 
@@ -60,7 +63,7 @@ export async function createPlan(
 
 /** The account's plans that reached the network, newest first. */
 export async function listActivity(deps: ExecutionDeps, account: string) {
-  if (!ACCOUNT_ID.test(account)) throw new AppError('INVALID_REQUEST', 'Send a valid account ID.');
+  if (!isNearAccountId(account)) throw new AppError('INVALID_REQUEST', 'Send a valid account ID.');
   const { results } = await deps.db
     .prepare(
       `SELECT * FROM plans WHERE network = ? AND account_id = ? AND tx_hash IS NOT NULL
@@ -137,6 +140,7 @@ function activityItem(deps: ExecutionDeps, plan: PlanRow, intent: IntentRow, quo
     status: plan.status,
     createdAt: new Date(plan.created_at_ms).toISOString(),
     txHash: plan.tx_hash,
+    explorerUrl: view.explorerUrl,
     errorCode: plan.error_code,
     title: `Swap ${view.quote.sell.symbol} → ${view.quote.expectedOut.symbol}`,
     venue: view.quote.venue,

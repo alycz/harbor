@@ -1,3 +1,4 @@
+import { isNearAccountId } from '@harbor/domain/account';
 import { AppError } from '@harbor/domain/errors';
 import type { Network } from '@harbor/domain/network';
 
@@ -11,8 +12,6 @@ export interface AutomationDeps {
   quotes: QuoteSource;
   now(): number;
 }
-
-const ACCOUNT_ID = /^[a-z0-9._-]{2,64}$/;
 
 export interface RuleRow {
   id: string;
@@ -73,7 +72,7 @@ export async function createRule(
   input: { name?: string | undefined; account?: string | undefined; config: unknown },
 ) {
   const config = parseConfig(input.config);
-  if (input.account && !ACCOUNT_ID.test(input.account)) {
+  if (input.account && !isNearAccountId(input.account)) {
     throw new AppError('INVALID_REQUEST', 'The account must be a valid account ID.');
   }
   const now = deps.now();

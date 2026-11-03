@@ -16,7 +16,7 @@ export function TradePage() {
   const assets = useQuery({ queryKey: ['assets'], queryFn: execution.assets, staleTime: 5 * 60_000 });
   const options: PickerAsset[] = (assets.data?.assets ?? []).map((asset) => ({
     symbol: asset.symbol,
-    name: asset.canonicalId,
+    name: asset.name,
   }));
   const [chosenInput, setInputAsset] = useState<string | null>(null);
   const [chosenOutput, setOutputAsset] = useState<string | null>(null);

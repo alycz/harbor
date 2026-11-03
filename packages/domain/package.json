@@ -5,10 +5,13 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./account": "./src/account.ts",
     "./amount": "./src/amount.ts",
     "./asset": "./src/asset.ts",
     "./errors": "./src/errors.ts",
-    "./network": "./src/network.ts"
+    "./near": "./src/near.ts",
+    "./network": "./src/network.ts",
+    "./oneclick-assets": "./src/oneclick-assets.ts"
   },
   "scripts": {
     "typecheck": "tsc",

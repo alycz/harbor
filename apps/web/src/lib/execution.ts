@@ -9,6 +9,8 @@ export interface SwapAsset {
   network: 'mainnet' | 'testnet';
   canonicalId: string;
   symbol: string;
+  name: string;
+  chain: string;
   decimals: number;
 }
 
@@ -57,6 +59,7 @@ export interface Plan {
   validUntil: string | null;
   approvedAt: string | null;
   txHash: string | null;
+  explorerUrl: string | null;
   errorCode: string | null;
   quote: Quote;
 }
@@ -68,6 +71,7 @@ export interface ActivityItem {
   status: PlanStatus;
   createdAt: string;
   txHash: string | null;
+  explorerUrl: string | null;
   errorCode: string | null;
   title: string;
   venue: string;

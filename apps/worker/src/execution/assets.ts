@@ -1,5 +1,6 @@
 import type { AssetRef } from '@harbor/domain/asset';
 import type { Network } from '@harbor/domain/network';
+import { ONE_CLICK_ASSETS } from '@harbor/domain/oneclick-assets';
 
 /** The assets a network can swap, looked up by symbol or canonical ID. */
 export interface AssetRegistry {
@@ -10,7 +11,8 @@ export interface AssetRegistry {
 
 /** Verified swap assets per network. A network with none can quote nothing. */
 const SWAP_ASSETS: Record<Network, readonly AssetRef[]> = {
-  mainnet: [],
+  mainnet: ONE_CLICK_ASSETS,
+  // 1Click has no testnet, so nothing swaps there.
   testnet: [],
 };
 

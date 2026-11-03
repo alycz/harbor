@@ -2,6 +2,7 @@ import type { SwapVenue } from '@harbor/adapters/venue';
 import { formatRawAmount, rawFromText } from '@harbor/domain/amount';
 import type { AssetRef } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
+import { txExplorerUrl } from '@harbor/domain/near';
 import type { Network } from '@harbor/domain/network';
 import type { Decision } from '@harbor/policy/engine';
 
@@ -318,6 +319,7 @@ export function basePlanView(row: PlanRow) {
     validUntil: row.valid_until_ms === null ? null : new Date(row.valid_until_ms).toISOString(),
     approvedAt: row.approved_at_ms === null ? null : new Date(row.approved_at_ms).toISOString(),
     txHash: row.tx_hash,
+    explorerUrl: row.tx_hash ? txExplorerUrl(row.network, row.tx_hash) : null,
     errorCode: row.error_code,
   };
 }
