@@ -115,7 +115,7 @@ function useNarrow(query = '(max-width: 767px)') {
 function Hero() {
   const narrow = useNarrow();
   return (
-    <section className="relative min-h-[100svh] w-full md:min-h-[clamp(720px,100svh,980px)]">
+    <section className="relative min-h-[100svh] w-full border-b border-line md:min-h-[max(100svh,720px)]">
       <BlackHoleHeroSection
         className="absolute inset-0"
         focus={narrow ? [0.5, 0.8] : [0.72, 0.5]}
@@ -131,11 +131,6 @@ function Hero() {
         coolColor="#08337A"
       >
         <Scanlines />
-        {/* Lets the black of the hero settle into the paper below. It sits behind the copy, not over it. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background"
-        />
         <div className="relative flex h-full flex-col">
           <Header />
           <div className={`flex flex-1 items-start pt-6 md:items-center md:pt-0 ${GUTTER}`}>
