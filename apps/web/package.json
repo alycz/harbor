@@ -12,8 +12,8 @@
     "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "dependencies": {
-    "@fontsource/geist": "catalog:",
-    "@fontsource/geist-mono": "catalog:",
+    "@fontsource/ibm-plex-mono": "catalog:",
+    "@fontsource/pixelify-sans": "catalog:",
     "@harbor/agent-runtime": "workspace:*",
     "@harbor/data": "workspace:*",
     "@harbor/policy": "workspace:*",

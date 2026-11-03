@@ -191,10 +191,10 @@ catalogs:
     '@earendil-works/pi-mcp':
       specifier: 1.4.0
       version: 1.4.0
-    '@fontsource/geist':
+    '@fontsource/ibm-plex-mono':
       specifier: 5.3.0
       version: 5.3.0
-    '@fontsource/geist-mono':
+    '@fontsource/pixelify-sans':
       specifier: 5.3.0
       version: 5.3.0
     '@hot-labs/near-connect':
@@ -316,10 +316,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@fontsource/geist':
+      '@fontsource/ibm-plex-mono':
         specifier: 'catalog:'
         version: 5.3.0
-      '@fontsource/geist-mono':
+      '@fontsource/pixelify-sans':
         specifier: 'catalog:'
         version: 5.3.0
       '@harbor/agent-runtime':
@@ -1542,11 +1542,11 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@fontsource/geist-mono@5.3.0':
-    resolution: {integrity: sha512-UtJ1BBBCVpMYdIcW7nEB45UAoAw5M53ZXs2t0ciPW+IokuAAIc56M8+kW5tXbRJCTpDw4XTtU7proT6NdQAHTg==}
+  '@fontsource/ibm-plex-mono@5.3.0':
+    resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
 
-  '@fontsource/geist@5.3.0':
-    resolution: {integrity: sha512-u03ftlfVwb05uijq2jGDJ03/HKGqMKaNFk7KOhkpBUex8+BhrAOfMs/XciJ2UUNUX9fEsZbZQld/RWMA2oFU7g==}
+  '@fontsource/pixelify-sans@5.3.0':
+    resolution: {integrity: sha512-4RCe9nXbi7wUu5+H0FNX1sgPZ2kJ1MmY1uTkEfvQIzzqhoS8zGKJaJfdK8oreE0OU+5gM+NdurFi3H3FJRBvyw==}
 
   '@google/genai@2.21.0':
     resolution: {integrity: sha512-+PDtco2/Z0ONdzCGekCoCT+O1VJS9xJQNN4XzQpXG/t3El/SWWMkCWlFRO1KmivOHPa4Q0VjUYu1HBKCZ/v33Q==}
@@ -5577,9 +5577,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@fontsource/geist-mono@5.3.0': {}
+  '@fontsource/ibm-plex-mono@5.3.0': {}
 
-  '@fontsource/geist@5.3.0': {}
+  '@fontsource/pixelify-sans@5.3.0': {}
 
   '@google/genai@2.21.0(@modelcontextprotocol/sdk@1.32.2(supports-color@10.2.2)(zod@4.6.7))(supports-color@10.2.2)':
     dependencies:

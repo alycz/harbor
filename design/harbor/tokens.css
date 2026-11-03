@@ -1,36 +1,67 @@
-/* Harbor v0.1: deep-sea ink surfaces, a lighthouse-amber signal accent, Geist type. Dark only. */
+/*
+ * Harbor v0.2, on the NEAR hackathon palette: warm cream paper, ink text, one cobalt accent,
+ * square corners and hairline rules. Type is IBM Plex Mono throughout, bold Arial/Helvetica for
+ * headings, and Pixelify Sans for pixel numerals. Light only; dark bands use the ink colour.
+ */
 :root {
-  color-scheme: dark;
-  --harbor-background: #0a111e;
-  --harbor-surface: #0f1a2b;
-  --harbor-surface-raised: #142238;
-  --harbor-accent: #f2b544;
-  --harbor-accent-hover: #f6c76b;
-  --harbor-accent-tint: rgba(242, 181, 68, 0.14);
-  --harbor-text: #e8edf5;
-  --harbor-text-secondary: #9aa7bb;
-  --harbor-text-muted: #66748b; /* decorative/disabled only */
-  --harbor-text-subtle: #8593a8; /* accessible small text */
-  --harbor-border: rgba(232, 237, 245, 0.11);
-  --harbor-border-strong: rgba(232, 237, 245, 0.22);
-  --harbor-input-border: rgba(232, 237, 245, 0.38);
-  --harbor-success: #6fd3a4;
-  --harbor-warning: #f0a35e;
-  --harbor-error: #f2847c;
-  --harbor-info: #7fb6f2;
-  --harbor-series-1: #e8edf5;
-  --harbor-series-2: #7fb6f2;
-  --harbor-series-3: #6fd3a4;
-  --harbor-series-4: #b9a4f0;
-  --harbor-font-display: "Geist", system-ui, sans-serif;
-  --harbor-font-sans: "Geist", system-ui, sans-serif;
-  --harbor-font-mono: "Geist Mono", ui-monospace, monospace;
-  --harbor-size-display: clamp(44px, 6.5vw, 84px);
-  --harbor-size-title: 34px;
+  color-scheme: light;
+
+  /* Paper */
+  --harbor-background: #e9e1cd;
+  --harbor-surface: #eee7d6;
+  --harbor-surface-raised: #f4eddd;
+  --harbor-panel: #e1d7c0;
+  --harbor-sand: #dcd2ba;
+
+  /* Ink */
+  --harbor-text: #322e25;
+  --harbor-text-secondary: #655d4f;
+  --harbor-text-subtle: #655d4f; /* accessible small text */
+  --harbor-text-muted: #8f8572; /* decorative/disabled only */
+
+  /* Rules */
+  --harbor-border: #b7ac94;
+  --harbor-line: #bdb199;
+  --harbor-border-strong: #322e25;
+  --harbor-input-border: #b7ac94;
+
+  /* The one accent, and the blues that go with it */
+  --harbor-accent: #005fb0;
+  --harbor-accent-hover: #004a8a;
+  --harbor-accent-tint: rgba(0, 95, 176, 0.1);
+  --harbor-accent-foreground: #fff7e9;
+  --harbor-brand-blue: #0091fd;
+  --harbor-sky: #83dcff;
+
+  /* Dark bands: ink background, paper text */
+  --harbor-band: #322e25;
+  --harbor-band-text: #e9e1cd;
+
+  /* Status */
+  --harbor-success: #2f6b35;
+  --harbor-warning: #8a5300;
+  --harbor-error: #b53124;
+  --harbor-info: #005fb0;
+
+  /* Chart series */
+  --harbor-series-1: #005fb0;
+  --harbor-series-2: #0091fd;
+  --harbor-series-3: #655d4f;
+  --harbor-series-4: #b7ac94;
+
+  /* Type */
+  --harbor-font-display: Arial, Helvetica, sans-serif;
+  --harbor-font-sans: "IBM Plex Mono", ui-monospace, monospace;
+  --harbor-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --harbor-font-pixel: "Pixelify Sans", "IBM Plex Mono", monospace;
+  --harbor-size-display: clamp(43px, 6.8vw, 104px);
+  --harbor-size-title: 45px;
   --harbor-size-section: 22px;
-  --harbor-size-body: 16px;
+  --harbor-size-body: 15px;
   --harbor-size-control: 14px;
   --harbor-size-label: 12px;
+
+  /* Space */
   --harbor-space-1: 4px;
   --harbor-space-2: 8px;
   --harbor-space-3: 12px;
@@ -39,16 +70,21 @@
   --harbor-space-8: 32px;
   --harbor-space-12: 48px;
   --harbor-space-16: 64px;
-  --harbor-radius-control: 10px;
-  --harbor-radius-card: 14px;
-  --harbor-radius-tag: 999px;
+
+  /* Shape: square everywhere */
+  --harbor-radius-control: 0px;
+  --harbor-radius-card: 0px;
+  --harbor-radius-tag: 0px;
+  /* The lift a primary action gets on hover */
+  --harbor-shadow-lift: 4px 4px 0 var(--harbor-text);
+
   --harbor-header-height: 64px;
   --harbor-row-height: 48px;
   --harbor-touch-target: 44px;
   --harbor-ticket-width: 340px;
   --harbor-agent-width: 380px;
   --harbor-duration-fast: 120ms;
-  --harbor-duration-base: 180ms;
+  --harbor-duration-base: 200ms;
   --harbor-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 @media (prefers-reduced-motion: reduce) {

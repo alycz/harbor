@@ -8,7 +8,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* shadcn's variables, set from Harbor's design tokens (design/harbor/tokens.css). Harbor is dark only. */
+/* shadcn's variables, set from Harbor's design tokens (design/harbor/tokens.css). Harbor is light only. */
 :root {
   --radius: var(--harbor-radius-control);
   --background: var(--harbor-background);
@@ -18,12 +18,12 @@
   --popover: var(--harbor-surface-raised);
   --popover-foreground: var(--harbor-text);
   --primary: var(--harbor-accent);
-  --primary-foreground: var(--harbor-background);
-  --secondary: var(--harbor-surface-raised);
+  --primary-foreground: var(--harbor-accent-foreground);
+  --secondary: var(--harbor-sand);
   --secondary-foreground: var(--harbor-text);
-  --muted: var(--harbor-surface);
+  --muted: var(--harbor-sand);
   --muted-foreground: var(--harbor-text-secondary);
-  --accent: var(--harbor-accent-tint);
+  --accent: var(--harbor-sand);
   --accent-foreground: var(--harbor-text);
   --destructive: var(--harbor-error);
   --border: var(--harbor-border);
@@ -37,17 +37,33 @@
   --sidebar: var(--harbor-surface);
   --sidebar-foreground: var(--harbor-text);
   --sidebar-primary: var(--harbor-accent);
-  --sidebar-primary-foreground: var(--harbor-background);
-  --sidebar-accent: var(--harbor-accent-tint);
+  --sidebar-primary-foreground: var(--harbor-accent-foreground);
+  --sidebar-accent: var(--harbor-sand);
   --sidebar-accent-foreground: var(--harbor-text);
   --sidebar-border: var(--harbor-border);
   --sidebar-ring: var(--harbor-accent);
+
+  /* The rainbow Button's animated edge and glow. */
+  --rainbow-1: hsl(0 100% 63%);
+  --rainbow-2: hsl(270 100% 63%);
+  --rainbow-3: hsl(210 100% 63%);
+  --rainbow-4: hsl(195 100% 63%);
+  --rainbow-5: hsl(90 100% 63%);
+  --rainbow-gradient: linear-gradient(
+    90deg,
+    var(--rainbow-1),
+    var(--rainbow-5),
+    var(--rainbow-3),
+    var(--rainbow-4),
+    var(--rainbow-2)
+  );
 }
 
 @theme inline {
   --font-sans: var(--harbor-font-sans);
   --font-serif: var(--harbor-font-display);
   --font-mono: var(--harbor-font-mono);
+  --font-pixel: var(--harbor-font-pixel);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -75,11 +91,19 @@
   --color-warning: var(--harbor-warning);
   --color-info: var(--harbor-info);
   --color-subtle: var(--harbor-text-subtle);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --color-brand: var(--harbor-brand-blue);
+  --color-sky: var(--harbor-sky);
+  --color-band: var(--harbor-band);
+  --color-band-foreground: var(--harbor-band-text);
+  --color-line: var(--harbor-line);
+  /* Square corners everywhere. `rounded-full` stays round for dots and avatars. */
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
   --radius-xl: var(--harbor-radius-card);
-  --radius-2xl: calc(var(--harbor-radius-card) * 1.25);
+  --radius-2xl: var(--harbor-radius-card);
+  --radius-3xl: var(--harbor-radius-card);
+  --radius-4xl: var(--harbor-radius-tag);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -88,6 +112,16 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
+
+  @keyframes rainbow {
+    0% {
+      background-position: 0%;
+    }
+    100% {
+      background-position: 200%;
+    }
+  }
 }
 
 @layer base {
@@ -100,6 +134,10 @@
   h1,
   h2,
   h3 {
-    @apply font-serif;
+    @apply font-serif font-bold;
+  }
+  :focus-visible {
+    outline: 2px solid var(--harbor-accent);
+    outline-offset: 3px;
   }
 }

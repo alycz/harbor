@@ -41,4 +41,4 @@ Harbor is built on these third-party libraries and fonts. Versions are pinned in
 
 ## Fonts
 
-[Geist and Geist Mono](https://github.com/fontsource/font-files), under the SIL Open Font License 1.1. The license texts are in `apps/web/public/licenses/`.
+[IBM Plex Mono](https://github.com/IBM/plex) and [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans), from [Fontsource](https://github.com/fontsource/font-files), under the SIL Open Font License 1.1. The license texts are in `apps/web/public/licenses/`.
