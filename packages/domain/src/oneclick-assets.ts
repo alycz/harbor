@@ -4,6 +4,7 @@ import { NEAR_DECIMALS } from './near.ts';
 /**
  * The assets Harbor swaps, checked against 1Click's token list on 2026-11-04. 1Click represents
  * native NEAR with the wrap.near asset ID. It has no testnet, so these exist on mainnet only.
+ * Bitcoin is left out: its quotes did not pass signature verification on 2026-11-04.
  */
 export const ONE_CLICK_ASSETS: readonly AssetRef[] = [
   {
@@ -61,14 +62,6 @@ export const ONE_CLICK_ASSETS: readonly AssetRef[] = [
     name: 'Ether on Ethereum',
     chain: 'eth',
     decimals: 18,
-  },
-  {
-    network: 'mainnet',
-    canonicalId: 'nep141:btc.omft.near',
-    symbol: 'BTC',
-    name: 'Bitcoin',
-    chain: 'btc',
-    decimals: 8,
   },
   {
     network: 'mainnet',
