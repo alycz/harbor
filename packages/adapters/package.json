@@ -7,7 +7,8 @@
   "exports": {
     "./venue": "./src/venue.ts",
     "./oneclick/client": "./src/oneclick/client.ts",
-    "./oneclick/signature": "./src/oneclick/signature.ts"
+    "./oneclick/signature": "./src/oneclick/signature.ts",
+    "./oneclick/venue": "./src/oneclick/venue.ts"
   },
   "scripts": {
     "typecheck": "tsc && tsc -p tsconfig.node.json",

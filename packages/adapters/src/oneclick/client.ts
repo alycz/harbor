@@ -245,10 +245,24 @@ export type OneClickErrorCode =
 export class OneClickClientError extends Error {
   override name = 'OneClickClientError';
   readonly code: OneClickErrorCode;
+  /** 1Click's own short explanation of a refused request, when it gave one. Untrusted text. */
+  readonly providerMessage: string | undefined;
 
-  constructor(code: OneClickErrorCode, message: string, options?: ErrorOptions) {
+  constructor(code: OneClickErrorCode, message: string, options?: ErrorOptions & { providerMessage?: string }) {
     super(message, options);
     this.code = code;
+    this.providerMessage = options?.providerMessage;
+  }
+}
+
+/** The `message` of a 4xx answer, if it is short and printable; anything else is dropped. */
+async function refusalMessage(response: Response): Promise<string | undefined> {
+  try {
+    const body = await readBoundedJson(response, 4096);
+    const message = typeof body === 'object' && body !== null && 'message' in body ? body.message : undefined;
+    return typeof message === 'string' && message.length <= 200 && /^[\x20-\x7e]+$/.test(message) ? message : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -450,8 +464,15 @@ export class OneClickClient {
           'NEAR Intents did not recognize the requested resource; outcome remains unknown',
         );
       }
-      if (!response.ok)
-        throw new OneClickClientError('HTTP_ERROR', `NEAR Intents request failed with HTTP ${response.status}`);
+      if (!response.ok) {
+        const providerMessage =
+          response.status >= 400 && response.status < 500 ? await refusalMessage(response) : undefined;
+        throw new OneClickClientError(
+          'HTTP_ERROR',
+          `NEAR Intents request failed with HTTP ${response.status}`,
+          providerMessage ? { providerMessage } : undefined,
+        );
+      }
       return await readBoundedJson(response, this.#maxResponseBytes);
     } catch (error) {
       if (error instanceof OneClickClientError) throw error;

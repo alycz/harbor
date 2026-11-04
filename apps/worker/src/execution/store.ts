@@ -1,3 +1,5 @@
+import { createOneClickClient } from '@harbor/adapters/oneclick/client';
+import { oneClickVenue } from '@harbor/adapters/oneclick/venue';
 import type { SwapVenue } from '@harbor/adapters/venue';
 import { formatRawAmount, rawFromText } from '@harbor/domain/amount';
 import type { AssetRef } from '@harbor/domain/asset';
@@ -28,7 +30,11 @@ export function executionDeps(env: Env): ExecutionDeps {
   return {
     db: env.DB,
     config,
-    venue: null,
+    // 1Click has no testnet, so swaps are quoted on mainnet only.
+    venue:
+      config.network === 'mainnet'
+        ? oneClickVenue(createOneClickClient(config.oneClickJwt ? { jwt: config.oneClickJwt } : {}))
+        : null,
     assets: assetRegistry(config.network),
     now: Date.now,
   };
