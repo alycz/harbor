@@ -1,10 +1,10 @@
 import { Button } from '@harbor/ui/components/button';
-import { Skeleton } from '@harbor/ui/components/skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, ArrowRight, Wallet } from 'lucide-react';
 
 import { Band, Eyebrow, FactRow, Panel } from '../components/brand.tsx';
+import { PlanSkeleton, PortfolioSkeleton } from '../components/skeletons.tsx';
 import { StatusTag, WalletActivity } from '../components/trade-live.tsx';
 import { EmptyState, PageHeader } from '../components/workspace.tsx';
 import { execution, planProblem } from '../lib/execution.ts';
@@ -28,7 +28,9 @@ export function PortfolioPage() {
         kicker="Account"
         description="What Harbor has done for the connected account, from its own records. Every entry was signed in your wallet."
       />
-      {wallet.address ? (
+      {wallet.restoring ? (
+        <PortfolioSkeleton header={false} />
+      ) : wallet.address ? (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           <Panel label="Activity" labelId="portfolio-activity">
             <WalletActivity />
@@ -113,7 +115,7 @@ export function PlanStatusPage({ planId }: { planId: string }) {
         }
       />
       {plan.isPending ? (
-        <Skeleton className="h-48 w-full" />
+        <PlanSkeleton header={false} />
       ) : plan.isError ? (
         <Panel label="Plan">
           <EmptyState title="This plan could not be loaded" description={plan.error.message} />

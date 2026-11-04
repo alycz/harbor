@@ -1,16 +1,17 @@
 import { Button } from '@harbor/ui/components/button';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownUp, LoaderCircle } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDownUp } from 'lucide-react';
+import { useCallback, useState } from 'react';
 
 import { AssetIcon } from '../components/asset-icon.tsx';
 import { AssetPicker, type PickerAsset } from '../components/asset-picker.tsx';
 import { Panel } from '../components/brand.tsx';
 import { ReviewRequirements } from '../components/financial-draft.tsx';
+import { AssetGridSkeleton, FactRowsSkeleton, QuoteSkeleton, TicketSkeleton } from '../components/skeletons.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
 import { RouteFacts, useSwapDraft, WalletActivity } from '../components/trade-live.tsx';
 import { EmptyState, PageHeader } from '../components/workspace.tsx';
-import { execution } from '../lib/execution.ts';
+import { execution, type Quote } from '../lib/execution.ts';
 import { formatTokenAmount } from '../lib/format.ts';
 import { useHealth } from '../lib/health.ts';
 
@@ -28,8 +29,18 @@ export function TradePage() {
   const [amount, setAmount] = useState('');
   const [locked, setLocked] = useState(false);
   const draft = useSwapDraft(inputAsset, outputAsset, amount);
-  const { intentId, quote } = draft;
+  const { intentId, quote, setQuote } = draft;
   const secondsLeft = useCountdown(quote?.expiresAt);
+  // The proposal card fetches the quote once the intent exists; until it answers, the route is loading.
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
+  const onQuote = useCallback(
+    (next: Quote | null) => {
+      setQuote(next);
+      setAnsweredFor(intentId);
+    },
+    [setQuote, intentId],
+  );
+  const quoting = draft.waiting || (intentId !== null && answeredFor !== intentId);
   const network = health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet';
 
   /** Picking the asset already on the other side swaps the two sides. */
@@ -65,20 +76,26 @@ export function TradePage() {
               ? secondsLeft === 0
                 ? 'Quote expired'
                 : `Live quote · ${secondsLeft ?? '…'}s`
-              : draft.waiting
+              : quoting
                 ? 'Quoting…'
                 : 'No quote yet'
           }
           className="trade-routes"
           labelId="trade-routes-title"
         >
-          {quote ? <RouteFacts quote={quote} /> : <SupportedAssets assets={options} loading={assets.isPending} />}
+          {quote ? (
+            <RouteFacts quote={quote} />
+          ) : quoting ? (
+            <FactRowsSkeleton rows={8} />
+          ) : assets.isPending ? (
+            <AssetGridSkeleton />
+          ) : (
+            <SupportedAssets assets={options} />
+          )}
         </Panel>
         <Panel label="Market swap" aside={network} className="trade-ticket" labelId="trade-ticket-title">
           {assets.isPending ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> Loading supported assets…
-            </p>
+            <TicketSkeleton />
           ) : options.length < 2 ? (
             <EmptyState
               title="No swap assets on this server"
@@ -147,16 +164,9 @@ export function TradePage() {
                 </div>
               </div>
               {intentId ? (
-                <SwapProposalCard
-                  key={intentId}
-                  intentId={intentId}
-                  onQuote={draft.setQuote}
-                  onInteractionLock={setLocked}
-                />
+                <SwapProposalCard key={intentId} intentId={intentId} onQuote={onQuote} onInteractionLock={setLocked} />
               ) : draft.waiting ? (
-                <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> Getting a live quote…
-                </p>
+                <QuoteSkeleton />
               ) : draft.error ? (
                 <p role="alert" className="text-sm text-destructive">
                   {draft.error}
@@ -177,8 +187,7 @@ export function TradePage() {
 }
 
 /** What can be swapped here, shown until there is a quote to describe. */
-function SupportedAssets({ assets, loading }: { assets: PickerAsset[]; loading: boolean }) {
-  if (loading) return <p className="text-sm text-muted-foreground">Loading supported assets…</p>;
+function SupportedAssets({ assets }: { assets: PickerAsset[] }) {
   return (
     <div className="space-y-4">
       <p className="text-sm leading-relaxed text-muted-foreground">

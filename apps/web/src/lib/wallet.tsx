@@ -10,6 +10,8 @@ interface WalletState {
   /** The account of the verified session, not merely a connected wallet. */
   address: string | null;
   connecting: boolean;
+  /** True until Harbor has checked for a returning user's session, so pages can wait rather than flash "connect". */
+  restoring: boolean;
   error: string | null;
 }
 
@@ -43,7 +45,7 @@ const WalletContext = createContext<Wallet | null>(null);
 export function WalletProvider({ children }: { children: ReactNode }) {
   const network = useHealth().data?.network;
   const connector = useRef<Promise<NearConnector> | null>(null);
-  const [state, setState] = useState<WalletState>({ address: null, connecting: false, error: null });
+  const [state, setState] = useState<WalletState>({ address: null, connecting: false, restoring: true, error: null });
 
   const loadConnector = useCallback((forNetwork: Network) => {
     connector.current ??= createConnector(forNetwork);
@@ -55,9 +57,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     let active = true;
     call<{ session: Session | null }>('/api/auth/session').then(
       ({ session }) => {
-        if (active && session) setState((previous) => ({ ...previous, address: session.accountId }));
+        if (active) setState((previous) => ({ ...previous, address: session?.accountId ?? null, restoring: false }));
       },
-      () => undefined,
+      () => {
+        if (active) setState((previous) => ({ ...previous, restoring: false }));
+      },
     );
     return () => {
       active = false;
@@ -93,14 +97,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           nonce: challenge.nonce,
         },
       });
-      setState({ address: session.accountId, connecting: false, error: null });
+      setState({ address: session.accountId, connecting: false, restoring: false, error: null });
     } catch (caught) {
-      setState({ address: null, connecting: false, error: signInProblem(caught) });
+      setState({ address: null, connecting: false, restoring: false, error: signInProblem(caught) });
     }
   }, [network, loadConnector]);
 
   const disconnect = useCallback(() => {
-    setState({ address: null, connecting: false, error: null });
+    setState({ address: null, connecting: false, restoring: false, error: null });
     void call('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     void connector.current?.then((loaded) => loaded.disconnect()).catch(() => undefined);
   }, []);

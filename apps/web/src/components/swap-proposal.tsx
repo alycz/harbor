@@ -6,6 +6,7 @@ import { ExecutionRequestError, execution, type Intent, type Plan, planProblem, 
 import { formatTokenAmount, venueName } from '../lib/format.ts';
 import { shortAddress, useWallet } from '../lib/wallet.tsx';
 import { FactRow } from './brand.tsx';
+import { FactRowsSkeleton } from './skeletons.tsx';
 
 type Phase = 'quoting' | 'quoted' | 'planning' | 'review' | 'approving' | 'approved' | 'stopped';
 
@@ -117,9 +118,10 @@ export function SwapProposalCard({
 
       <div className="space-y-3 p-4">
         {phase === 'quoting' ? (
-          <p className="flex items-center gap-2 text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> Getting a live quote…
-          </p>
+          <div role="status">
+            <span className="sr-only">Getting a live quote</span>
+            <FactRowsSkeleton rows={4} />
+          </div>
         ) : null}
 
         {quote && phase !== 'quoting' && phase !== 'stopped' ? (

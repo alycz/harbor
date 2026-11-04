@@ -15,7 +15,6 @@ import {
   ResizablePanelGroup,
 } from '@harbor/ui/components/resizable';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@harbor/ui/components/sheet';
-import { Skeleton } from '@harbor/ui/components/skeleton';
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import { Check, ChevronDown, LoaderCircle, Menu, Wallet } from 'lucide-react';
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -30,6 +29,7 @@ import { shortAddress, useWallet, WalletProvider } from '../lib/wallet.tsx';
 import { AdjacentAssistant, AgentPanel } from './agent-panel.tsx';
 import { HarborLogo } from './harbor-logo.tsx';
 import { PolicyDrawer } from './policy-drawer.tsx';
+import { HeaderControlSkeleton, PageSkeleton } from './skeletons.tsx';
 import { useWorkspaceSession, WorkspaceSessionProvider } from './workspace-session.tsx';
 
 const ROUTES = [
@@ -214,15 +214,7 @@ function WorkspaceContent({ children }: { children: ReactNode }) {
       id="workspace"
       className={`mx-auto w-full min-w-0 max-w-[1920px] px-4 pt-5 sm:px-6 sm:pt-6 lg:px-7 lg:pt-7 ${chatPage ? 'flex h-full flex-col overflow-hidden pb-20 md:pb-6' : 'flex-1 pb-24 md:pb-8'}`}
     >
-      <Suspense
-        fallback={
-          <div role="status" className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">
-            Loading workspace…
-          </div>
-        }
-      >
-        {children ?? <Outlet />}
-      </Suspense>
+      <Suspense fallback={<PageSkeleton />}>{children ?? <Outlet />}</Suspense>
     </main>
   );
 }
@@ -232,7 +224,7 @@ const STATUS_TAG =
 
 function NetworkStatus() {
   const health = useHealth();
-  if (health.isPending) return <Skeleton className="h-6 w-24" />;
+  if (health.isPending) return <HeaderControlSkeleton className="h-8 w-48" />;
   if (health.isError || !health.data.ok) return <span className={STATUS_TAG}>Connection unavailable</span>;
   return (
     <span
@@ -254,7 +246,7 @@ function isActiveGroup(pathname: string, route: string) {
 }
 
 function WalletButton() {
-  const { address, connecting, connect, disconnect, error } = useWallet();
+  const { address, connecting, restoring, connect, disconnect, error } = useWallet();
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   async function copyAddress() {
@@ -267,6 +259,7 @@ function WalletButton() {
     }
   }
 
+  if (restoring) return <HeaderControlSkeleton className="h-11 w-11 sm:w-44" />;
   return (
     <div className="relative">
       {address ? (

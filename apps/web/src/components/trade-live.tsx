@@ -1,5 +1,4 @@
 import { Button } from '@harbor/ui/components/button';
-import { Skeleton } from '@harbor/ui/components/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harbor/ui/components/table';
 import { Tabs, TabsContent } from '@harbor/ui/components/tabs';
 import { useQuery } from '@tanstack/react-query';
@@ -11,6 +10,7 @@ import { formatTokenAmount, venueName } from '../lib/format.ts';
 import { swapDraftRequest } from '../lib/swap-draft.ts';
 import { useWallet } from '../lib/wallet.tsx';
 import { FactRow, LineTab, LineTabsList } from './brand.tsx';
+import { ActivitySkeleton } from './skeletons.tsx';
 import { useCountdown } from './swap-proposal.tsx';
 import { EmptyState } from './workspace.tsx';
 
@@ -120,6 +120,7 @@ export function WalletActivity() {
     enabled: Boolean(wallet.address),
     refetchInterval: 20_000,
   });
+  if (wallet.restoring) return <ActivitySkeleton />;
   if (!wallet.address) {
     return (
       <EmptyState
@@ -132,7 +133,7 @@ export function WalletActivity() {
       </EmptyState>
     );
   }
-  if (activity.isPending) return <Skeleton className="h-44 w-full" />;
+  if (activity.isPending) return <ActivitySkeleton />;
   if (activity.isError) {
     return (
       <EmptyState title="Activity could not be loaded" description={activity.error.message}>
