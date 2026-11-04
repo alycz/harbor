@@ -10,6 +10,7 @@
   "scripts": {
     "setup": "scripts/setup.sh",
     "dev": "pnpm --filter @harbor/web dev",
+    "research:collect": "node scripts/collect-research.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
