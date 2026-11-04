@@ -94,7 +94,16 @@ export interface BlackHoleHeroSectionProps extends HTMLAttributes<HTMLDivElement
   steps?: number;
   /** Render scale, 0.5 to 1. Drop it before you drop `steps`. */
   resolution?: number;
-  /** Cap on device pixel ratio. */
+  /**
+   * Most pixels the ray march may cover per frame. Every pixel walks `steps`
+   * times, so this, not the screen, sets the cost: a Retina hero at full
+   * density is four times the work for an image made of soft gas. The march
+   * is upscaled with linear filtering, so a smaller scene stays smooth.
+   */
+  maxScenePixels?: number;
+  /** Most frames drawn per second. The gas drifts slowly and frames are averaged, so 30 is plenty. */
+  maxFps?: number;
+  /** Cap on device pixel ratio for the final picture. */
   maxDpr?: number;
   /**
    * Where the hole sits in the frame, as fractions of width and height, top
@@ -648,7 +657,9 @@ export function BlackHoleHeroSection({
   vignette = 0.28,
   steps = 300,
   resolution = 0.7,
-  maxDpr = 1.75,
+  maxScenePixels = 480_000,
+  maxFps = 30,
+  maxDpr = 1,
   focus = [0.72, 0.46],
   scrim = 'none',
   scrimStrength = 0.9,
@@ -684,6 +695,8 @@ export function BlackHoleHeroSection({
     vignette,
     steps,
     resolution,
+    maxScenePixels,
+    maxFps,
     maxDpr,
     focus,
     scrim,
@@ -714,6 +727,8 @@ export function BlackHoleHeroSection({
     vignette,
     steps,
     resolution,
+    maxScenePixels,
+    maxFps,
     maxDpr,
     focus,
     scrim,
@@ -931,8 +946,11 @@ export function BlackHoleHeroSection({
       const scale = software ? 0.34 : Math.min(1, Math.max(0.4, props.current.resolution));
       const w = Math.max(2, Math.round(cssW * dpr));
       const h = Math.max(2, Math.round(cssH * dpr));
-      const sw = Math.max(2, Math.round(w * scale));
-      const sh = Math.max(2, Math.round(h * scale));
+      // Hold the march to its pixel budget, shrunk further if this machine fell behind.
+      const budget = Math.max(60_000, props.current.maxScenePixels * quality);
+      const fit = Math.min(1, Math.sqrt(budget / Math.max(1, w * scale * h * scale)));
+      const sw = Math.max(2, Math.round(w * scale * fit));
+      const sh = Math.max(2, Math.round(h * scale * fit));
       if (w === width && h === height && sw === sceneW && sh === sceneH) return;
       width = w;
       height = h;
@@ -960,6 +978,21 @@ export function BlackHoleHeroSection({
     let running = true;
     let visible = true;
     let raf = 0;
+    /** Share of the pixel budget in use. It only ever falls, so quality never see-saws. */
+    let quality = 1;
+    /** No new frames until this time: the page is being scrolled, and scrolling comes first. */
+    let quietUntil = 0;
+    /** Gaps between drawn frames, to notice a machine that cannot keep the frame rate. */
+    const gaps: number[] = [];
+    let lastDrawn = 0;
+    let watchFrom = 0;
+    /**
+     * A machine that cannot animate this at all, such as one rendering WebGL in
+     * software, gets a still: a few frames to average away the grain, then the
+     * loop stops and the picture holds.
+     */
+    let still = software;
+    let stillFrames = still ? 8 : 0;
 
     function pass(prog: Prog, target: Target | null) {
       gl.useProgram(prog.program);
@@ -1125,16 +1158,60 @@ export function BlackHoleHeroSection({
 
     function tick(now: number) {
       if (!running) return;
-      raf = requestAnimationFrame(tick);
-      if (!visible) {
-        lastFrame = now;
+      if (still && stillFrames <= 0) {
+        raf = 0;
         return;
       }
+      raf = requestAnimationFrame(tick);
+      if (!visible || now < quietUntil) {
+        lastFrame = 0;
+        lastDrawn = 0;
+        return;
+      }
+      // Draw at most maxFps. The small allowance stops a 60Hz display from skipping to 20.
+      const interval = 1000 / Math.max(1, props.current.maxFps);
+      if (lastFrame && now - lastFrame < interval - 4) return;
       const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 0;
       lastFrame = now;
-      if (!props.current.paused && !reduced) clock += dt;
+      if (!props.current.paused && !reduced && !still) clock += dt;
       render(clock);
+      if (still) stillFrames--;
+      else watch(now, interval);
     }
+
+    /** Settle a fresh still and stop. */
+    function hold() {
+      still = true;
+      stillFrames = 8;
+      if (!raf && !reduced) raf = requestAnimationFrame(tick);
+    }
+
+    /**
+     * When drawn frames keep arriving well behind schedule, the GPU is the
+     * bottleneck: give back a third of the pixel budget and look again, and
+     * if even the smallest budget is too much, hold a still. The first second
+     * after a start or a resize is ignored, since shader warm-up and new
+     * buffers make it slow on every machine.
+     */
+    function watch(now: number, interval: number) {
+      if (lastDrawn && now >= watchFrom) gaps.push(now - lastDrawn);
+      lastDrawn = now;
+      if (gaps.length < 8) return;
+      const mean = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
+      gaps.length = 0;
+      if (mean <= interval * 1.35) return;
+      if (quality > 0.2) {
+        quality *= 0.66;
+        resize();
+        watchFrom = now + 1000;
+      } else {
+        hold();
+      }
+    }
+
+    const onScroll = () => {
+      quietUntil = performance.now() + 160;
+    };
 
     if (!build()) {
       giveUp('build-failed');
@@ -1142,12 +1219,15 @@ export function BlackHoleHeroSection({
     }
     resize();
     settle(reduced ? 16 : 1);
+    watchFrom = performance.now() + 1000;
     if (!reduced) raf = requestAnimationFrame(tick);
 
     /* --- the world ------------------------------------------------------- */
 
     const ro = new ResizeObserver(() => {
       resize();
+      watchFrom = performance.now() + 1000;
+      if (still) hold();
       if (reduced || props.current.paused) settle(16);
     });
     ro.observe(host);
@@ -1191,6 +1271,7 @@ export function BlackHoleHeroSection({
     };
 
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('scroll', onScroll, { passive: true });
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
 
@@ -1200,6 +1281,7 @@ export function BlackHoleHeroSection({
       ro.disconnect();
       io.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('scroll', onScroll);
       canvas.removeEventListener('webglcontextlost', onLost);
       canvas.removeEventListener('webglcontextrestored', onRestored);
       dropTargets();
