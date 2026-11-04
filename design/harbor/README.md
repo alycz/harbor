@@ -25,12 +25,26 @@ Harbor follows the NEAR hackathon's visual language: warm cream paper, ink text,
 
 - **IBM Plex Mono** for everything you read, at 400, 500 and 600.
 - **Arial / Helvetica, bold** for headings, set uppercase and tight (`-1px` to `-4px`), with one phrase in the accent colour.
-- **Pixelify Sans** for big numerals, such as amounts and step numbers.
+- **Pixelify Sans** for step numbers and decoration only. Its 5 and 8 read as S and B at small sizes, so money and percentages use bold Arial instead.
 
 ## Patterns
 
 - **Eyebrow:** a small accent label above a heading, such as `■ 01 / HOW IT WORKS`.
 - **Primary action:** solid accent, square, with an animated rainbow along the bottom edge and a soft rainbow glow underneath. On hover it lifts 3px and leaves a hard ink shadow.
-- **Dark band:** ink background, paper text, sky eyebrows, a faint scanline overlay.
+- **Dark band:** ink background, paper text, sky eyebrows, a faint scanline overlay. One per page at most.
+
+## Workspace
+
+The workspace pages build on a few shared pieces in `apps/web/src/components/brand.tsx` and `workspace.tsx`:
+
+- **Page header:** eyebrow, uppercase heading, one paragraph, and an optional meta line (such as when the data was captured). Actions sit to the right.
+- **Panel:** a ruled box whose first row is an uppercase 11px label, with a status or count at the right in the accent. Panels never have shadows or rounded corners.
+- **Ruled grid:** cells share 1px rules, like the steps on the landing page. Research uses it for chains, Earn for the best rate per chain.
+- **Fact rows:** a label and a value on one ruled line. The value a person acts on, such as the minimum received, is in the accent.
+- **Line tabs:** uppercase labels on a rule, underlined in the accent like the primary nav.
+- **Tables:** a sand header row with uppercase labels, ruled rows, numbers right-aligned, and the column people compare first in the accent. Empty values show a dash.
+- **Status tags:** a small ruled uppercase label, coloured by state.
+
+Each page spends its emphasis in one place: the chain grid on Research, the rates on Earn, the ticket on Trade, the connect band on Portfolio, and the rules band on Policy.
 
 Harbor is light only. Fonts are licensed under the SIL Open Font License; the texts are in `apps/web/public/licenses/`.
