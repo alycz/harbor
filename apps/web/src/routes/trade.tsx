@@ -1,14 +1,17 @@
 import { Button } from '@harbor/ui/components/button';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownUp, LoaderCircle, Route } from 'lucide-react';
+import { ArrowDownUp, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 
+import { AssetIcon } from '../components/asset-icon.tsx';
 import { AssetPicker, type PickerAsset } from '../components/asset-picker.tsx';
+import { Panel } from '../components/brand.tsx';
 import { ReviewRequirements } from '../components/financial-draft.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
 import { RouteFacts, useSwapDraft, WalletActivity } from '../components/trade-live.tsx';
 import { EmptyState, PageHeader } from '../components/workspace.tsx';
 import { execution } from '../lib/execution.ts';
+import { formatTokenAmount } from '../lib/format.ts';
 import { useHealth } from '../lib/health.ts';
 
 export function TradePage() {
@@ -27,6 +30,7 @@ export function TradePage() {
   const draft = useSwapDraft(inputAsset, outputAsset, amount);
   const { intentId, quote } = draft;
   const secondsLeft = useCountdown(quote?.expiresAt);
+  const network = health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet';
 
   /** Picking the asset already on the other side swaps the two sides. */
   function choose(side: 'input' | 'output', value: string) {
@@ -47,30 +51,33 @@ export function TradePage() {
   }
 
   return (
-    <div className="trade-workspace flex min-w-0 flex-col gap-5">
+    <div className="trade-workspace flex min-w-0 flex-col gap-8">
       <PageHeader
         kicker="Cross-chain intents"
-        title="Swap"
-        description={`${health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet'} · you sign every action.`}
+        title="Trade"
+        description="Swap between NEAR and other chains through NEAR Intents. Quotes are live; you review every swap and sign it in your own wallet."
       />
       <div className="trade-grid">
-        <section className="workspace-panel trade-routes min-w-0" aria-labelledby="trade-routes-title">
-          <div className="border-b px-5 py-4">
-            <h2 id="trade-routes-title" className="flex items-center gap-2 font-serif text-xl font-semibold">
-              <Route className="size-4" /> Route
-            </h2>
-          </div>
-          <div className="space-y-5 p-5">
-            <RouteFacts quote={quote} />
-          </div>
-        </section>
-        <section className="workspace-panel trade-ticket min-w-0" aria-labelledby="trade-ticket-title">
-          <h2 id="trade-ticket-title" className="border-b px-5 py-4 font-serif text-xl font-semibold">
-            Market swap
-          </h2>
+        <Panel
+          label="Route"
+          aside={
+            quote
+              ? secondsLeft === 0
+                ? 'Quote expired'
+                : `Live quote · ${secondsLeft ?? '…'}s`
+              : draft.waiting
+                ? 'Quoting…'
+                : 'No quote yet'
+          }
+          className="trade-routes"
+          labelId="trade-routes-title"
+        >
+          {quote ? <RouteFacts quote={quote} /> : <SupportedAssets assets={options} loading={assets.isPending} />}
+        </Panel>
+        <Panel label="Market swap" aside={network} className="trade-ticket" labelId="trade-ticket-title">
           {assets.isPending ? (
-            <p className="flex items-center gap-2 p-5 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin" /> Loading supported assets…
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> Loading supported assets…
             </p>
           ) : options.length < 2 ? (
             <EmptyState
@@ -78,9 +85,9 @@ export function TradePage() {
               description="This network has no verified swap assets configured yet, so nothing can be quoted."
             />
           ) : (
-            <div className="space-y-5 p-5">
+            <div className="space-y-4">
               <div className="trade-asset-box">
-                <p className="mb-3 text-[11px] text-subtle">You pay</p>
+                <p className="trade-box-label">You pay</p>
                 <div className="flex items-center gap-3">
                   <label className="sr-only" htmlFor="trade-amount">
                     Amount
@@ -104,11 +111,11 @@ export function TradePage() {
                   />
                 </div>
               </div>
-              <div className="flex justify-center">
+              <div className="-my-2 flex justify-center">
                 <Button
                   variant="outline"
                   size="icon"
-                  className="size-11"
+                  className="relative z-10 size-11 bg-card"
                   disabled={locked}
                   aria-label="Reverse input and output assets"
                   onClick={reversePair}
@@ -117,16 +124,18 @@ export function TradePage() {
                 </Button>
               </div>
               <div className="trade-asset-box">
-                <p className="mb-3 flex justify-between gap-3 text-[11px] text-subtle">
-                  <span>Estimated receive</span>
-                  <span>{quote ? (secondsLeft === 0 ? 'Expired quote' : 'Current quote') : 'Quote required'}</span>
+                <p className="trade-box-label">
+                  <span>You receive</span>
+                  <span>{quote ? (secondsLeft === 0 ? 'Quote expired' : 'Estimate') : ''}</span>
                 </p>
                 <div className="flex items-center gap-3">
                   <output
-                    className="min-w-0 flex-1 overflow-wrap-anywhere font-mono text-[28px]"
+                    className="trade-amount-output"
                     aria-label="Estimated receive"
+                    title={quote?.expectedOut.amount}
+                    data-empty={quote && secondsLeft !== 0 ? undefined : ''}
                   >
-                    {quote && secondsLeft !== 0 ? quote.expectedOut.amount : '—'}
+                    {quote && secondsLeft !== 0 ? formatTokenAmount(quote.expectedOut.amount) : '0'}
                   </output>
                   <AssetPicker
                     label="You receive"
@@ -146,28 +155,47 @@ export function TradePage() {
                 />
               ) : draft.waiting ? (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <LoaderCircle className="size-4 animate-spin" /> Getting a live quote…
+                  <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> Getting a live quote…
                 </p>
               ) : draft.error ? (
                 <p role="alert" className="text-sm text-destructive">
                   {draft.error}
                 </p>
               ) : (
-                <p className="text-xs text-subtle">Enter an amount to get a live quote.</p>
+                <p className="text-xs text-muted-foreground">Enter an amount to get a live quote.</p>
               )}
               <ReviewRequirements />
             </div>
           )}
-        </section>
-        <section className="workspace-panel trade-positions" aria-labelledby="trade-positions-title">
-          <h2 id="trade-positions-title" className="border-b px-6 py-5 font-serif text-xl font-semibold">
-            Swap history
-          </h2>
-          <div className="px-5 pb-5">
-            <WalletActivity />
-          </div>
-        </section>
+        </Panel>
+        <Panel label="Swap history" className="trade-positions" labelId="trade-positions-title">
+          <WalletActivity />
+        </Panel>
       </div>
+    </div>
+  );
+}
+
+/** What can be swapped here, shown until there is a quote to describe. */
+function SupportedAssets({ assets, loading }: { assets: PickerAsset[]; loading: boolean }) {
+  if (loading) return <p className="text-sm text-muted-foreground">Loading supported assets…</p>;
+  return (
+    <div className="space-y-4">
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Enter an amount and the route, the minimum you receive and the quote's expiry appear here for that exact size.
+        These are the assets you can swap:
+      </p>
+      <ul className="grid grid-cols-2 border-t border-l border-line sm:grid-cols-4">
+        {assets.map((asset) => (
+          <li key={asset.symbol} className="flex items-center gap-3 border-r border-b border-line p-3">
+            <AssetIcon symbol={asset.symbol} className="size-8" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{asset.symbol}</span>
+              <span className="block truncate text-[11px] text-muted-foreground">{asset.name}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

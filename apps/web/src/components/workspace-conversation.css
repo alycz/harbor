@@ -1,18 +1,6 @@
-.lab-workspace {
-  width: 100%;
-}
-
 .chat-workspace .workspace-page-header h1 {
-  font-size: 30px;
-  line-height: 1.1;
-}
-
-.lab-thesis-body {
-  display: flex;
-  flex-direction: column;
-  height: 620px;
-  min-height: 560px;
-  padding: 22px;
+  font-size: 32px;
+  line-height: 1;
 }
 
 .conversation-draft {
@@ -58,8 +46,7 @@
 }
 
 .chat-workspace [role="log"]::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--harbor-border-strong);
+  background: var(--harbor-line);
 }
 
 @media (min-width: 1024px) {
@@ -76,16 +63,15 @@
   align-items: center;
 }
 
-.lab-thesis-body > .conversation-draft {
-  max-width: 800px;
-}
-
-.chat-title-row .workspace-page-header p {
+.chat-title-row .workspace-page-header p:not(:first-child) {
   display: none;
 }
 
-.chat-workspace .conversation-status,
-.lab-workspace .conversation-status {
+.chat-title-row .workspace-page-header p:first-child {
+  margin-bottom: 10px;
+}
+
+.chat-workspace .conversation-status {
   display: none;
 }
 
@@ -95,18 +81,8 @@
 
 .conversation-strategy .conversation-welcome-title {
   flex-direction: column;
-  gap: 14px;
-}
-
-.conversation-strategy .conversation-welcome-title img {
-  width: 48px;
-  padding: 5px;
-  border: 1px solid var(--harbor-border);
-  background: var(--harbor-accent-tint);
-}
-
-.conversation-strategy .conversation-welcome-title h2 {
-  font-size: 28px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .conversation-strategy .conversation-prompts {
@@ -129,27 +105,17 @@
   padding-block: 12px;
   gap: 18px;
 }
+
 .conversation-strategy .conversation-welcome > :first-child {
   max-width: 700px;
 }
-.conversation-strategy .conversation-welcome-title {
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.conversation-research .conversation-composer textarea {
-  background: transparent;
-}
-.allocation-draft [data-slot="label"] {
-  font: 500 10px / 1.5 var(--harbor-font-mono);
-  letter-spacing: 0.08em;
-  color: var(--harbor-text-secondary);
-  text-transform: uppercase;
-}
 
-.conversation-research .conversation-welcome-title h2 {
-  font-size: 30px;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+.allocation-draft [data-slot="label"] {
+  color: var(--harbor-text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
 }
 
 @media (max-width: 639px) {
@@ -159,10 +125,7 @@
   .conversation-research .conversation-welcome-title {
     gap: 10px;
   }
-  .conversation-research .conversation-welcome-title img {
-    width: 28px;
-  }
   .conversation-research .conversation-welcome-title h2 {
-    font-size: 22px;
+    font-size: 24px;
   }
 }

@@ -1,7 +1,7 @@
 import { safeResearchUrl } from '@harbor/data/research';
 import { useState } from 'react';
 
-/** A protocol or asset logo from the research snapshot's captured URL, or a neutral initial. */
+/** A protocol or asset logo from the research snapshot's captured URL, or its initials on an ink tile. */
 export function ProtocolLogo({
   name,
   fallback,
@@ -19,7 +19,7 @@ export function ProtocolLogo({
       aria-hidden="true"
       data-logo-name={name}
       data-logo-state={visible ? 'available' : 'missing'}
-      className={`relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full border border-border align-middle text-[10px] font-semibold uppercase ${visible ? 'bg-foreground' : 'bg-secondary text-muted-foreground'} ${className}`}
+      className={`relative inline-grid shrink-0 place-items-center overflow-hidden border border-line align-middle font-serif text-[11px] font-bold uppercase ${visible ? 'bg-card' : 'bg-band text-band-foreground'} ${className}`}
     >
       {src && visible ? (
         <img

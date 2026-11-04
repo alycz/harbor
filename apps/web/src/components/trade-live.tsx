@@ -1,16 +1,17 @@
-import { Badge } from '@harbor/ui/components/badge';
 import { Button } from '@harbor/ui/components/button';
 import { Skeleton } from '@harbor/ui/components/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harbor/ui/components/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@harbor/ui/components/tabs';
+import { Tabs, TabsContent } from '@harbor/ui/components/tabs';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, RefreshCw, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { type ActivityItem, ExecutionRequestError, execution, type Quote } from '../lib/execution.ts';
+import { formatTokenAmount, venueName } from '../lib/format.ts';
 import { swapDraftRequest } from '../lib/swap-draft.ts';
 import { useWallet } from '../lib/wallet.tsx';
-import { Fact, useCountdown } from './swap-proposal.tsx';
+import { FactRow, LineTab, LineTabsList } from './brand.tsx';
+import { useCountdown } from './swap-proposal.tsx';
 import { EmptyState } from './workspace.tsx';
 
 const QUOTE_DELAY_MS = 600;
@@ -68,38 +69,44 @@ export function useSwapDraft(sell: string, buy: string, amount: string) {
   };
 }
 
-export function RouteFacts({ quote }: { quote: Quote | null }) {
-  const secondsLeft = useCountdown(quote?.expiresAt);
-  if (!quote) {
-    return (
-      <div className="space-y-3 text-sm">
-        <Badge variant="outline">Cross-chain intents</Badge>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Enter an amount. The route, minimum received and price impact appear here for that exact size.
-        </p>
-      </div>
-    );
-  }
+export function RouteFacts({ quote }: { quote: Quote }) {
+  const secondsLeft = useCountdown(quote.expiresAt);
   const rate = Number(quote.expectedOut.amount) / Number(quote.sell.amount);
   return (
-    <div className="space-y-3 text-sm">
-      <Badge variant="secondary">{quote.venue}</Badge>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-        <Fact label="Expected" value={`${quote.expectedOut.amount} ${quote.expectedOut.symbol}`} />
-        <Fact label="At least" value={`${quote.minimumOut.amount} ${quote.minimumOut.symbol}`} />
-        <Fact label="Rate" value={`${formatPrice(rate)} ${quote.expectedOut.symbol}/${quote.sell.symbol}`} />
-        <Fact
+    <div className="space-y-4">
+      <dl>
+        <FactRow
+          label="You send"
+          value={`${formatTokenAmount(quote.sell.amount)} ${quote.sell.symbol}`}
+          title={quote.sell.amount}
+        />
+        <FactRow
+          label="Expected"
+          value={`${formatTokenAmount(quote.expectedOut.amount)} ${quote.expectedOut.symbol}`}
+          title={quote.expectedOut.amount}
+        />
+        <FactRow
+          label="At least"
+          value={
+            <span className="font-semibold text-primary">
+              {formatTokenAmount(quote.minimumOut.amount)} {quote.minimumOut.symbol}
+            </span>
+          }
+          title={quote.minimumOut.amount}
+        />
+        <FactRow label="Rate" value={`${formatPrice(rate)} ${quote.expectedOut.symbol} per ${quote.sell.symbol}`} />
+        <FactRow
           label="Price impact"
           value={quote.priceImpactBps === null ? 'Not reported' : `${quote.priceImpactBps / 100}%`}
         />
-        <Fact label="Slippage" value={`${quote.slippageBps / 100}%`} />
-        <Fact label="Through" value={quote.protocols.join(', ') || quote.venue} />
-        <Fact label="Harbor fee" value="0" />
+        <FactRow label="Slippage limit" value={`${quote.slippageBps / 100}%`} />
+        <FactRow label="Through" value={venueName(quote.venue)} />
+        <FactRow label="Harbor fee" value="None" />
       </dl>
-      <p className="text-xs text-subtle">
+      <p className="text-xs text-muted-foreground">
         {secondsLeft === null || secondsLeft > 0
-          ? `Quote valid for ${secondsLeft ?? '…'}s. The policy check runs when you review.`
-          : 'Quote expired. Change the amount or pair to get a new quote.'}
+          ? 'The policy check runs when you review the swap.'
+          : 'This quote expired. Change the amount or pair to get a new one.'}
       </p>
     </div>
   );
@@ -138,12 +145,12 @@ export function WalletActivity() {
   const items = activity.data.items;
   const pending = items.filter((item) => item.status === 'submitted' || item.status === 'confirming');
   return (
-    <Tabs defaultValue="swaps">
-      <TabsList>
-        <TabsTrigger value="swaps">Swaps</TabsTrigger>
-        <TabsTrigger value="pending">Pending{pending.length > 0 ? ` (${pending.length})` : ''}</TabsTrigger>
-        <TabsTrigger value="history">History</TabsTrigger>
-      </TabsList>
+    <Tabs defaultValue="swaps" className="gap-4">
+      <LineTabsList label="Activity views">
+        <LineTab value="swaps">Swaps</LineTab>
+        <LineTab value="pending">Pending{pending.length > 0 ? ` (${pending.length})` : ''}</LineTab>
+        <LineTab value="history">History</LineTab>
+      </LineTabsList>
       <TabsContent value="swaps">
         <ActivityTable
           items={items.filter((item) => item.kind === 'swap')}
@@ -163,60 +170,80 @@ export function WalletActivity() {
 function ActivityTable({ items, empty }: { items: ActivityItem[]; empty: string }) {
   if (items.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">{empty}</p>;
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>When</TableHead>
-          <TableHead>Action</TableHead>
-          <TableHead>Sent</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Transaction</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.map((item) => (
-          <TableRow key={item.id}>
-            <TableCell className="whitespace-nowrap text-muted-foreground">
-              {ACTIVITY_TIME.format(Date.parse(item.createdAt))}
-            </TableCell>
-            <TableCell>
-              <p className="font-medium">{item.title}</p>
-              <p className="text-xs text-muted-foreground">{item.venue}</p>
-            </TableCell>
-            <TableCell className="font-mono tabular-nums">{amounts(item.sent)}</TableCell>
-            <TableCell>
-              <StatusBadge status={item.status} />
-            </TableCell>
-            <TableCell className="text-right">
-              {item.explorerUrl ? (
-                <a
-                  href={item.explorerUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  View <ExternalLink className="size-3" />
-                </a>
-              ) : (
-                '—'
-              )}
-            </TableCell>
+    <div className="border border-line">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-line hover:bg-transparent">
+            {['When', 'Action', 'Sent', 'Status', 'Transaction'].map((label) => (
+              <TableHead
+                key={label}
+                className={`h-10 bg-secondary text-[11px] font-medium tracking-[0.6px] text-muted-foreground uppercase ${label === 'Transaction' ? 'text-right' : ''}`}
+              >
+                {label}
+              </TableHead>
+            ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow key={item.id} className="border-line">
+              <TableCell className="whitespace-nowrap text-muted-foreground">
+                {ACTIVITY_TIME.format(Date.parse(item.createdAt))}
+              </TableCell>
+              <TableCell>
+                <p className="font-medium">{item.title}</p>
+                <p className="text-xs text-muted-foreground">{venueName(item.venue)}</p>
+              </TableCell>
+              <TableCell className="tabular-nums">{amounts(item.sent)}</TableCell>
+              <TableCell>
+                <StatusTag status={item.status} />
+              </TableCell>
+              <TableCell className="text-right">
+                {item.explorerUrl ? (
+                  <a
+                    href={item.explorerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    View <ExternalLink className="size-3" />
+                  </a>
+                ) : (
+                  '—'
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
-function StatusBadge({ status }: { status: ActivityItem['status'] }) {
-  if (status === 'confirmed') return <Badge variant="secondary">Confirmed</Badge>;
-  if (status === 'submitted' || status === 'confirming') return <Badge variant="outline">Pending</Badge>;
-  if (status === 'failed') return <Badge variant="destructive">Failed</Badge>;
-  if (status === 'refunded') return <Badge variant="outline">Refunded</Badge>;
-  if (status === 'outcome_unknown') return <Badge variant="destructive">Outcome unknown</Badge>;
-  return <Badge variant="outline">{status === 'expired' ? 'Expired' : status.replaceAll('_', ' ')}</Badge>;
+const STATUS: Record<string, { label: string; tone: string }> = {
+  confirmed: { label: 'Confirmed', tone: 'border-success text-success' },
+  submitted: { label: 'Pending', tone: 'border-primary text-primary' },
+  confirming: { label: 'Pending', tone: 'border-primary text-primary' },
+  failed: { label: 'Failed', tone: 'border-destructive text-destructive' },
+  refunded: { label: 'Refunded', tone: 'border-line text-muted-foreground' },
+  outcome_unknown: { label: 'Outcome unknown', tone: 'border-destructive text-destructive' },
+  expired: { label: 'Expired', tone: 'border-line text-muted-foreground' },
+};
+
+/** A plan's state as a small ruled tag. */
+export function StatusTag({ status }: { status: string }) {
+  const known = STATUS[status] ?? { label: status.replaceAll('_', ' '), tone: 'border-line text-muted-foreground' };
+  return (
+    <span
+      className={`inline-block border px-1.5 py-0.5 text-[10px] font-medium tracking-[0.6px] whitespace-nowrap uppercase ${known.tone}`}
+    >
+      {known.label}
+    </span>
+  );
 }
 
 function amounts(list: ActivityItem['sent']): string {
-  return list.length === 0 ? '—' : list.map((amount) => `${amount.amount} ${amount.symbol}`).join(' + ');
+  return list.length === 0
+    ? '—'
+    : list.map((amount) => `${formatTokenAmount(amount.amount)} ${amount.symbol}`).join(' + ');
 }

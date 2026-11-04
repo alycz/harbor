@@ -1,9 +1,7 @@
 import { SUGGESTED_POLICY } from '@harbor/policy/policy';
-import { Badge } from '@harbor/ui/components/badge';
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { Label } from '@harbor/ui/components/label';
-import { Separator } from '@harbor/ui/components/separator';
 import {
   Sheet,
   SheetClose,
@@ -13,8 +11,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@harbor/ui/components/sheet';
-import { ShieldCheck } from 'lucide-react';
-import { useId } from 'react';
+import { Link } from '@tanstack/react-router';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { type ReactNode, useId } from 'react';
 
 import { DraftNotice } from './workspace.tsx';
 
@@ -27,90 +26,133 @@ export function PolicyDrawer() {
         <ShieldCheck />
         <span className="hidden sm:inline">Policy</span>
       </SheetTrigger>
-      <SheetContent className="harbor-workspace w-full sm:max-w-[440px]">
-        <SheetHeader>
-          <SheetTitle>Policy · draft</SheetTitle>
+      <SheetContent className="harbor-workspace w-full gap-0 sm:max-w-[460px]">
+        <SheetHeader className="border-b border-line p-5">
+          <p className="text-xs font-medium tracking-[0.6px] text-primary uppercase">■ Draft · not signed</p>
+          <SheetTitle className="font-serif text-[28px] leading-none font-bold tracking-[-1px] uppercase">
+            Your policy
+          </SheetTitle>
           <SheetDescription>
-            The limits Harbor may act within, once you sign them. This draft is not signed or enforced yet; every action
-            still needs your review and wallet signature.
+            The limits Harbor may act within, once you sign them. Until then, every action still needs your review and
+            your wallet signature.
           </SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <PolicyEditor />
         </div>
-        <div className="border-t p-4">
-          <SheetClose render={<Button variant="ghost" className="w-full" />}>Close draft</SheetClose>
+        <div className="flex gap-2 border-t border-line p-4">
+          <SheetClose
+            nativeButton={false}
+            render={<Link to="/settings/policy" className="flex-1" />}
+            className="inline-flex h-11 items-center justify-between border border-line px-4 text-sm hover:bg-secondary"
+          >
+            Open full page <ArrowRight className="size-4" />
+          </SheetClose>
+          <SheetClose render={<Button variant="ghost" className="h-11" />}>Close</SheetClose>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
+/** One group of policy fields, headed by an uppercase label on a rule. */
+function PolicySection({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
+  return (
+    <fieldset className="border-t border-line pt-4 first:border-t-0 first:pt-0">
+      <legend className="float-left mb-4 w-full text-[11px] font-medium tracking-[0.6px] uppercase">{title}</legend>
+      <div className="clear-both grid gap-4 sm:grid-cols-2">{children}</div>
+      {note ? <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{note}</p> : null}
+    </fieldset>
+  );
+}
+
+function Field({
+  id,
+  label,
+  wide = false,
+  children,
+}: {
+  id: string;
+  label: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`space-y-2 ${wide ? 'sm:col-span-2' : ''}`}>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
 export function PolicyEditor() {
   const id = useId();
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="outline">Draft · not signed</Badge>
-        <Badge variant="secondary">Suggested values</Badge>
-      </div>
-      <fieldset className="space-y-4">
-        <legend className="mb-3 font-medium">Budget</legend>
-        <div className="space-y-2">
-          <Label htmlFor={`${id}-budget`}>Total budget</Label>
-          <Input id={`${id}-budget`} inputMode="decimal" placeholder="Amount and asset, such as 25 USDC" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor={`${id}-per-action`}>Per-action cap</Label>
-            <Input id={`${id}-per-action`} inputMode="decimal" placeholder="Off" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`${id}-daily`}>Daily cap</Label>
-            <Input id={`${id}-daily`} inputMode="decimal" placeholder="Off" />
-          </div>
-        </div>
-      </fieldset>
-      <Separator />
-      <fieldset className="space-y-4">
-        <legend className="mb-3 font-medium">Where funds may go</legend>
-        <div className="space-y-2">
-          <Label htmlFor={`${id}-assets`}>Allowed assets</Label>
-          <Input id={`${id}-assets`} placeholder="Such as NEAR, USDC" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${id}-destinations`}>Your own addresses only</Label>
-          <Input id={`${id}-destinations`} placeholder="Defaults to the connected account" />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          A destination outside this list always comes back to you, whatever a model, a feed or a post says.
-        </p>
-      </fieldset>
-      <Separator />
-      <fieldset className="grid gap-4 sm:grid-cols-2">
-        <legend className="mb-3 font-medium">Execution</legend>
-        <div className="space-y-2">
-          <Label htmlFor={`${id}-slippage`}>Slippage (%)</Label>
-          <Input id={`${id}-slippage`} inputMode="decimal" defaultValue={String(values.slippageBps / 100)} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${id}-impact`}>Price impact warning (%)</Label>
-          <Input id={`${id}-impact`} inputMode="decimal" defaultValue={String(values.priceImpactWarningBps / 100)} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${id}-quote-age`}>Maximum quote age (seconds)</Label>
-          <Input id={`${id}-quote-age`} inputMode="numeric" defaultValue={String(values.quoteMaxAgeSeconds)} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${id}-expiry`}>Expires after (days)</Label>
-          <Input id={`${id}-expiry`} inputMode="numeric" defaultValue={String(values.expiresInDays)} />
-        </div>
-      </fieldset>
+    <div className="space-y-6">
+      <PolicySection title="Budget">
+        <Field id={`${id}-budget`} label="Total budget" wide>
+          <Input
+            id={`${id}-budget`}
+            className="h-11"
+            inputMode="decimal"
+            placeholder="Amount and asset, such as 25 USDC"
+          />
+        </Field>
+        <Field id={`${id}-per-action`} label="Most per action">
+          <Input id={`${id}-per-action`} className="h-11" inputMode="decimal" placeholder="No cap" />
+        </Field>
+        <Field id={`${id}-daily`} label="Most per day">
+          <Input id={`${id}-daily`} className="h-11" inputMode="decimal" placeholder="No cap" />
+        </Field>
+      </PolicySection>
+      <PolicySection
+        title="Where funds may go"
+        note="A destination outside this list always comes back to you, whatever a model, a feed or a post says."
+      >
+        <Field id={`${id}-assets`} label="Allowed assets" wide>
+          <Input id={`${id}-assets`} className="h-11" placeholder="Such as NEAR, USDC" />
+        </Field>
+        <Field id={`${id}-destinations`} label="Your own addresses" wide>
+          <Input id={`${id}-destinations`} className="h-11" placeholder="Defaults to the connected account" />
+        </Field>
+      </PolicySection>
+      <PolicySection title="Execution">
+        <Field id={`${id}-slippage`} label="Slippage limit (%)">
+          <Input
+            id={`${id}-slippage`}
+            className="h-11"
+            inputMode="decimal"
+            defaultValue={String(values.slippageBps / 100)}
+          />
+        </Field>
+        <Field id={`${id}-impact`} label="Warn above price impact (%)">
+          <Input
+            id={`${id}-impact`}
+            className="h-11"
+            inputMode="decimal"
+            defaultValue={String(values.priceImpactWarningBps / 100)}
+          />
+        </Field>
+        <Field id={`${id}-quote-age`} label="Oldest quote accepted (seconds)">
+          <Input
+            id={`${id}-quote-age`}
+            className="h-11"
+            inputMode="numeric"
+            defaultValue={String(values.quoteMaxAgeSeconds)}
+          />
+        </Field>
+        <Field id={`${id}-expiry`} label="Policy expires after (days)">
+          <Input id={`${id}-expiry`} className="h-11" inputMode="numeric" defaultValue={String(values.expiresInDays)} />
+        </Field>
+      </PolicySection>
       <DraftNotice>
-        Signing a policy is not available in this build. Each action's exact limits are shown in its own review.
+        Signing a policy is not available in this build yet. Until it is, each swap shows its exact limits in its own
+        review, and you approve it there.
       </DraftNotice>
-      <Button className="w-full" disabled>
-        Sign policy in wallet
+      <Button className="h-14 w-full justify-between px-[22px]" disabled>
+        Sign policy in wallet <ArrowRight />
       </Button>
     </div>
   );

@@ -1,4 +1,3 @@
-import { Badge } from '@harbor/ui/components/badge';
 import { Button } from '@harbor/ui/components/button';
 import {
   DropdownMenu,
@@ -110,19 +109,29 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
               <SheetHeader>
                 <SheetTitle>Workspace</SheetTitle>
               </SheetHeader>
-              <nav className="flex flex-col gap-1 px-4" aria-label="Workspace navigation">
+              <nav className="flex flex-col border-t border-line mx-4" aria-label="Workspace navigation">
                 {ROUTES.map((route) => (
                   <SheetClose
                     nativeButton={false}
                     key={route.to}
-                    render={<Link to={route.to} className="rounded-lg px-3 py-3 text-sm hover:bg-accent" />}
+                    render={
+                      <Link
+                        to={route.to}
+                        className="border-b border-line px-3 py-3.5 text-xs font-medium tracking-[0.6px] uppercase hover:text-primary aria-[current=page]:text-primary"
+                      />
+                    }
                   >
                     {route.label}
                   </SheetClose>
                 ))}
                 <SheetClose
                   nativeButton={false}
-                  render={<Link to="/settings/policy" className="rounded-lg px-3 py-3 text-sm hover:bg-accent" />}
+                  render={
+                    <Link
+                      to="/settings/policy"
+                      className="border-b border-line px-3 py-3.5 text-xs font-medium tracking-[0.6px] uppercase hover:text-primary aria-[current=page]:text-primary"
+                    />
+                  }
                 >
                   Policy
                 </SheetClose>
@@ -175,13 +184,13 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
       </ResizablePanelGroup>
       <nav
         aria-label="Mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background/95 backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line bg-background md:hidden"
       >
         {ROUTES.map((route) => (
           <Link
             key={route.to}
             to={route.to}
-            className={`flex min-h-14 min-w-0 items-center justify-center text-[10.5px] tracking-tight sm:text-xs sm:tracking-normal ${isActiveGroup(pathname, route.to) ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`flex min-h-14 min-w-0 items-center justify-center border-t-2 text-[10px] font-medium tracking-[0.4px] uppercase sm:text-[11px] ${isActiveGroup(pathname, route.to) ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
             aria-current={isActiveGroup(pathname, route.to) ? 'page' : undefined}
           >
             {route.label}
@@ -218,15 +227,24 @@ function WorkspaceContent({ children }: { children: ReactNode }) {
   );
 }
 
+const STATUS_TAG =
+  'inline-flex h-8 items-center gap-2 border border-line px-2.5 text-[11px] font-medium tracking-[0.6px] whitespace-nowrap uppercase';
+
 function NetworkStatus() {
   const health = useHealth();
   if (health.isPending) return <Skeleton className="h-6 w-24" />;
-  if (health.isError || !health.data.ok) return <Badge variant="outline">Connection unavailable</Badge>;
+  if (health.isError || !health.data.ok) return <span className={STATUS_TAG}>Connection unavailable</span>;
   return (
-    <Badge variant="outline" className="font-mono">
+    <span
+      className={STATUS_TAG}
+      title={health.data.executionEnabled ? undefined : 'Swaps can be reviewed and approved, but nothing is submitted.'}
+    >
+      <span aria-hidden="true" className={health.data.executionEnabled ? 'text-success' : 'text-primary'}>
+        ●
+      </span>
       {health.data.network === 'mainnet' ? 'Mainnet' : 'Testnet'}
-      {health.data.executionEnabled ? null : ' · execution off'}
-    </Badge>
+      <span className="text-muted-foreground">{health.data.executionEnabled ? 'Execution on' : 'Execution off'}</span>
+    </span>
   );
 }
 
@@ -275,7 +293,7 @@ function WalletButton() {
             align="end"
             sideOffset={8}
             aria-label="Wallet account"
-            className="w-52 rounded-xl border p-1.5"
+            className="w-56 border border-line p-1.5"
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="px-3 pt-2 pb-1.5 font-normal">
@@ -312,7 +330,7 @@ function WalletButton() {
       {error ? (
         <p
           role="alert"
-          className="absolute top-full right-0 z-50 mt-3 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-destructive/30 bg-popover p-3 text-xs leading-relaxed text-destructive shadow-lg"
+          className="absolute top-full right-0 z-50 mt-3 w-72 max-w-[calc(100vw-2rem)] border border-destructive border-l-2 bg-popover p-3 text-xs leading-relaxed text-destructive"
         >
           {error}
         </p>

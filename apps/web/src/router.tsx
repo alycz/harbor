@@ -1,5 +1,4 @@
 import { Button } from '@harbor/ui/components/button';
-import { Card } from '@harbor/ui/components/card';
 import {
   createRootRoute,
   createRoute,
@@ -12,6 +11,7 @@ import {
 import { lazy } from 'react';
 
 import { AppShell } from './components/app-shell.tsx';
+import { Panel } from './components/brand.tsx';
 import { EmptyState } from './components/workspace.tsx';
 
 // The landing page renders on its own; every other page sits inside the workspace shell.
@@ -115,23 +115,25 @@ function PlanView() {
 
 function PageError({ reset }: ErrorComponentProps) {
   return (
-    <Card>
-      <EmptyState title="This page couldn't be loaded" description="Try again, or return to the research workspace.">
-        <Button onClick={reset}>Try again</Button>
+    <Panel label="Something went wrong">
+      <EmptyState title="This page couldn't be loaded" description="Try again, or go back to research.">
+        <Button className="h-11" onClick={reset}>
+          Try again
+        </Button>
       </EmptyState>
-    </Card>
+    </Panel>
   );
 }
 
 function PageNotFound() {
   return (
-    <Card>
+    <Panel label="Not found">
       <EmptyState title="Page not found" description="This link doesn't match a page in your workspace.">
-        <Button nativeButton={false} render={<Link to="/research" />}>
+        <Button nativeButton={false} className="h-11" render={<Link to="/research" />}>
           Open research
         </Button>
       </EmptyState>
-    </Card>
+    </Panel>
   );
 }
 

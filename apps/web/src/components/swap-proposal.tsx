@@ -1,10 +1,11 @@
-import { Badge } from '@harbor/ui/components/badge';
 import { Button } from '@harbor/ui/components/button';
 import { AlertTriangle, ArrowRight, CheckCircle2, LoaderCircle, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ExecutionRequestError, execution, type Intent, type Plan, planProblem, type Quote } from '../lib/execution.ts';
+import { formatTokenAmount, venueName } from '../lib/format.ts';
 import { shortAddress, useWallet } from '../lib/wallet.tsx';
+import { FactRow } from './brand.tsx';
 
 type Phase = 'quoting' | 'quoted' | 'planning' | 'review' | 'approving' | 'approved' | 'stopped';
 
@@ -102,112 +103,118 @@ export function SwapProposalCard({
   const warnings = plan?.policy.reasons.filter((reason) => !reason.pass && reason.severity === 'warn') ?? [];
 
   return (
-    <section aria-label="Swap proposal" className="mt-3 space-y-3 rounded-lg border bg-background p-4 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section aria-label="Swap proposal" className="border border-line bg-background text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
         <p className="flex items-center gap-2 font-medium">
-          {sell ? `${sell.amount} ${sell.symbol}` : '…'} <ArrowRight className="size-4" /> {buySymbol}
+          {sell ? `${formatTokenAmount(sell.amount)} ${sell.symbol}` : '…'} <ArrowRight className="size-4" />{' '}
+          {buySymbol}
         </p>
-        <div className="flex gap-1.5">
-          {intent ? <Badge variant="outline">{intent.network === 'mainnet' ? 'Mainnet' : 'Testnet'}</Badge> : null}
-          {quote ? <Badge variant="secondary">{quote.venue}</Badge> : null}
-        </div>
+        <p className="text-[11px] font-medium tracking-[0.6px] text-primary uppercase">
+          {intent ? (intent.network === 'mainnet' ? 'Mainnet' : 'Testnet') : null}
+          {quote ? ` · ${venueName(quote.venue)}` : null}
+        </p>
       </div>
 
-      {phase === 'quoting' ? (
-        <p className="flex items-center gap-2 text-muted-foreground">
-          <LoaderCircle className="size-4 animate-spin" /> Getting a live quote…
-        </p>
-      ) : null}
-
-      {quote && phase !== 'quoting' && phase !== 'stopped' ? (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-          <Fact label="Expected" value={`${quote.expectedOut.amount} ${quote.expectedOut.symbol}`} />
-          <Fact
-            label="At least"
-            value={`${quote.minimumOut.amount} ${quote.minimumOut.symbol} (${quote.slippageBps / 100}% slippage)`}
-          />
-          <Fact
-            label="Price impact"
-            value={quote.priceImpactBps === null ? 'Not reported' : `${quote.priceImpactBps / 100}%`}
-          />
-          <Fact label="Route" value={quote.protocols.join(', ') || quote.venue} />
-          <Fact label="Harbor fee" value="0" />
-          {plan ? <Fact label="From" value={shortAddress(plan.account)} /> : null}
-        </dl>
-      ) : null}
-
-      {plan && (phase === 'review' || phase === 'approving' || phase === 'approved') ? (
-        <div className="space-y-1.5">
-          <p className="flex items-center gap-2 text-xs uppercase tracking-wider text-subtle">
-            <ShieldCheck className="size-3.5" /> Policy check: {plan.policy.verdict}
+      <div className="space-y-3 p-4">
+        {phase === 'quoting' ? (
+          <p className="flex items-center gap-2 text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> Getting a live quote…
           </p>
-          {warnings.map((reason) => (
-            <p key={reason.code} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <AlertTriangle className="size-3.5 shrink-0" /> {reason.detail}
+        ) : null}
+
+        {quote && phase !== 'quoting' && phase !== 'stopped' ? (
+          <dl>
+            <FactRow
+              label="Expected"
+              value={`${formatTokenAmount(quote.expectedOut.amount)} ${quote.expectedOut.symbol}`}
+              title={quote.expectedOut.amount}
+            />
+            <FactRow
+              label={`At least (${quote.slippageBps / 100}% slippage)`}
+              value={
+                <span className="font-semibold text-primary">
+                  {formatTokenAmount(quote.minimumOut.amount)} {quote.minimumOut.symbol}
+                </span>
+              }
+              title={quote.minimumOut.amount}
+            />
+            <FactRow
+              label="Price impact"
+              value={quote.priceImpactBps === null ? 'Not reported' : `${quote.priceImpactBps / 100}%`}
+            />
+            <FactRow label="Harbor fee" value="None" />
+            {plan ? <FactRow label="From" value={shortAddress(plan.account)} title={plan.account} /> : null}
+          </dl>
+        ) : null}
+
+        {plan && (phase === 'review' || phase === 'approving' || phase === 'approved') ? (
+          <div className="space-y-2 border-l-2 border-primary bg-secondary px-3 py-2.5">
+            <p className="flex items-center gap-2 text-[11px] font-medium tracking-[0.6px] uppercase">
+              <ShieldCheck className="size-3.5 text-primary" /> Policy check: {plan.policy.verdict}
             </p>
-          ))}
-          <p className="break-all font-mono text-[11px] text-subtle">Approval digest {plan.digest}</p>
+            {warnings.map((reason) => (
+              <p key={reason.code} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> {reason.detail}
+              </p>
+            ))}
+            <p className="break-all text-[11px] text-muted-foreground">Approval digest {plan.digest}</p>
+          </div>
+        ) : null}
+
+        {phase === 'approved' ? (
+          <p className="flex items-start gap-2">
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" /> Approved. Nothing has moved: the next step
+            is your signature in your own wallet.
+          </p>
+        ) : null}
+
+        {plan && phase === 'stopped' ? (
+          <p className="text-destructive">{planProblem(plan) ?? 'This swap stopped.'}</p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-destructive">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {(phase === 'quoted' || phase === 'review') && expired ? (
+            <Button variant="outline" className="h-11" onClick={() => requote()}>
+              <RefreshCw /> New quote
+            </Button>
+          ) : null}
+          {phase === 'stopped' ? (
+            <Button variant="outline" className="h-11" onClick={() => requote()}>
+              <RefreshCw /> Try again
+            </Button>
+          ) : null}
+          {phase === 'quoted' && !expired && !wallet.address ? (
+            <Button className="h-11" onClick={wallet.connect} disabled={wallet.connecting}>
+              <Wallet /> {wallet.connecting ? 'Connecting…' : 'Connect wallet to review'}
+            </Button>
+          ) : null}
+          {phase === 'quoted' && !expired && wallet.address ? (
+            <Button className="h-11" onClick={() => review()}>
+              Review swap
+            </Button>
+          ) : null}
+          {phase === 'planning' || phase === 'approving' ? (
+            <Button className="h-11" disabled>
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" /> Checking the policy…
+            </Button>
+          ) : null}
+          {phase === 'review' && !expired ? (
+            <Button className="h-11" onClick={approve}>
+              Approve these exact terms
+            </Button>
+          ) : null}
+          {secondsLeft !== null && !expired ? (
+            <span className="ml-auto text-xs text-muted-foreground tabular-nums">Valid for {secondsLeft}s</span>
+          ) : null}
         </div>
-      ) : null}
-
-      {phase === 'approved' ? (
-        <p className="flex items-center gap-2">
-          <CheckCircle2 className="size-4 text-primary" /> Approved. Nothing has moved: the next step is your signature
-          in your own wallet.
-        </p>
-      ) : null}
-
-      {plan && phase === 'stopped' ? (
-        <p className="text-destructive">{planProblem(plan) ?? 'This swap stopped.'}</p>
-      ) : null}
-      {error ? <p className="text-destructive">{error}</p> : null}
-
-      <div className="flex flex-wrap items-center gap-2">
-        {secondsLeft !== null && !expired ? (
-          <span className="text-xs text-subtle">Valid for {secondsLeft}s</span>
-        ) : null}
-        {(phase === 'quoted' || phase === 'review') && expired ? (
-          <Button variant="outline" size="sm" onClick={() => requote()}>
-            <RefreshCw /> New quote
-          </Button>
-        ) : null}
-        {phase === 'stopped' ? (
-          <Button variant="outline" size="sm" onClick={() => requote()}>
-            <RefreshCw /> Try again
-          </Button>
-        ) : null}
-        {phase === 'quoted' && !expired && !wallet.address ? (
-          <Button size="sm" onClick={wallet.connect} disabled={wallet.connecting}>
-            <Wallet /> {wallet.connecting ? 'Connecting…' : 'Connect wallet to review'}
-          </Button>
-        ) : null}
-        {phase === 'quoted' && !expired && wallet.address ? (
-          <Button size="sm" onClick={() => review()}>
-            Review swap
-          </Button>
-        ) : null}
-        {phase === 'planning' || phase === 'approving' ? (
-          <Button size="sm" disabled>
-            <LoaderCircle className="animate-spin" /> Checking the policy…
-          </Button>
-        ) : null}
-        {phase === 'review' && !expired ? (
-          <Button size="sm" onClick={approve}>
-            Approve these exact terms
-          </Button>
-        ) : null}
+        {wallet.error ? <p className="text-xs text-destructive">{wallet.error}</p> : null}
       </div>
-      {wallet.error ? <p className="text-xs text-destructive">{wallet.error}</p> : null}
     </section>
-  );
-}
-
-export function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-mono tabular-nums">{value}</dd>
-    </>
   );
 }
 

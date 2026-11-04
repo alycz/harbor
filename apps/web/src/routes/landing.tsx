@@ -2,8 +2,9 @@ import { BlackHoleHeroSection } from '@harbor/ui/components/blackhole-hero-secti
 import { Button } from '@harbor/ui/components/button';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useId, useState } from 'react';
+import { type FormEvent, useEffect, useId, useState } from 'react';
 
+import { Eyebrow, Scanlines } from '../components/brand.tsx';
 import { HarborLogo } from '../components/harbor-logo.tsx';
 
 const GUTTER = 'px-[clamp(20px,3.5vw,56px)]';
@@ -48,26 +49,6 @@ export function LandingPage() {
         <span>© {new Date().getFullYear()} Harbor · Built on NEAR</span>
       </footer>
     </div>
-  );
-}
-
-function Eyebrow({ children, onBand = false }: { children: ReactNode; onBand?: boolean }) {
-  return (
-    <p
-      className={`mb-6 text-xs font-medium tracking-[0.6px] uppercase ${onBand ? 'text-[var(--harbor-sky)]' : 'text-primary'}`}
-    >
-      ■ {children}
-    </p>
-  );
-}
-
-/** A faint scanline texture for dark bands. */
-function Scanlines() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0_4px,var(--harbor-band-text)_4px_5px)] opacity-[0.06]"
-    />
   );
 }
 

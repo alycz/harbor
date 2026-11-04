@@ -53,8 +53,10 @@ export function AssetPicker({
       </Button>
       <DialogContent className="harbor-workspace asset-picker-dialog flex max-h-[calc(100dvh-40px)] flex-col gap-4 p-6 sm:max-w-[440px]">
         <div className="space-y-3 pr-8">
-          <p className="font-mono text-[10px] tracking-widest text-subtle uppercase">Supported assets</p>
-          <DialogTitle className="font-serif text-[27px]">Choose an asset</DialogTitle>
+          <p className="text-xs font-medium tracking-[0.6px] text-primary uppercase">■ Supported assets</p>
+          <DialogTitle className="font-serif text-[28px] leading-none font-bold tracking-[-1px] uppercase">
+            Choose an asset
+          </DialogTitle>
           <DialogDescription className="sr-only">
             Choose an asset to swap. Support is checked again when Harbor quotes it.
           </DialogDescription>
@@ -67,12 +69,12 @@ export function AssetPicker({
           onChange={(event) => setQuery(event.currentTarget.value)}
           className="min-h-11"
         />
-        <div className="min-h-0 overflow-y-auto">
+        <div className="min-h-0 overflow-y-auto border-t border-line">
           {assets.map((asset) => (
             <Button
               key={asset.symbol}
               variant="ghost"
-              className="h-auto min-h-[62px] w-full justify-start gap-3 rounded-xl border border-transparent px-3 py-2.5"
+              className="h-auto min-h-[62px] w-full justify-start gap-3 border-0 border-b border-line px-3 py-2.5 aria-pressed:bg-secondary"
               aria-pressed={value === asset.symbol}
               onClick={() => {
                 onChange(asset.symbol);
@@ -82,8 +84,8 @@ export function AssetPicker({
             >
               <AssetIcon symbol={asset.symbol} className="size-8" />
               <span className="flex flex-1 flex-col items-start gap-1">
-                <strong className="font-sans text-sm font-medium text-foreground">{asset.symbol}</strong>
-                <span className="font-sans text-[11px] text-subtle">{asset.name}</span>
+                <strong className="text-sm font-medium text-foreground">{asset.symbol}</strong>
+                <span className="text-[11px] text-muted-foreground">{asset.name}</span>
               </span>
               {value === asset.symbol && <Check className="size-4 text-primary" />}
             </Button>
