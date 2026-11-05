@@ -12,6 +12,8 @@
     "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/newsreader": "catalog:",
     "@fontsource/ibm-plex-mono": "catalog:",
     "@fontsource/pixelify-sans": "catalog:",
     "@harbor/agent-runtime": "workspace:*",
@@ -22,8 +24,10 @@
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "lucide-react": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "skullet": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "catalog:",

@@ -1,91 +1,74 @@
 import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
-import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
 
-import { Panel } from '../components/brand.tsx';
+import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
-import { EmptyState, PageHeader } from '../components/workspace.tsx';
-import { formatApy, formatUsd } from '../lib/format.ts';
+import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
+import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
 import { research } from '../lib/research.ts';
+import { apyDrift, HOME_CHAIN, projectLogo, projectName } from '../lib/research-view.ts';
 import { SnapshotNotice } from './research.tsx';
 
 /** Pools below this size are left out: their rates move too much to plan around. */
 const MIN_TVL_USD = 1_000_000;
-const HOME_CHAIN = 'NEAR';
 
 export function EarnPage() {
   const pools = stablePools(research.yieldPools);
   const best = bestPerChain(pools);
+  const top = best.reduce<YieldPoolRow | null>(
+    (leader, pool) => (leader === null || (pool.totalApyPct ?? 0) > (leader.totalApyPct ?? 0) ? pool : leader),
+    null,
+  );
+  const home = best.find((pool) => pool.chain === HOME_CHAIN);
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title="Earn"
-        kicker="Park idle stablecoins"
-        description="Where idle stablecoins earned the most on each chain Harbor can reach. Ask Harbor to compare venues for your amount; you sign anything it proposes."
-        meta={<SnapshotNotice />}
+    <div className="ws-stagger flex flex-col gap-8">
+      <HeroCard
+        eyebrow="Park idle stablecoins"
+        icon={<PiggyBank />}
+        title="The best stablecoin rate on each chain, side by side."
+        description="Pools over $1M TVL from the snapshot. Ask Harbor to compare venues for your amount; you sign anything it proposes."
+        stats={[
+          { label: 'Best rate', value: top ? formatApy(top.totalApyPct) : '—' },
+          { label: 'On NEAR', value: home ? formatApy(home.totalApyPct) : '—' },
+          { label: 'Chains', value: best.length },
+        ]}
         actions={
           <Button
             nativeButton={false}
-            className="h-14 justify-between gap-8 px-[22px] text-sm"
+            className="h-10 gap-2 px-4"
             render={<Link to="/chat" search={{ ask: 'Where should I park 100 USDC across chains, and why?' }} />}
           >
-            Ask Harbor <ArrowRight />
+            Ask where to park 100 USDC <ArrowRight />
           </Button>
         }
+        footer={<SnapshotNotice onBand />}
       />
       {best.length === 0 ? (
-        <Panel label="Stablecoin rates">
+        <Panel>
           <EmptyState
+            icon={<PiggyBank />}
             title="No stablecoin pools in the snapshot"
             description="Run pnpm research:collect to capture a dated snapshot, then reload."
           />
         </Panel>
       ) : (
         <>
-          <Panel
-            label="Best stablecoin rate by chain"
-            aside={`Pools over ${formatUsd(MIN_TVL_USD)} TVL`}
-            bodyClassName="p-0"
-            className="overflow-hidden"
-            labelId="earn-best"
-          >
-            <ol className="grid list-none sm:grid-cols-2 xl:grid-cols-3">
+          <section aria-labelledby="earn-best" className="flex flex-col gap-3.5">
+            <SectionTitle id="earn-best" title="Best rate by chain" meta={`Pools over ${formatUsd(MIN_TVL_USD)} TVL`} />
+            <ol className="ws-stagger grid list-none gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {best.map((pool) => (
-                <li key={pool.id} className="-mr-px -mb-px flex flex-col gap-5 border-r border-b border-line p-6">
-                  <p className="flex items-center justify-between gap-3 text-[11px] font-medium tracking-[0.6px] uppercase">
-                    <span>{pool.chain}</span>
-                    {pool.chain === HOME_CHAIN ? <span className="text-primary">Home chain</span> : null}
-                  </p>
-                  <div>
-                    <p className="font-serif text-[46px] leading-none font-bold tracking-[-2px] text-primary">
-                      {formatApy(pool.totalApyPct)}
-                    </p>
-                    <p className="mt-3 text-sm">
-                      {pool.symbol} on {pool.project}
-                      {pool.meta ? <span className="text-muted-foreground"> · {pool.meta}</span> : null}
-                    </p>
-                  </div>
-                  <dl className="grid grid-cols-3 gap-3 border-t border-line pt-4 text-xs">
-                    <Figure label="TVL" value={formatUsd(pool.tvlUsd)} />
-                    <Figure label="30d mean" value={formatApy(pool.mean30dApyPct)} />
-                    <Figure label="Rewards" value={formatApy(pool.rewardApyPct)} />
-                  </dl>
-                  <Link
-                    to="/chat"
-                    search={{ ask: askAbout(pool) }}
-                    className="mt-auto inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                  >
-                    Compare this with Harbor <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                  </Link>
-                </li>
+                <RateCard key={pool.id} pool={pool} />
               ))}
             </ol>
-          </Panel>
-          <section aria-labelledby="earn-all" className="flex flex-col gap-4">
-            <h2 id="earn-all" className="text-[28px] leading-none tracking-[-1px] uppercase">
-              All stablecoin pools
-            </h2>
+          </section>
+          <section aria-labelledby="earn-all" className="flex flex-col gap-3.5">
+            <SectionTitle
+              id="earn-all"
+              title="All stablecoin pools"
+              meta={`${pools.length} pools · highest APY first`}
+            />
             <ResearchDataTable<YieldPoolRow>
               tableKey="earn-stable"
               label="Stablecoin pools"
@@ -97,18 +80,38 @@ export function EarnPage() {
                   label: 'Pool',
                   required: true,
                   cell: (row) => (
-                    <div>
-                      <p className="font-medium">{row.symbol}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {row.project}
-                        {row.meta ? ` · ${row.meta}` : ''}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <LogoPair
+                        className="size-8"
+                        primary={{ name: projectName(row.project), url: projectLogo(row.project) }}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium">{row.symbol}</p>
+                        <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                          {projectName(row.project)}
+                          {row.meta ? ` · ${row.meta}` : ''}
+                        </p>
+                      </div>
                     </div>
                   ),
                 },
-                { id: 'chain', label: 'Chain', cell: (row) => row.chain },
+                {
+                  id: 'chain',
+                  label: 'Chain',
+                  cell: (row) => (
+                    <span className="inline-flex items-center gap-2">
+                      <ChainLogo chain={row.chain} className="size-4" />
+                      {row.chain}
+                    </span>
+                  ),
+                },
                 { id: 'apy', label: 'APY', numeric: true, emphasis: true, cell: (row) => formatApy(row.totalApyPct) },
-                { id: 'mean', label: '30d mean', numeric: true, cell: (row) => formatApy(row.mean30dApyPct) },
+                {
+                  id: 'mean',
+                  label: '30d mean',
+                  numeric: true,
+                  cell: (row) => <span className="text-muted-foreground">{formatApy(row.mean30dApyPct)}</span>,
+                },
                 { id: 'tvl', label: 'TVL', numeric: true, cell: (row) => formatUsd(row.tvlUsd) },
               ]}
             />
@@ -119,17 +122,75 @@ export function EarnPage() {
   );
 }
 
+/** One chain's best stablecoin rate: the rate is the one big number, the pool and its context below. */
+function RateCard({ pool }: { pool: YieldPoolRow }) {
+  const drift = apyDrift(pool);
+  const home = pool.chain === HOME_CHAIN;
+  return (
+    <li
+      className={`group ws-card flex flex-col transition-[box-shadow,translate,border-color] duration-200 hover:-translate-y-px hover:border-border-strong hover:shadow-[var(--ws-shadow-raised)] motion-reduce:hover:translate-y-0`}
+    >
+      <div className="flex items-center justify-between gap-3 px-5 pt-4">
+        <p className="flex items-center gap-2 text-[13.5px] font-medium">
+          <ChainLogo chain={pool.chain} className="size-5" />
+          {pool.chain}
+        </p>
+        {home ? <Chip tone="accent">Home chain</Chip> : null}
+      </div>
+      <div className="px-5 pt-5">
+        <p className="flex items-baseline gap-2.5">
+          <span className="text-[38px] leading-none font-medium tracking-[-0.035em] [font-variant-numeric:proportional-nums]">
+            {formatApy(pool.totalApyPct)}
+          </span>
+          <span className="text-[12.5px] text-muted-foreground">APY</span>
+          {drift !== null && Math.abs(drift) >= 0.05 ? (
+            <span
+              className={`ml-auto text-[12px] font-medium ${drift > 0 ? 'text-success' : 'text-destructive'}`}
+              title="Against the pool's 30-day mean"
+            >
+              {formatPercentPoints(drift)} vs 30d
+            </span>
+          ) : null}
+        </p>
+        <p className="mt-3.5 flex items-center gap-2 text-[13.5px]">
+          <LogoPair className="size-5" primary={{ name: projectName(pool.project), url: projectLogo(pool.project) }} />
+          <span className="truncate">
+            <span className="font-medium">{pool.symbol}</span>
+            <span className="text-muted-foreground"> on {projectName(pool.project)}</span>
+          </span>
+        </p>
+      </div>
+      <dl className="mx-5 mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3.5 text-[12.5px]">
+        <Figure label="TVL" value={formatUsd(pool.tvlUsd)} />
+        <Figure label="30d mean" value={formatApy(pool.mean30dApyPct)} />
+        <Figure label="Rewards" value={formatApy(pool.rewardApyPct)} />
+      </dl>
+      <Link
+        to="/chat"
+        search={{ ask: askAbout(pool) }}
+        className="mt-4 flex items-center justify-between gap-2 rounded-b-[11px] border-t border-border px-5 py-3 text-[13px] font-medium text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
+      >
+        Compare with Harbor
+        <ArrowUpRight
+          className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none"
+          aria-hidden="true"
+        />
+      </Link>
+    </li>
+  );
+}
+
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-1 tabular-nums">{value}</dd>
+      <dd className="ws-num mt-0.5 font-medium">{value}</dd>
     </div>
   );
 }
 
 function askAbout(pool: YieldPoolRow): string {
-  return `I have idle ${pool.symbol}. Compare parking it on ${pool.project} (${pool.chain}) with the best alternatives on other chains, including fees, risks and how I would exit.`;
+  return `I have idle ${pool.symbol}. Compare parking it on ${projectName(pool.project)} (${pool.chain}) with the best alternatives on other chains, including fees, risks and how I would exit.`;
 }
 
 /** Stablecoin pools large enough to plan around, highest yield first. */

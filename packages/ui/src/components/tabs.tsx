@@ -65,4 +65,12 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   );
 }
 
-export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants };
+/**
+ * A highlight that slides to the active tab. Place it inside `TabsList`; it is positioned from the
+ * `--active-tab-*` variables Base UI sets, so it keeps momentum between tabs instead of jumping.
+ */
+function TabsIndicator({ className, ...props }: TabsPrimitive.Indicator.Props) {
+  return <TabsPrimitive.Indicator data-slot="tabs-indicator" className={cn('absolute', className)} {...props} />;
+}
+
+export { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger, tabsListVariants };

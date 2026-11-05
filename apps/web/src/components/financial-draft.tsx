@@ -21,14 +21,16 @@ export function AssetSelect({
   const id = useId();
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="text-[12.5px] font-normal text-muted-foreground">
+        {label}
+      </Label>
       <Select disabled={disabled} value={value} onValueChange={(next) => next !== null && onChange(next)}>
-        <SelectTrigger id={id} className="min-h-11 w-full">
+        <SelectTrigger id={id} className="h-10 w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {assets.map((asset) => (
-            <SelectItem className="min-h-11" key={asset} value={asset}>
+            <SelectItem className="min-h-9" key={asset} value={asset}>
               {asset}
             </SelectItem>
           ))}
@@ -40,8 +42,8 @@ export function AssetSelect({
 
 export function ReviewRequirements() {
   return (
-    <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
-      <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />A fresh quote, a passing policy check and
+    <p className="flex items-start gap-2 text-[12px] leading-relaxed text-muted-foreground">
+      <ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden="true" />A fresh quote, a passing policy check and
       your own wallet signature are required before anything executes.
     </p>
   );

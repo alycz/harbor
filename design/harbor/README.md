@@ -35,16 +35,20 @@ Harbor follows the NEAR hackathon's visual language: warm cream paper, ink text,
 
 ## Workspace
 
-The workspace pages build on a few shared pieces in `apps/web/src/components/brand.tsx` and `workspace.tsx`:
+Every page except the landing uses a second look, taken from Pilot (`alycz/pilot`), which follows Royco: warm paper, off-white cards with 12px corners and 6px controls, hairline warm-grey rules, Inter for reading and figures, Newsreader for display, and one cobalt accent. The landing keeps the NEAR look above.
 
-- **Page header:** eyebrow, uppercase heading, one paragraph, and an optional meta line (such as when the data was captured). Actions sit to the right.
-- **Panel:** a ruled box whose first row is an uppercase 11px label, with a status or count at the right in the accent. Panels never have shadows or rounded corners.
-- **Ruled grid:** cells share 1px rules, like the steps on the landing page. Research uses it for chains, Earn for the best rate per chain.
-- **Fact rows:** a label and a value on one ruled line. The value a person acts on, such as the minimum received, is in the accent.
-- **Line tabs:** uppercase labels on a rule, underlined in the accent like the primary nav.
-- **Tables:** a sand header row with uppercase labels, ruled rows, numbers right-aligned, and the column people compare first in the accent. Empty values show a dash.
-- **Status tags:** a small ruled uppercase label, coloured by state.
+- `apps/web/src/styles/workspace.css`: the workspace tokens. The shell sets `data-surface="workspace"` on `<html>` while it is mounted, so they also reach popovers, dialogs and sheets that portal to `<body>`, and they never touch the landing. Inside the workspace, a filled button is solid cobalt, without the rainbow edge.
+- `apps/web/src/components/workspace.tsx`: the building blocks.
+  - **Page header:** a small label with an icon, a serif title, one paragraph, actions to the right.
+  - **Hero card:** Royco's ink card: a serif statement and the page's few headline figures, each on a hairline. One per page, where the page spends its emphasis (Research, Earn, the disconnected Portfolio, the rules on Policy).
+  - **Panel:** a card with an optional title row and an aside for a status or count.
+  - **Tabs:** underline tabs and Royco's segmented control, each with a highlight that slides to the choice.
+  - **Chips:** small rounded status labels, coloured by meaning only. A status that changes rolls rather than swapping.
+- Tables follow Royco's market table: one card, the filters in its header, sentence-case heads, roomy rows, numbers right-aligned.
+- Logos are real marks from DefiLlama's icon CDN (chains, protocols, swap assets); a bridged asset such as `USDC.arb` carries its chain as a small badge.
 
-Each page spends its emphasis in one place: the chain grid on Research, the rates on Earn, the ticket on Trade, the connect band on Portfolio, and the rules band on Policy.
+Motion follows Benji Taylor's Stageshow rules: feedback stays quick (150ms); arrivals take `cubic-bezier(0.25, 0.8, 0.25, 1)`; things that travel take `cubic-bezier(0.45, 0, 0.1, 1)`; sections stagger 60ms in reading order; numbers roll digit by digit (`RollingNumber`), and words roll in place (`RollText`). Everything holds still under reduced motion.
 
-Harbor is light only. Fonts are licensed under the SIL Open Font License; the texts are in `apps/web/public/licenses/`.
+Loading states use Skullet: data is wrapped in its `<Skeleton>` with a sample from `apps/web/src/lib/samples.ts`, so the skeleton is measured from the real layout and nothing moves when the content arrives.
+
+Both looks are light only. Fonts are licensed under the SIL Open Font License; the texts are in `apps/web/public/licenses/`.

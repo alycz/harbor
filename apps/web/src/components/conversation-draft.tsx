@@ -127,24 +127,7 @@ export function ConversationDraft({
   }
 
   return (
-    <div
-      className={`conversation-draft ${purpose === 'strategy' ? 'conversation-strategy' : 'conversation-research'} mx-auto flex min-h-0 w-full flex-1 flex-col gap-4`}
-    >
-      <div className="conversation-status flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-1 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <LockKeyhole className="size-3.5" aria-hidden="true" />
-          Guest session
-        </span>
-        <span role="status" className="inline-flex items-center gap-1.5">
-          {running ? (
-            <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-          ) : (
-            <BookOpen className="size-3.5" aria-hidden="true" />
-          )}
-          {running ? 'Answering…' : 'Research sources · reviewed proposals'}
-        </span>
-      </div>
-
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-3">
       <div className="relative min-h-0 flex-1">
         <div
           // biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard readers need to scroll the transcript independently of the composer.
@@ -158,47 +141,58 @@ export function ConversationDraft({
             const element = event.currentTarget;
             setFollowing(element.scrollHeight - element.scrollTop - element.clientHeight < 48);
           }}
-          className="h-full min-h-0 overflow-y-auto overscroll-contain px-1 [scrollbar-gutter:stable] focus-visible:outline-ring"
+          className="chat-log -mx-2 h-full min-h-0 overflow-y-auto overscroll-contain px-2 [scrollbar-gutter:stable] focus-visible:outline-ring"
         >
           {messages.length ? (
-            <div className="space-y-7 pt-2 pb-6 sm:space-y-9">
+            <div className={`${compact ? 'space-y-5' : 'space-y-7'} pt-2 pb-6`}>
               {messages.map((message) => (
                 <article
                   key={message.id}
                   aria-label={message.role === 'user' ? 'Your message' : 'Harbor response'}
                   className={
                     message.role === 'user'
-                      ? 'ml-auto w-fit max-w-[92%] border border-line bg-secondary px-4 py-3.5 sm:max-w-[85%] sm:px-5'
-                      : `flex min-w-0 ${compact ? 'gap-2.5' : 'gap-3 sm:gap-4'}`
+                      ? 'chat-message ml-auto w-fit max-w-[88%] rounded-2xl rounded-br-md bg-secondary px-4 py-2.5'
+                      : `chat-message flex min-w-0 ${compact ? 'gap-2.5' : 'gap-3.5'}`
                   }
                 >
                   {message.role === 'assistant' ? (
-                    <div className="flex size-8 shrink-0 items-center justify-center border border-line bg-card sm:size-9">
-                      <HarborMark className="size-5 text-primary sm:size-6" />
+                    <div className="grid size-7 shrink-0 place-items-center rounded-lg border border-border bg-card">
+                      <HarborMark className="size-4 text-primary" />
                     </div>
                   ) : null}
                   <div className="min-w-0 flex-1">
-                    <p
-                      className={`mb-2 text-[11px] font-medium tracking-[0.6px] uppercase ${message.role === 'user' ? 'text-muted-foreground' : 'pt-1.5 text-primary'}`}
-                    >
-                      {message.role === 'user' ? 'You' : 'Harbor'}
-                    </p>
+                    {message.role === 'assistant' ? (
+                      <p className="mb-1 pt-1 text-[13px] font-medium">Harbor</p>
+                    ) : (
+                      <span className="sr-only">You</span>
+                    )}
                     {message.text ? (
                       message.role === 'assistant' ? (
                         <MessageContent text={message.text} />
                       ) : (
-                        <p className="text-sm leading-7 whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
+                        <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
+                          {message.text}
+                        </p>
                       )
                     ) : null}
                     {message.role === 'assistant' && !message.text && !message.error && !message.stopped ? (
-                      <p className="flex items-center gap-2 text-sm leading-7 text-muted-foreground">
-                        <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                        Looking into it…
+                      <p className="flex items-center gap-2.5 text-[14px] leading-7 text-muted-foreground">
+                        <span className="ws-dots" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                        Looking into it
                       </p>
                     ) : null}
-                    {message.stopped ? <p className="mt-3 text-xs text-muted-foreground">Response stopped.</p> : null}
+                    {message.stopped ? (
+                      <p className="mt-3 text-[12.5px] text-muted-foreground">Response stopped.</p>
+                    ) : null}
                     {message.error ? (
-                      <p role="alert" className="mt-3 flex items-start gap-2 text-sm text-destructive">
+                      <p
+                        role="alert"
+                        className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/6 px-3 py-2.5 text-[13.5px] text-destructive"
+                      >
                         <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         {message.error}
                       </p>
@@ -211,25 +205,29 @@ export function ConversationDraft({
                       </div>
                     ) : null}
                     {message.preparation?.length ? (
-                      <details className="group mt-5 border-t border-line pt-1">
-                        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                      <details className="group mt-4 rounded-lg border border-border bg-card/60">
+                        <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
                           <ChevronDown
-                            className="size-3.5 transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                            className="size-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
                             aria-hidden="true"
                           />
-                          Preparation activity
-                          <span className="ml-auto text-[10px] text-muted-foreground">
+                          How Harbor prepared this
+                          <span className="ml-auto">
                             {message.preparation.length} {message.preparation.length === 1 ? 'step' : 'steps'}
                           </span>
                         </summary>
-                        <ol className="space-y-2 pb-3 pl-5">
+                        <ol className="space-y-2 border-t border-border px-3 py-3">
                           {message.preparation.map((step) => (
-                            <li key={step.id} className="flex items-start gap-2.5 text-xs leading-5">
-                              <span className="mt-0.5 inline-flex items-center gap-1 border border-line px-1.5 text-[10px] tracking-[0.4px] uppercase">
-                                {step.state === 'complete' ? <Check className="size-3" aria-hidden="true" /> : null}
-                                {step.state}
+                            <li key={step.id} className="flex items-start gap-2.5 text-[12.5px] leading-5">
+                              <span
+                                className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ${step.state === 'complete' ? 'bg-success/12 text-success' : 'bg-secondary text-muted-foreground'}`}
+                              >
+                                {step.state === 'complete' ? <Check className="size-2.5" aria-hidden="true" /> : null}
                               </span>
-                              <span className="min-w-0 text-muted-foreground">{step.label}</span>
+                              <span className="min-w-0 text-muted-foreground">
+                                {step.label}
+                                <span className="sr-only"> ({step.state})</span>
+                              </span>
                             </li>
                           ))}
                         </ol>
@@ -240,45 +238,52 @@ export function ConversationDraft({
               ))}
             </div>
           ) : (
-            <div className="conversation-welcome flex min-h-full flex-col gap-5 py-6">
-              <div className={compact ? 'space-y-3' : 'mx-auto max-w-2xl space-y-3 text-center'}>
-                <div
-                  className={`conversation-welcome-title mb-3 flex gap-4 ${compact ? 'items-center' : 'flex-col items-center'}`}
-                >
-                  <HarborMark className="size-9 text-primary" />
-                  <h2 className={`${compact ? 'text-xl' : 'text-[32px]'} leading-none tracking-[-1px] uppercase`}>
-                    {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to do?'}
-                  </h2>
+            <div className={`flex min-h-full flex-col gap-6 ${compact ? 'py-3' : 'justify-center py-8'}`}>
+              <div className={compact ? 'space-y-2' : 'mx-auto max-w-xl space-y-2.5 text-center'}>
+                <div className={`mb-4 flex ${compact ? '' : 'justify-center'}`}>
+                  <span className="grid size-11 place-items-center rounded-xl border border-border bg-card shadow-[var(--ws-shadow-card)]">
+                    <HarborMark className="size-6 text-primary" />
+                  </span>
                 </div>
-                <p className="text-sm leading-6 text-muted-foreground">
+                <h2 className={`font-display ${compact ? 'text-[20px]' : 'text-[30px]'} leading-tight`}>
+                  {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to do?'}
+                </h2>
+                <p className="text-[14px] leading-relaxed text-muted-foreground">
                   {purpose === 'strategy'
                     ? 'Tell Harbor what you want to test, over what period, and what would make the strategy worth pursuing.'
                     : 'Ask about a market, compare venues, or bring a specific action to review.'}
                 </p>
               </div>
-              <div className={compact ? 'grid' : 'conversation-prompts mx-auto grid w-full sm:grid-cols-2'}>
+              <div className={`grid gap-2 ${compact ? '' : 'sm:grid-cols-2'}`}>
                 {(purpose === 'strategy' ? STRATEGY_PROMPTS : PROMPTS).map((prompt) => (
-                  <Button
+                  <button
+                    type="button"
                     key={prompt.label}
-                    variant="outline"
-                    className="group -mr-px -mb-px h-auto min-h-16 items-center justify-start gap-3 whitespace-normal border-line bg-card p-4 text-left hover:bg-secondary"
+                    className="group ws-card flex min-h-14 items-center gap-3 px-3.5 py-3 text-left transition-[border-color,box-shadow,translate] duration-200 hover:-translate-y-px hover:border-border-strong hover:shadow-[var(--ws-shadow-raised)] motion-reduce:hover:translate-y-0"
                     onClick={() => {
                       setDraft(prompt.text);
                       textareaRef.current?.focus();
                     }}
                   >
-                    <prompt.icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 space-y-1.5">
-                      <span className="block text-sm font-medium text-foreground">{prompt.label}</span>
+                    <span
+                      aria-hidden="true"
+                      className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary/80 text-muted-foreground transition-colors group-hover:bg-[var(--harbor-accent-tint)] group-hover:text-primary"
+                    >
+                      <prompt.icon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13.5px] font-medium">{prompt.label}</span>
                       {prompt.description ? (
-                        <span className="block text-[11px] leading-5 text-muted-foreground">{prompt.description}</span>
+                        <span className="block text-[12.5px] leading-5 text-muted-foreground">
+                          {prompt.description}
+                        </span>
                       ) : null}
                     </span>
                     <ArrowUpRight
-                      className="mt-0.5 size-3.5 text-muted-foreground transition-colors group-hover:text-primary"
+                      className="size-3.5 text-muted-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                       aria-hidden="true"
                     />
-                  </Button>
+                  </button>
                 ))}
               </div>
               {!compact && purpose === 'research' ? (
@@ -294,8 +299,8 @@ export function ConversationDraft({
         </div>
         {messages.length && !following ? (
           <Button
-            variant="secondary"
-            className="absolute right-4 bottom-3 min-h-11 gap-2 border border-line px-4"
+            variant="outline"
+            className="absolute bottom-3 left-1/2 h-9 -translate-x-1/2 gap-1.5 rounded-full px-3.5 shadow-[var(--ws-shadow-raised)]"
             onClick={latest}
           >
             <ArrowDown />
@@ -304,9 +309,9 @@ export function ConversationDraft({
         ) : null}
       </div>
 
-      <div className="shrink-0 space-y-2.5">
+      <div className="shrink-0 space-y-2">
         <form
-          className="conversation-composer overflow-hidden border border-foreground/40 bg-card focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-primary"
+          className="ws-card overflow-hidden shadow-[var(--ws-shadow-raised)] transition-[border-color,box-shadow] duration-150 focus-within:border-[color-mix(in_srgb,var(--harbor-accent)_45%,var(--harbor-border))] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--harbor-accent)_10%,transparent),var(--ws-shadow-raised)]"
           onSubmit={(event) => {
             event.preventDefault();
             send();
@@ -326,21 +331,33 @@ export function ConversationDraft({
               purpose === 'strategy' ? 'Here’s my plan: buy NEAR weekly with a budget I sign…' : 'Ask Harbor anything…'
             }
             aria-describedby={`${id}-hint${sendError ? ` ${id}-error` : ''}`}
-            className="block max-h-48 min-h-24 resize-none rounded-none border-0 bg-transparent px-4 pt-4 pb-3 text-base leading-7 shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:outline-none sm:min-h-28 sm:px-5 sm:pt-5 md:text-[15px]"
+            className={`block max-h-48 resize-none rounded-none border-0 bg-transparent px-4 pt-3.5 pb-2 text-[15px] leading-relaxed shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:outline-none ${compact ? 'min-h-16' : 'min-h-20'}`}
           />
           {sendError ? (
-            <p id={`${id}-error`} role="alert" className="px-4 pb-3 text-xs leading-relaxed text-destructive sm:px-5">
+            <p id={`${id}-error`} role="alert" className="px-4 pb-2 text-[12.5px] leading-relaxed text-destructive">
               {sendError}
             </p>
           ) : null}
-          <div className="flex items-center justify-between gap-2 border-t border-line px-3 py-2.5 sm:px-4">
-            <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground sm:gap-2 sm:text-xs">
-              <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
-              Review exact effects before signing
+          <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pl-4">
+            <p className="flex min-w-0 items-center gap-1.5 text-[12px] text-muted-foreground">
+              {running ? (
+                <>
+                  <LoaderCircle
+                    className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                  <span role="status">Answering…</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">Review exact effects before signing</span>
+                </>
+              )}
             </p>
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1">
               {draft.length >= 3500 ? (
-                <span className="text-[10px] text-muted-foreground" aria-live="polite">
+                <span className="ws-num text-[11px] text-muted-foreground" aria-live="polite">
                   {draft.length}/4000
                 </span>
               ) : null}
@@ -348,7 +365,7 @@ export function ConversationDraft({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-11 text-muted-foreground"
+                className="size-9 text-muted-foreground"
                 aria-label="Clear draft"
                 title="Clear draft"
                 disabled={!draft}
@@ -357,12 +374,12 @@ export function ConversationDraft({
                 <Eraser />
               </Button>
               {running ? (
-                <Button type="button" variant="secondary" className="min-h-11 gap-2 px-4" onClick={chat.stop}>
-                  <Square />
+                <Button type="button" variant="outline" className="h-9 gap-1.5 px-3" onClick={chat.stop}>
+                  <Square className="size-3 fill-current" />
                   Stop
                 </Button>
               ) : (
-                <Button type="submit" className="min-h-11 gap-2 px-4" disabled={!draft.trim()}>
+                <Button type="submit" className="h-9 gap-1.5 px-3.5" disabled={!draft.trim()}>
                   Send
                   <ArrowUp />
                 </Button>
@@ -372,9 +389,12 @@ export function ConversationDraft({
         </form>
         <div
           id={`${id}-hint`}
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[11px] leading-5 text-muted-foreground"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[11.5px] leading-5 text-muted-foreground"
         >
-          <p>Not saved. Nothing is signed or executed.</p>
+          <p className="flex items-center gap-1.5">
+            <LockKeyhole className="size-3" aria-hidden="true" />
+            Not saved. Nothing is signed or executed.
+          </p>
           {!compact ? <p className="hidden sm:block">Enter to send · Shift + Enter for a new line</p> : null}
         </div>
       </div>
@@ -390,7 +410,7 @@ function AllocationDraft({ onDraft }: { onDraft: (text: string) => void }) {
   const issue = amountDraftIssue(capital, false);
   return (
     <form
-      className="allocation-draft mx-auto w-full border border-line bg-card"
+      className="ws-card w-full"
       onSubmit={(event) => {
         event.preventDefault();
         if (amountDraftIssue(capital, true)) return;
@@ -405,51 +425,53 @@ function AllocationDraft({ onDraft }: { onDraft: (text: string) => void }) {
         );
       }}
     >
-      <p className="border-b border-line px-4 py-2.5 text-[11px] font-medium tracking-[0.6px] uppercase">
-        Plan an allocation
-      </p>
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <p className="text-[14px] font-medium">Plan an allocation</p>
+        <p className="text-[12px] text-muted-foreground">Fills the message for you to review</p>
+      </div>
       <div className="grid items-end gap-3 p-4 sm:grid-cols-[1fr_0.8fr_0.9fr_auto]">
         <div className="space-y-2">
-          <Label htmlFor={id}>Capital</Label>
+          <Label htmlFor={id} className="text-[12.5px] font-normal text-muted-foreground">
+            Capital
+          </Label>
           <Input
             id={id}
             value={capital}
             onChange={(event) => setCapital(event.currentTarget.value)}
             inputMode="decimal"
             placeholder="Enter amount"
-            className="min-h-11 bg-background"
+            className="h-10"
             aria-invalid={Boolean(issue)}
             aria-describedby={issue ? `${id}-error` : undefined}
           />
         </div>
         <AssetSelect label="Asset" value={asset} onChange={setAsset} />
         <div className="space-y-2">
-          <Label htmlFor={`${id}-horizon`}>Horizon</Label>
+          <Label htmlFor={`${id}-horizon`} className="text-[12.5px] font-normal text-muted-foreground">
+            Horizon
+          </Label>
           <Select value={horizon} onValueChange={(next) => next !== null && setHorizon(next)}>
-            <SelectTrigger id={`${id}-horizon`} className="min-h-11 w-full bg-background">
+            <SelectTrigger id={`${id}-horizon`} className="h-10 w-full">
               <SelectValue>{horizon} days</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {HORIZON_DAYS.map((days) => (
-                <SelectItem className="min-h-11" key={days} value={days}>
+                <SelectItem className="min-h-9" key={days} value={days}>
                   {days} days
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <Button className="h-11" type="submit" disabled={!capital.trim() || Boolean(issue)}>
-          Compare with Harbor <ArrowUpRight />
+        <Button className="h-10 gap-1.5 px-3.5" type="submit" disabled={!capital.trim() || Boolean(issue)}>
+          Compare <ArrowUpRight />
         </Button>
       </div>
       {issue ? (
-        <p id={`${id}-error`} role="alert" className="px-4 pb-2 text-xs text-destructive">
+        <p id={`${id}-error`} role="alert" className="px-4 pb-3 text-[12.5px] text-destructive">
           {issue}
         </p>
       ) : null}
-      <p className="px-4 pb-4 text-[11px] text-muted-foreground">
-        Fills the message box for you to review. Nothing is sent automatically.
-      </p>
     </form>
   );
 }
