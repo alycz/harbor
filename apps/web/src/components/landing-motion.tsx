@@ -78,7 +78,6 @@ export function WordsIn({ text, className = '', delay = 0 }: { text: string; cla
       <span aria-hidden="true">
         {words.map((word, index) => (
           <motion.span
-            // biome-ignore lint/suspicious/noArrayIndexKey: words repeat, and their order is the identity
             key={index}
             className="inline-block whitespace-pre"
             initial={reduced ? { opacity: 0 } : { opacity: 0, y: '0.35em', filter: 'blur(8px)' }}
