@@ -2,17 +2,17 @@ import { Button } from '@harbor/ui/components/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harbor/ui/components/table';
 import { Tabs, TabsContent } from '@harbor/ui/components/tabs';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, RefreshCw, Wallet } from 'lucide-react';
+import { ArrowUpRight, History, RefreshCw, TriangleAlert, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Skeleton } from 'skullet/react';
 
 import { type ActivityItem, ExecutionRequestError, execution, type Quote } from '../lib/execution.ts';
 import { formatTokenAmount, venueName } from '../lib/format.ts';
+import { SAMPLE_ACTIVITY } from '../lib/samples.ts';
 import { swapDraftRequest } from '../lib/swap-draft.ts';
 import { useWallet } from '../lib/wallet.tsx';
-import { FactRow, LineTab, LineTabsList } from './brand.tsx';
-import { ActivitySkeleton } from './skeletons.tsx';
-import { useCountdown } from './swap-proposal.tsx';
-import { EmptyState } from './workspace.tsx';
+import { RollText } from './motion.tsx';
+import { Chip, type ChipTone, EmptyState, LineTab, LineTabsList } from './workspace.tsx';
 
 const QUOTE_DELAY_MS = 600;
 const ACTIVITY_TIME = new Intl.DateTimeFormat('en-GB', {
@@ -21,9 +21,6 @@ const ACTIVITY_TIME = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
   minute: '2-digit',
 });
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(price);
-}
 
 export function useSwapDraft(sell: string, buy: string, amount: string) {
   const [intentId, setIntentId] = useState<string | null>(null);
@@ -69,49 +66,6 @@ export function useSwapDraft(sell: string, buy: string, amount: string) {
   };
 }
 
-export function RouteFacts({ quote }: { quote: Quote }) {
-  const secondsLeft = useCountdown(quote.expiresAt);
-  const rate = Number(quote.expectedOut.amount) / Number(quote.sell.amount);
-  return (
-    <div className="space-y-4">
-      <dl>
-        <FactRow
-          label="You send"
-          value={`${formatTokenAmount(quote.sell.amount)} ${quote.sell.symbol}`}
-          title={quote.sell.amount}
-        />
-        <FactRow
-          label="Expected"
-          value={`${formatTokenAmount(quote.expectedOut.amount)} ${quote.expectedOut.symbol}`}
-          title={quote.expectedOut.amount}
-        />
-        <FactRow
-          label="At least"
-          value={
-            <span className="font-semibold text-primary">
-              {formatTokenAmount(quote.minimumOut.amount)} {quote.minimumOut.symbol}
-            </span>
-          }
-          title={quote.minimumOut.amount}
-        />
-        <FactRow label="Rate" value={`${formatPrice(rate)} ${quote.expectedOut.symbol} per ${quote.sell.symbol}`} />
-        <FactRow
-          label="Price impact"
-          value={quote.priceImpactBps === null ? 'Not reported' : `${quote.priceImpactBps / 100}%`}
-        />
-        <FactRow label="Slippage limit" value={`${quote.slippageBps / 100}%`} />
-        <FactRow label="Through" value={venueName(quote.venue)} />
-        <FactRow label="Harbor fee" value="None" />
-      </dl>
-      <p className="text-xs text-muted-foreground">
-        {secondsLeft === null || secondsLeft > 0
-          ? 'The policy check runs when you review the swap.'
-          : 'This quote expired. Change the amount or pair to get a new one.'}
-      </p>
-    </div>
-  );
-}
-
 export function WalletActivity() {
   const wallet = useWallet();
   const activity = useQuery({
@@ -120,33 +74,45 @@ export function WalletActivity() {
     enabled: Boolean(wallet.address),
     refetchInterval: 20_000,
   });
-  if (wallet.restoring) return <ActivitySkeleton />;
-  if (!wallet.address) {
+  if (!wallet.address && !wallet.restoring) {
     return (
       <EmptyState
+        icon={<History />}
         title="Connect a wallet to see its activity"
         description="Swaps you sign through Harbor appear here once they reach the network."
       >
-        <Button onClick={wallet.connect} disabled={wallet.connecting}>
+        <Button className="h-10 gap-2 px-4" onClick={wallet.connect} disabled={wallet.connecting}>
           <Wallet /> {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
         </Button>
       </EmptyState>
     );
   }
-  if (activity.isPending) return <ActivitySkeleton />;
   if (activity.isError) {
     return (
-      <EmptyState title="Activity could not be loaded" description={activity.error.message}>
-        <Button variant="outline" size="sm" onClick={() => void activity.refetch()}>
+      <EmptyState icon={<TriangleAlert />} title="Activity could not be loaded" description={activity.error.message}>
+        <Button variant="outline" className="h-9 gap-2" onClick={() => void activity.refetch()}>
           <RefreshCw /> Try again
         </Button>
       </EmptyState>
     );
   }
-  const items = activity.data.items;
+  return (
+    <Skeleton
+      id="wallet-activity"
+      label="Loading activity"
+      loading={wallet.restoring || activity.isPending}
+      data={activity.data?.items}
+      sample={SAMPLE_ACTIVITY}
+    >
+      {(items) => <ActivityTabs items={items} />}
+    </Skeleton>
+  );
+}
+
+function ActivityTabs({ items }: { items: ActivityItem[] }) {
   const pending = items.filter((item) => item.status === 'submitted' || item.status === 'confirming');
   return (
-    <Tabs defaultValue="swaps" className="gap-4">
+    <Tabs defaultValue="swaps" className="gap-0">
       <LineTabsList label="Activity views">
         <LineTab value="swaps">Swaps</LineTab>
         <LineTab value="pending">Pending{pending.length > 0 ? ` (${pending.length})` : ''}</LineTab>
@@ -169,77 +135,76 @@ export function WalletActivity() {
 }
 
 function ActivityTable({ items, empty }: { items: ActivityItem[]; empty: string }) {
-  if (items.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">{empty}</p>;
+  if (items.length === 0) return <p className="py-12 text-center text-[13.5px] text-muted-foreground">{empty}</p>;
   return (
-    <div className="border border-line">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-line hover:bg-transparent">
-            {['When', 'Action', 'Sent', 'Status', 'Transaction'].map((label) => (
-              <TableHead
-                key={label}
-                className={`h-10 bg-secondary text-[11px] font-medium tracking-[0.6px] text-muted-foreground uppercase ${label === 'Transaction' ? 'text-right' : ''}`}
-              >
-                {label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item) => (
-            <TableRow key={item.id} className="border-line">
-              <TableCell className="whitespace-nowrap text-muted-foreground">
-                {ACTIVITY_TIME.format(Date.parse(item.createdAt))}
-              </TableCell>
-              <TableCell>
-                <p className="font-medium">{item.title}</p>
-                <p className="text-xs text-muted-foreground">{venueName(item.venue)}</p>
-              </TableCell>
-              <TableCell className="tabular-nums">{amounts(item.sent)}</TableCell>
-              <TableCell>
-                <StatusTag status={item.status} />
-              </TableCell>
-              <TableCell className="text-right">
-                {item.explorerUrl ? (
-                  <a
-                    href={item.explorerUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
-                    View <ExternalLink className="size-3" />
-                  </a>
-                ) : (
-                  '—'
-                )}
-              </TableCell>
-            </TableRow>
+    <Table
+      containerClassName="ws-table -mx-5 w-[calc(100%+2.5rem)] overflow-x-auto"
+      style={{ ['--ws-cols' as string]: 5 }}
+    >
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          {['When', 'Action', 'Sent', 'Status', 'Transaction'].map((label) => (
+            <TableHead key={label}>{label}</TableHead>
           ))}
-        </TableBody>
-      </Table>
-    </div>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((item) => (
+          <TableRow key={item.id}>
+            <TableCell className="ws-num text-muted-foreground">
+              {ACTIVITY_TIME.format(Date.parse(item.createdAt))}
+            </TableCell>
+            <TableCell>
+              <p className="font-medium">{item.title}</p>
+              <p className="text-[12.5px] text-muted-foreground">{venueName(item.venue)}</p>
+            </TableCell>
+            <TableCell className="ws-num">{amounts(item.sent)}</TableCell>
+            <TableCell>
+              <StatusTag status={item.status} />
+            </TableCell>
+            <TableCell>
+              {item.explorerUrl ? (
+                <a
+                  href={item.explorerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ws-link inline-flex items-center gap-1 text-[13px]"
+                >
+                  View <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                </a>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
-const STATUS: Record<string, { label: string; tone: string }> = {
-  confirmed: { label: 'Confirmed', tone: 'border-success text-success' },
-  submitted: { label: 'Pending', tone: 'border-primary text-primary' },
-  confirming: { label: 'Pending', tone: 'border-primary text-primary' },
-  failed: { label: 'Failed', tone: 'border-destructive text-destructive' },
-  refunded: { label: 'Refunded', tone: 'border-line text-muted-foreground' },
-  outcome_unknown: { label: 'Outcome unknown', tone: 'border-destructive text-destructive' },
-  expired: { label: 'Expired', tone: 'border-line text-muted-foreground' },
+const STATUS: Record<string, { label: string; tone: ChipTone }> = {
+  policy_checked: { label: 'Policy checked', tone: 'neutral' },
+  blocked: { label: 'Blocked by policy', tone: 'danger' },
+  confirmed: { label: 'Confirmed', tone: 'success' },
+  submitted: { label: 'Pending', tone: 'accent' },
+  confirming: { label: 'Pending', tone: 'accent' },
+  awaiting_review: { label: 'Awaiting review', tone: 'accent' },
+  awaiting_signature: { label: 'Awaiting signature', tone: 'accent' },
+  failed: { label: 'Failed', tone: 'danger' },
+  refunded: { label: 'Refunded', tone: 'neutral' },
+  outcome_unknown: { label: 'Outcome unknown', tone: 'danger' },
+  expired: { label: 'Expired', tone: 'neutral' },
 };
 
-/** A plan's state as a small ruled tag. */
+/** A plan's state as a rounded chip. When the state changes, the word rolls instead of swapping. */
 export function StatusTag({ status }: { status: string }) {
-  const known = STATUS[status] ?? { label: status.replaceAll('_', ' '), tone: 'border-line text-muted-foreground' };
+  const fallback = status.replaceAll('_', ' ');
+  const known = STATUS[status] ?? { label: fallback.charAt(0).toUpperCase() + fallback.slice(1), tone: 'neutral' };
   return (
-    <span
-      className={`inline-block border px-1.5 py-0.5 text-[10px] font-medium tracking-[0.6px] whitespace-nowrap uppercase ${known.tone}`}
-    >
-      {known.label}
-    </span>
+    <Chip tone={known.tone} dot>
+      <RollText id={known.label}>{known.label}</RollText>
+    </Chip>
   );
 }
 

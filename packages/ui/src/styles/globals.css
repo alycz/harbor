@@ -96,6 +96,7 @@
   --color-band: var(--harbor-band);
   --color-band-foreground: var(--harbor-band-text);
   --color-line: var(--harbor-line);
+  --color-border-strong: var(--harbor-border-strong);
   /* Square corners everywhere. `rounded-full` stays round for dots and avatars. */
   --radius-sm: var(--radius);
   --radius-md: var(--radius);

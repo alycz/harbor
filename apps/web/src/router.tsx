@@ -8,21 +8,12 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
+import { Compass, TriangleAlert } from 'lucide-react';
 import { lazy } from 'react';
-
 import { AppShell } from './components/app-shell.tsx';
-import { Panel } from './components/brand.tsx';
-import {
-  ChatSkeleton,
-  EarnSkeleton,
-  LandingSkeleton,
-  PlanSkeleton,
-  PolicySkeleton,
-  PortfolioSkeleton,
-  ResearchSkeleton,
-  TradeSkeleton,
-} from './components/skeletons.tsx';
-import { EmptyState } from './components/workspace.tsx';
+
+import { ChatSkeleton, LandingSkeleton, PageSkeleton } from './components/skeletons.tsx';
+import { EmptyState, Panel } from './components/workspace.tsx';
 
 // The landing page renders on its own; every other page sits inside the workspace shell.
 const rootRoute = createRootRoute({
@@ -58,25 +49,25 @@ const chatRoute = createRoute({
 const researchRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/research',
-  pendingComponent: ResearchSkeleton,
+  pendingComponent: PageSkeleton,
   component: lazy(() => import('./routes/research.tsx').then((module) => ({ default: module.ResearchPage }))),
 });
 const tradeRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/trade',
-  pendingComponent: TradeSkeleton,
+  pendingComponent: PageSkeleton,
   component: lazy(() => import('./routes/trade.tsx').then((module) => ({ default: module.TradePage }))),
 });
 const earnRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/earn',
-  pendingComponent: EarnSkeleton,
+  pendingComponent: PageSkeleton,
   component: lazy(() => import('./routes/earn.tsx').then((module) => ({ default: module.EarnPage }))),
 });
 const portfolioRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/portfolio',
-  pendingComponent: PortfolioSkeleton,
+  pendingComponent: PageSkeleton,
   component: lazy(() => import('./routes/portfolio.tsx').then((module) => ({ default: module.PortfolioPage }))),
 });
 
@@ -84,13 +75,13 @@ const PlanPage = lazy(() => import('./routes/portfolio.tsx').then((module) => ({
 const planRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/plans/$planId',
-  pendingComponent: PlanSkeleton,
+  pendingComponent: PageSkeleton,
   component: PlanView,
 });
 const policyRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/settings/policy',
-  pendingComponent: PolicySkeleton,
+  pendingComponent: PageSkeleton,
   component: lazy(() => import('./routes/settings.tsx').then((module) => ({ default: module.PolicyPage }))),
 });
 const walletAlias = createRoute({
@@ -137,9 +128,13 @@ function PlanView() {
 
 function PageError({ reset }: ErrorComponentProps) {
   return (
-    <Panel label="Something went wrong">
-      <EmptyState title="This page couldn't be loaded" description="Try again, or go back to research.">
-        <Button className="h-11" onClick={reset}>
+    <Panel>
+      <EmptyState
+        icon={<TriangleAlert />}
+        title="This page couldn't be loaded"
+        description="Something went wrong on our side. Try again, or go back to research."
+      >
+        <Button className="h-10 px-4" onClick={reset}>
           Try again
         </Button>
       </EmptyState>
@@ -149,9 +144,13 @@ function PageError({ reset }: ErrorComponentProps) {
 
 function PageNotFound() {
   return (
-    <Panel label="Not found">
-      <EmptyState title="Page not found" description="This link doesn't match a page in your workspace.">
-        <Button nativeButton={false} className="h-11" render={<Link to="/research" />}>
+    <Panel>
+      <EmptyState
+        icon={<Compass />}
+        title="Page not found"
+        description="This link doesn't match a page in your workspace."
+      >
+        <Button nativeButton={false} className="h-10 px-4" render={<Link to="/research" />}>
           Open research
         </Button>
       </EmptyState>

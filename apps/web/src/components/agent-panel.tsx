@@ -7,49 +7,56 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@harbor/ui/components/sheet';
-import { Link } from '@tanstack/react-router';
-import { ArrowUpRight, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 import { ConversationDraft } from './conversation-draft.tsx';
 import { HarborMark } from './harbor-logo.tsx';
 import { useWorkspaceSession } from './workspace-session.tsx';
 
+const SHORTCUT = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K';
+
+/** The floating trigger: an ink pill that lifts a pixel under the pointer. */
+const TRIGGER =
+  'size-12 gap-2.5 rounded-full border border-white/10 bg-primary px-0 text-[14px] sm:h-11 sm:w-auto sm:pr-4 sm:pl-3 font-medium text-white shadow-[0_1px_2px_rgb(23_25_31/0.12),0_10px_28px_-8px_rgb(31_86_199/0.55)] transition-[translate,background-color,box-shadow] duration-200 hover:-translate-y-px hover:bg-[var(--harbor-accent-hover)] hover:text-white motion-reduce:hover:translate-y-0';
+
 export function AgentPanel({ desktop }: { desktop: boolean }) {
   const { assistantOpen, setAssistantOpen } = useWorkspaceSession();
+  const label = (
+    <>
+      <HarborMark className="size-5 text-white" beacon="var(--harbor-sky)" />
+      <span className="hidden sm:inline">Ask Harbor</span>
+      <kbd className="ml-0.5 hidden rounded-[4px] border border-white/25 px-1 py-px font-sans text-[11px] text-white/80 sm:inline">
+        {SHORTCUT}
+      </kbd>
+    </>
+  );
   if (desktop)
     return (
       <Button
         id="ask-harbor-trigger"
         variant="ghost"
-        className="h-12 gap-3 border border-band bg-band px-4 text-band-foreground hover:-translate-x-[3px] hover:-translate-y-[3px] hover:bg-band hover:text-band-foreground hover:shadow-[4px_4px_0_var(--harbor-accent)] motion-reduce:hover:translate-x-0 motion-reduce:hover:translate-y-0"
+        className={TRIGGER}
         aria-label={assistantOpen ? 'Close Ask Harbor' : 'Open Ask Harbor'}
         aria-expanded={assistantOpen}
         aria-controls="context-assistant"
         onClick={() => setAssistantOpen(!assistantOpen)}
       >
-        <HarborMark className="size-6 text-band-foreground" beacon="var(--harbor-sky)" /> Ask Harbor{' '}
-        <ArrowUpRight className="text-sky" />
+        {label}
       </Button>
     );
   return (
     <Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
       <SheetTrigger
-        render={
-          <Button
-            id="ask-harbor-trigger"
-            variant="ghost"
-            className="h-12 gap-3 border border-band bg-band px-4 text-band-foreground hover:-translate-x-[3px] hover:-translate-y-[3px] hover:bg-band hover:text-band-foreground hover:shadow-[4px_4px_0_var(--harbor-accent)] motion-reduce:hover:translate-x-0 motion-reduce:hover:translate-y-0"
-            aria-label="Open Ask Harbor"
-          />
-        }
+        render={<Button id="ask-harbor-trigger" variant="ghost" className={TRIGGER} aria-label="Open Ask Harbor" />}
       >
-        <HarborMark className="size-6 text-band-foreground" beacon="var(--harbor-sky)" /> Ask Harbor{' '}
-        <ArrowUpRight className="text-sky" />
+        {label}
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-[440px]">
-        <SheetHeader>
-          <SheetTitle>Ask Harbor</SheetTitle>
-          <SheetDescription>Keep a question beside your workspace.</SheetDescription>
+      <SheetContent side="left" className="w-full gap-0 p-0 sm:max-w-[440px]">
+        <SheetHeader className="border-b border-border px-5 py-4">
+          <SheetTitle className="flex items-center gap-2 text-[15px] font-medium">
+            <HarborMark className="size-5 text-primary" /> Ask Harbor
+          </SheetTitle>
+          <SheetDescription className="text-[13px]">Keep a question beside your workspace.</SheetDescription>
         </SheetHeader>
         <AssistantContents />
       </SheetContent>
@@ -63,16 +70,17 @@ export function AdjacentAssistant() {
     <aside
       id="context-assistant"
       aria-label="Context assistant"
-      className="flex h-full min-h-0 min-w-0 flex-col bg-card"
+      className="flex h-full min-h-0 min-w-0 flex-col border-r border-border bg-card"
     >
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="flex items-center gap-2 text-lg tracking-[-0.5px] uppercase">
-          <HarborMark className="size-6 text-primary" /> Ask Harbor
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border pr-2 pl-4">
+        <h2 className="flex items-center gap-2 text-[14px] font-medium">
+          <HarborMark className="size-5 text-primary" /> Ask Harbor
         </h2>
         <Button
           variant="ghost"
           size="icon"
           aria-label="Close assistant"
+          className="text-muted-foreground"
           onClick={() => {
             setAssistantOpen(false);
             document.getElementById('ask-harbor-trigger')?.focus();
@@ -87,18 +95,9 @@ export function AdjacentAssistant() {
 }
 
 function AssistantContents() {
-  const { setAssistantOpen } = useWorkspaceSession();
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
+    <div className="flex min-h-0 flex-1 flex-col p-4">
       <ConversationDraft compact />
-      <Link
-        to="/chat"
-        onClick={() => setAssistantOpen(false)}
-        className="mt-4 inline-flex min-h-11 items-center justify-center border border-line text-sm text-primary hover:bg-secondary"
-      >
-        Continue in chat
-      </Link>
-      <p className="mt-2 text-center text-xs text-muted-foreground">This conversation carries over in this session.</p>
     </div>
   );
 }

@@ -1,137 +1,148 @@
 import type { ProtocolRow, YieldPoolRow } from '@harbor/data/research';
 import { Input } from '@harbor/ui/components/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@harbor/ui/components/select';
 import { Tabs, TabsContent } from '@harbor/ui/components/tabs';
 import { Link } from '@tanstack/react-router';
-import { ArrowUpRight } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDownRight, ArrowUpRight, Database, Search, Telescope } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 
-import { LineTab, LineTabsList, Panel } from '../components/brand.tsx';
-import { ProtocolLogo } from '../components/protocol-logo.tsx';
+import { ChainLogo, chainLogoUrl, LogoPair, ProtocolLogo } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
-import { EmptyState, PageHeader } from '../components/workspace.tsx';
-import { formatApy, formatPercentPoints, formatUsd, formatUtc } from '../lib/format.ts';
-import { capturedAt, research } from '../lib/research.ts';
+import { EmptyState, HeroCard, Panel, SectionTitle, Segment, SegmentedList, Toggle } from '../components/workspace.tsx';
+import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
+import { research } from '../lib/research.ts';
+import { apyDrift, chainsWithPools, projectLogo, projectName } from '../lib/research-view.ts';
 
 const ALL = 'all';
-const HOME_CHAIN = 'NEAR';
 
 export function ResearchPage() {
   const [chain, setChain] = useState(ALL);
+  const [view, setView] = useState('yields');
+  const chains = chainsWithPools();
+  const totalTvl = chains.reduce((sum, entry) => sum + (entry.tvl ?? 0), 0);
+  const empty = research.yieldPools.length === 0;
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title="Research"
-        kicker="Cross-chain venues"
-        description="Yield pools and protocols on the chains Harbor can reach, from a dated snapshot. Nothing here is a live rate or an executable quote."
-        meta={<SnapshotNotice />}
+    <div className="ws-stagger flex flex-col gap-8">
+      <HeroCard
+        title="Yields and protocols across every chain Harbor can reach."
+        stats={
+          empty
+            ? [{ label: 'Snapshot', value: 'None yet' }]
+            : [
+                { label: 'DeFi TVL', value: formatUsd(totalTvl) },
+                { label: 'Chains', value: chains.length },
+                { label: 'Yield pools', value: research.yieldPools.length },
+              ]
+        }
       />
-      {research.yieldPools.length === 0 ? (
-        <Panel label="Snapshot">
+      {empty ? (
+        <Panel>
           <EmptySnapshot />
         </Panel>
       ) : (
-        <>
-          <ChainGrid selected={chain} onSelect={setChain} />
-          <Tabs defaultValue="yields" className="gap-5">
-            <LineTabsList label="Research views">
-              <LineTab value="yields">Yield pools</LineTab>
-              <LineTab value="protocols">Protocols</LineTab>
-            </LineTabsList>
-            <TabsContent value="yields">
-              <YieldTable chain={chain} />
-            </TabsContent>
-            <TabsContent value="protocols">
-              <ProtocolTable chain={chain} />
-            </TabsContent>
-          </Tabs>
-          <ul className="space-y-1.5 border-t border-line pt-5 text-xs text-muted-foreground">
-            {research.caveats.map((caveat) => (
-              <li key={caveat} className="flex gap-2">
-                <span aria-hidden="true" className="text-primary">
-                  ■
-                </span>
-                {caveat}
-              </li>
-            ))}
-          </ul>
-        </>
+        <Tabs value={view} onValueChange={(next) => setView(String(next))} className="gap-3.5">
+          <SectionTitle
+            id="research-table"
+            title={view === 'yields' ? 'Yield pools' : 'Protocols'}
+            actions={
+              <>
+                <ChainSelect chains={chains} selected={chain} onSelect={setChain} totalTvl={totalTvl} />
+                <SegmentedList label="Research views">
+                  <Segment value="yields">Yield pools</Segment>
+                  <Segment value="protocols">Protocols</Segment>
+                </SegmentedList>
+              </>
+            }
+          />
+          <TabsContent value="yields">
+            <YieldTable chain={chain} />
+          </TabsContent>
+          <TabsContent value="protocols">
+            <ProtocolTable chain={chain} />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
 }
 
-/** When the snapshot was taken and where it came from. */
-export function SnapshotNotice() {
-  const captured = capturedAt();
-  const source = research.sources[0];
-  if (!captured) return <span>No snapshot captured yet</span>;
+/** Which chain the tables show: every chain, or one, each with its DeFi TVL beside it. */
+function ChainSelect({
+  chains,
+  selected,
+  onSelect,
+  totalTvl,
+}: {
+  chains: ReturnType<typeof chainsWithPools>;
+  selected: string;
+  onSelect: (chain: string) => void;
+  totalTvl: number;
+}) {
+  const options = [{ name: ALL, tvl: totalTvl }, ...chains];
+  const current = options.find((option) => option.name === selected) ?? options[0];
   return (
-    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="border border-line px-1.5 py-0.5 text-[11px] font-medium tracking-[0.6px] text-foreground uppercase">
-        Snapshot
-      </span>
-      <span>Captured {formatUtc(captured)}</span>
-      {source ? (
-        <a
-          href={source.url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 underline decoration-line underline-offset-4 hover:text-primary"
+    <Select value={selected} onValueChange={(next) => next !== null && onSelect(String(next))}>
+      <SelectTrigger
+        aria-label="Filter by chain"
+        className="h-9 min-w-48 gap-2.5 rounded-lg bg-card pr-3 pl-2.5 text-[13px] font-medium data-[size=default]:h-9"
+      >
+        <SelectValue>{current ? <ChainOption name={current.name} /> : null}</SelectValue>
+      </SelectTrigger>
+      <SelectContent align="end" className="max-h-96 min-w-72 p-2">
+        {options.map((option) => (
+          <SelectItem
+            key={option.name}
+            value={option.name}
+            className="min-h-11 rounded-lg py-2 pr-10 pl-3 text-[13.5px]"
+          >
+            <span className="flex w-full items-center justify-between gap-6">
+              <ChainOption name={option.name} />
+              <span className="ws-num text-[12.5px] text-muted-foreground">{formatUsd(option.tvl)}</span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ChainOption({ name }: { name: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      {name === ALL ? (
+        <span
+          aria-hidden="true"
+          className="grid size-5 place-items-center rounded-full bg-secondary text-muted-foreground"
         >
-          Data from DefiLlama <ArrowUpRight className="size-3" aria-hidden="true" />
-        </a>
-      ) : null}
+          <Telescope className="size-3" />
+        </span>
+      ) : (
+        <ChainLogo chain={name} className="size-5" />
+      )}
+      {name === ALL ? 'All chains' : name}
     </span>
   );
 }
 
-/** Each chain with its DeFi TVL. Choosing one filters the pools and protocols below. */
-function ChainGrid({ selected, onSelect }: { selected: string; onSelect: (chain: string) => void }) {
-  const pools = new Map<string, number>();
-  for (const pool of research.yieldPools) pools.set(pool.chain, (pools.get(pool.chain) ?? 0) + 1);
-  const chains = [...research.chains]
-    .filter((chain) => pools.has(chain.name))
-    .sort((a, b) =>
-      a.name === HOME_CHAIN ? -1 : b.name === HOME_CHAIN ? 1 : (b.defiTvlUsd ?? 0) - (a.defiTvlUsd ?? 0),
-    );
-  const totalTvl = chains.reduce((sum, chain) => sum + (chain.defiTvlUsd ?? 0), 0);
-  const cells = [
-    { id: ALL, name: 'All chains', tvl: totalTvl, count: research.yieldPools.length },
-    ...chains.map((chain) => ({
-      id: chain.name,
-      name: chain.name,
-      tvl: chain.defiTvlUsd,
-      count: pools.get(chain.name) ?? 0,
-    })),
-  ];
-  return (
-    <Panel label="Chains" aside="DeFi TVL" bodyClassName="p-0" className="overflow-hidden" labelId="research-chains">
-      <fieldset
-        className="flex snap-x overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible md:grid-cols-4 xl:grid-cols-6"
-        aria-label="Filter by chain"
-      >
-        {cells.map((cell) => (
-          <button
-            key={cell.id}
-            type="button"
-            aria-pressed={selected === cell.id}
-            onClick={() => onSelect(cell.id)}
-            className="research-chain -mr-px -mb-px flex min-h-24 w-[44%] shrink-0 snap-start sm:w-auto flex-col items-start justify-between gap-3 border-r border-b border-line p-4 text-left transition-colors hover:bg-secondary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
-          >
-            <span className="text-[11px] font-medium tracking-[0.6px] uppercase">{cell.name}</span>
-            <span className="font-serif text-[26px] leading-none font-bold tracking-[-1px]">{formatUsd(cell.tvl)}</span>
-            <span className="text-[11px] opacity-70">
-              {cell.count} {cell.count === 1 ? 'pool' : 'pools'}
-            </span>
-          </button>
-        ))}
-      </fieldset>
-    </Panel>
-  );
+function askAbout(pool: YieldPoolRow): string {
+  return `Compare ${pool.symbol} on ${projectName(pool.project)} (${pool.chain}) with similar pools. What are the risks, and how would I exit?`;
 }
 
-function askAbout(pool: YieldPoolRow): string {
-  return `Compare ${pool.symbol} on ${pool.project} (${pool.chain}) with similar pools. What are the risks, and how would I exit?`;
+/** A search field with its icon inside, for the table toolbars. */
+function SearchField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="relative w-full @xl/workspace:w-64">
+      <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        type="search"
+        aria-label={label}
+        placeholder={label}
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        className="h-9 pl-8 text-[13.5px]"
+      />
+    </div>
+  );
 }
 
 function YieldTable({ chain }: { chain: string }) {
@@ -140,7 +151,9 @@ function YieldTable({ chain }: { chain: string }) {
   const rows = research.yieldPools
     .filter((pool) => chain === ALL || pool.chain === chain)
     .filter((pool) => !stableOnly || pool.stablecoin)
-    .filter((pool) => `${pool.project} ${pool.symbol}`.toLowerCase().includes(query.toLowerCase().trim()))
+    .filter((pool) =>
+      `${pool.project} ${projectName(pool.project)} ${pool.symbol}`.toLowerCase().includes(query.toLowerCase().trim()),
+    )
     .sort((a, b) => (b.totalApyPct ?? -1) - (a.totalApyPct ?? -1));
   return (
     <ResearchDataTable<YieldPoolRow>
@@ -150,22 +163,10 @@ function YieldTable({ chain }: { chain: string }) {
       getRowId={(row) => row.id}
       controls={
         <>
-          <Input
-            type="search"
-            aria-label="Search pools"
-            placeholder="Search project or asset"
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            className="h-11 w-full sm:w-64"
-          />
-          <label className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={stableOnly}
-              onChange={(event) => setStableOnly(event.currentTarget.checked)}
-            />
+          <SearchField label="Search project or asset" value={query} onChange={setQuery} />
+          <Toggle checked={stableOnly} onChange={setStableOnly}>
             Stablecoins only
-          </label>
+          </Toggle>
         </>
       }
       columns={[
@@ -174,23 +175,34 @@ function YieldTable({ chain }: { chain: string }) {
           label: 'Pool',
           required: true,
           cell: (row) => (
-            <div>
-              <p className="font-medium">
-                {row.symbol}
-                {row.stablecoin ? (
-                  <span className="ml-2 border border-line px-1 py-px text-[10px] font-medium tracking-[0.4px] text-muted-foreground uppercase">
-                    Stable
-                  </span>
-                ) : null}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {row.project}
-                {row.meta ? ` · ${row.meta}` : ''}
-              </p>
+            <div className="flex items-center gap-3">
+              <LogoPair
+                className="size-8"
+                primary={{ name: projectName(row.project), url: projectLogo(row.project) }}
+                secondary={{ name: row.chain, url: chainLogoUrl(row.chain) }}
+              />
+              <div className="min-w-0">
+                <p className="flex min-w-0 items-center gap-1.5 font-medium" title={row.symbol}>
+                  <span className="truncate">{row.symbol}</span>
+                </p>
+                <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
+                  {projectName(row.project)}
+                  {row.meta ? ` · ${row.meta}` : ''}
+                </p>
+              </div>
             </div>
           ),
         },
-        { id: 'chain', label: 'Chain', cell: (row) => row.chain },
+        {
+          id: 'chain',
+          label: 'Chain',
+          cell: (row) => (
+            <span className="inline-flex items-center gap-2">
+              <ChainLogo chain={row.chain} className="size-4" />
+              {row.chain}
+            </span>
+          ),
+        },
         {
           id: 'apy',
           label: 'Total APY',
@@ -198,23 +210,16 @@ function YieldTable({ chain }: { chain: string }) {
           emphasis: true,
           cell: (row) => formatApy(row.totalApyPct),
         },
-        { id: 'mean', label: '30d mean', numeric: true, cell: (row) => formatApy(row.mean30dApyPct) },
-        { id: 'base', label: 'Base', numeric: true, cell: (row) => formatApy(row.baseApyPct) },
-        { id: 'reward', label: 'Rewards', numeric: true, cell: (row) => formatApy(row.rewardApyPct) },
+        { id: 'mean', label: 'vs 30d mean', numeric: true, cell: (row) => <Drift row={row} /> },
+        { id: 'base', label: 'Base', numeric: true, cell: (row) => <Muted>{formatApy(row.baseApyPct)}</Muted> },
+        { id: 'reward', label: 'Rewards', numeric: true, cell: (row) => <Muted>{formatApy(row.rewardApyPct)}</Muted> },
         { id: 'tvl', label: 'TVL', numeric: true, cell: (row) => (row.tvlUsd === null ? '—' : formatUsd(row.tvlUsd)) },
         {
           id: 'ask',
-          label: 'Ask',
+          label: 'Ask Harbor',
           numeric: true,
           cell: (row) => (
-            <Link
-              to="/chat"
-              search={{ ask: askAbout(row) }}
-              aria-label={`Ask Harbor about ${row.symbol} on ${row.project}`}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-            >
-              Ask <ArrowUpRight className="size-3" aria-hidden="true" />
-            </Link>
+            <AskLink to={askAbout(row)} label={`Ask Harbor about ${row.symbol} on ${projectName(row.project)}`} />
           ),
         },
       ]}
@@ -230,22 +235,14 @@ function ProtocolTable({ chain }: { chain: string }) {
     .filter((protocol) => chain === ALL || protocol.chains.includes(chain))
     .filter((protocol) => `${protocol.name} ${protocol.category}`.toLowerCase().includes(query.toLowerCase().trim()))
     .sort((a, b) => (tvl(b) ?? -1) - (tvl(a) ?? -1));
+  const largest = Math.max(1, ...rows.map((row) => tvl(row) ?? 0));
   return (
     <ResearchDataTable<ProtocolRow>
       tableKey="research-protocols"
       label="Protocols"
       rows={rows}
       getRowId={(row) => row.id}
-      controls={
-        <Input
-          type="search"
-          aria-label="Search protocols"
-          placeholder="Search name or category"
-          value={query}
-          onChange={(event) => setQuery(event.currentTarget.value)}
-          className="h-11 w-full sm:w-64"
-        />
-      }
+      controls={<SearchField label="Search name or category" value={query} onChange={setQuery} />}
       columns={[
         {
           id: 'protocol',
@@ -253,33 +250,98 @@ function ProtocolTable({ chain }: { chain: string }) {
           required: true,
           cell: (row) => (
             <div className="flex items-center gap-3">
-              <ProtocolLogo name={row.name} fallback={row.logo} className="size-7" />
+              <ProtocolLogo name={row.name} fallback={row.logo} className="size-8" />
               <div>
                 <p className="font-medium">{row.name}</p>
-                <p className="text-xs text-muted-foreground">{row.category}</p>
+                <p className="mt-0.5 text-[12.5px] text-muted-foreground">{row.category}</p>
               </div>
             </div>
           ),
         },
-        {
-          id: 'chains',
-          label: 'Chains',
-          cell: (row) =>
-            row.chains.length > 3
-              ? `${row.chains.slice(0, 3).join(', ')} +${row.chains.length - 3}`
-              : row.chains.join(', '),
-        },
+        { id: 'chains', label: 'Chains', cell: (row) => <ChainStack chains={row.chains} /> },
         {
           id: 'tvl',
           label: chain === ALL ? 'TVL' : `TVL on ${chain}`,
           numeric: true,
           emphasis: true,
-          cell: (row) => formatUsd(tvl(row)),
+          cell: (row) => <ShareBar value={tvl(row)} max={largest} />,
         },
         { id: 'day', label: '1d', numeric: true, cell: (row) => <Change value={row.change.day} /> },
         { id: 'week', label: '7d', numeric: true, cell: (row) => <Change value={row.change.week} /> },
       ]}
     />
+  );
+}
+
+/** A protocol's chains as overlapping marks, then a count of the rest. */
+function ChainStack({ chains }: { chains: string[] }) {
+  const shown = chains.slice(0, 4);
+  return (
+    <span className="inline-flex items-center gap-2" title={chains.join(', ')}>
+      <span className="flex -space-x-1.5">
+        {shown.map((name) => (
+          <span key={name} className="rounded-full bg-card p-px">
+            <ChainLogo chain={name} className="size-5" />
+          </span>
+        ))}
+      </span>
+      <span className="text-[12.5px] text-muted-foreground">
+        {chains.length > shown.length ? `+${chains.length - shown.length}` : chains.length === 1 ? chains[0] : null}
+      </span>
+    </span>
+  );
+}
+
+/** A value with a short bar of its share of the largest, as Royco's coverage column. */
+function ShareBar({ value, max }: { value: number | null; max: number }) {
+  if (value === null) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="inline-flex items-center gap-3">
+      <span className="min-w-[4.5rem]">{formatUsd(value)}</span>
+      <span
+        aria-hidden="true"
+        className="hidden h-1 w-14 overflow-hidden rounded-full bg-secondary @xl/workspace:block"
+      >
+        <span
+          className="block h-full rounded-full bg-foreground/70"
+          style={{ width: `${Math.max(4, (value / max) * 100)}%` }}
+        />
+      </span>
+    </span>
+  );
+}
+
+/** How far the current APY sits from its 30-day mean: up in green, down in red, a dash when unknown. */
+function Drift({ row }: { row: YieldPoolRow }) {
+  const drift = apyDrift(row);
+  if (drift === null) return <Muted>—</Muted>;
+  const flat = Math.abs(drift) < 0.05;
+  const Icon = drift > 0 ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 ${flat ? 'text-muted-foreground' : drift > 0 ? 'text-success' : 'text-destructive'}`}
+      title={`30-day mean ${formatApy(row.mean30dApyPct)}`}
+    >
+      {flat ? null : <Icon className="size-3.5" aria-hidden="true" />}
+      {formatPercentPoints(drift)}
+    </span>
+  );
+}
+
+function Muted({ children }: { children: ReactNode }) {
+  return <span className="text-muted-foreground">{children}</span>;
+}
+
+function AskLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link
+      to="/chat"
+      search={{ ask: to }}
+      aria-label={label}
+      className="-ml-2 inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-[var(--harbor-accent-tint)] hover:text-[var(--ws-accent-ink)]"
+    >
+      Ask <ArrowUpRight className="size-3.5" aria-hidden="true" />
+    </Link>
   );
 }
 
@@ -291,6 +353,7 @@ function Change({ value }: { value: number | null }) {
 function EmptySnapshot() {
   return (
     <EmptyState
+      icon={<Database />}
       title="No research snapshot yet"
       description="Run pnpm research:collect to capture a dated snapshot from DefiLlama, then reload."
     />

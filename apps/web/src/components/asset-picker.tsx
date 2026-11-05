@@ -39,42 +39,41 @@ export function AssetPicker({
       }}
     >
       <Button
-        variant="outline"
+        variant="ghost"
         disabled={disabled}
         aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
-        className="trade-token-select"
+        className="h-9 shrink-0 gap-2 rounded-lg bg-secondary pr-2 pl-1.5 text-[14px] font-medium hover:bg-[color-mix(in_oklab,var(--harbor-sand),var(--harbor-text)_6%)] aria-expanded:bg-secondary pointer-coarse:h-11"
       >
         <AssetIcon symbol={value} className="size-6" />
         <span>{value}</span>
-        <ChevronDown className="size-4" />
+        <ChevronDown className="size-3.5 text-muted-foreground" />
       </Button>
-      <DialogContent className="harbor-workspace asset-picker-dialog flex max-h-[calc(100dvh-40px)] flex-col gap-4 p-6 sm:max-w-[440px]">
-        <div className="space-y-3 pr-8">
-          <p className="text-xs font-medium tracking-[0.6px] text-primary uppercase">■ Supported assets</p>
-          <DialogTitle className="font-serif text-[28px] leading-none font-bold tracking-[-1px] uppercase">
-            Choose an asset
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            Choose an asset to swap. Support is checked again when Harbor quotes it.
+      <DialogContent className="flex max-h-[calc(100dvh-40px)] flex-col gap-0 p-0 sm:max-w-[420px]">
+        <div className="space-y-1 px-5 pt-5 pb-4 pr-12">
+          <DialogTitle className="font-display text-[24px] leading-tight font-medium">Choose an asset</DialogTitle>
+          <DialogDescription className="text-[13px] text-muted-foreground">
+            Support is checked again when Harbor quotes it.
           </DialogDescription>
         </div>
-        <Input
-          type="search"
-          aria-label="Search assets"
-          placeholder="Search name or symbol…"
-          value={query}
-          onChange={(event) => setQuery(event.currentTarget.value)}
-          className="min-h-11"
-        />
-        <div className="min-h-0 overflow-y-auto border-t border-line">
+        <div className="px-5 pb-3">
+          <Input
+            type="search"
+            aria-label="Search assets"
+            placeholder="Search name or symbol"
+            value={query}
+            onChange={(event) => setQuery(event.currentTarget.value)}
+            className="h-10"
+          />
+        </div>
+        <div className="min-h-0 overflow-y-auto border-t border-border p-2">
           {assets.map((asset) => (
             <Button
               key={asset.symbol}
               variant="ghost"
-              className="h-auto min-h-[62px] w-full justify-start gap-3 border-0 border-b border-line px-3 py-2.5 aria-pressed:bg-secondary"
+              className="h-auto min-h-14 w-full justify-start gap-3 rounded-lg px-3 py-2.5 aria-pressed:bg-secondary/70"
               aria-pressed={value === asset.symbol}
               onClick={() => {
                 onChange(asset.symbol);
@@ -83,14 +82,16 @@ export function AssetPicker({
               }}
             >
               <AssetIcon symbol={asset.symbol} className="size-8" />
-              <span className="flex flex-1 flex-col items-start gap-1">
-                <strong className="text-sm font-medium text-foreground">{asset.symbol}</strong>
-                <span className="text-[11px] text-muted-foreground">{asset.name}</span>
+              <span className="flex flex-1 flex-col items-start gap-0.5">
+                <strong className="text-[14px] font-medium text-foreground">{asset.symbol}</strong>
+                <span className="text-[12px] font-normal text-muted-foreground">{asset.name}</span>
               </span>
               {value === asset.symbol && <Check className="size-4 text-primary" />}
             </Button>
           ))}
-          {assets.length === 0 && <p className="py-8 text-center text-sm text-subtle">No assets match this search.</p>}
+          {assets.length === 0 && (
+            <p className="py-10 text-center text-[13.5px] text-muted-foreground">No assets match this search.</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

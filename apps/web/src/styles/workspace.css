@@ -1,0 +1,642 @@
+/*
+ * The workspace look: every page except the landing.
+ *
+ * It follows Pilot, which follows Royco: warm paper, off-white cards with soft corners, hairline
+ * warm-grey rules, Inter for reading and numbers, Newsreader for display, and one cobalt accent.
+ * The shell sets `data-surface="workspace"` on <html>, so these tokens reach popovers, dialogs and
+ * sheets that portal to <body>, and the landing page keeps the NEAR look in design/harbor untouched.
+ *
+ * Motion follows Stageshow: UI feedback stays quick (150ms), arrivals take the soft curve, things that
+ * travel take the travel curve, and groups stagger 40 to 80ms in reading order.
+ */
+
+:root[data-surface="workspace"] {
+  color-scheme: light;
+
+  /* Paper and cards */
+  --harbor-background: #f3f1eb;
+  --harbor-surface: #fcfbf8;
+  --harbor-surface-raised: #fefdfb;
+  --harbor-panel: #ece9e2;
+  --harbor-sand: #ece9e2;
+  --ws-inset: color-mix(in oklab, #ece9e2 55%, transparent);
+
+  /* Ink */
+  --harbor-text: #17191f;
+  --harbor-text-secondary: #596270;
+  --harbor-text-subtle: #596270;
+  --harbor-text-muted: #8b919b;
+
+  /* Rules */
+  --harbor-border: #e4e1da;
+  --harbor-line: #e4e1da;
+  --harbor-border-strong: #d3cfc5;
+  --harbor-input-border: #dcd8ce;
+
+  /* The one accent */
+  --harbor-accent: #1f56c7;
+  --harbor-accent-hover: #1a4ab0;
+  --harbor-accent-tint: #edf2fc;
+  --harbor-accent-foreground: #ffffff;
+  --ws-accent-ink: color-mix(in oklab, #1f56c7 78%, #17191f);
+  --ws-accent-border: #c7d6f5;
+
+  /* The ink hero card, as on Royco's Explore */
+  --harbor-band: #16181d;
+  --harbor-band-text: #f5f2ea;
+  --harbor-sky: #a9c4ff;
+  --ws-band-muted: #9aa3b2;
+  --ws-band-rule: rgb(255 255 255 / 0.09);
+
+  /* Status: meaning only */
+  --harbor-success: #137a3d;
+  --harbor-warning: #a84f0c;
+  --harbor-error: #b42318;
+  --harbor-info: #3f5f8f;
+
+  --harbor-series-1: #1f56c7;
+  --harbor-series-2: #a84f0c;
+  --harbor-series-3: #596270;
+  --harbor-series-4: #d3cfc5;
+
+  /* Type */
+  --harbor-font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --harbor-font-display: "Newsreader Variable", "Newsreader", Georgia, "Times New Roman", serif;
+  --harbor-font-mono: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --ws-font-code: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Shape: 6px controls, 12px cards, as Royco */
+  --radius: 6px;
+  --harbor-radius-control: 6px;
+  --harbor-radius-card: 12px;
+  --harbor-radius-tag: 5px;
+  --ws-radius-inset: 8px;
+
+  --ws-shadow-card: 0 1px 0 rgb(23 25 31 / 0.02);
+  --ws-shadow-raised: 0 1px 2px rgb(23 25 31 / 0.04), 0 8px 24px -6px rgb(23 25 31 / 0.1);
+  --ws-shadow-float: 0 1px 2px rgb(23 25 31 / 0.06), 0 12px 32px -8px rgb(23 25 31 / 0.22);
+
+  /* Motion */
+  --ws-ease-ui: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ws-ease-arrive: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --ws-ease-travel: cubic-bezier(0.45, 0, 0.1, 1);
+  --ws-fast: 150ms;
+  --ws-base: 220ms;
+  --ws-arrive: 520ms;
+
+  /* Skullet's skeletons, on paper */
+  --skullet-base: rgb(23 25 31 / 0.055);
+  --skullet-highlight: rgb(255 255 255 / 0.65);
+  --skullet-radius: 5px;
+
+  --ws-sidebar: 248px;
+  --ws-header: 60px;
+
+  background: var(--harbor-background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-surface="workspace"] {
+    --ws-fast: 0ms;
+    --ws-base: 0ms;
+    --ws-arrive: 0ms;
+  }
+}
+
+@layer base {
+  :root[data-surface="workspace"] body {
+    background: var(--harbor-background);
+    font-family: var(--harbor-font-sans);
+    font-feature-settings: "cv11", "ss03";
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.006em;
+  }
+
+  /* Headings are Inter medium; the serif is opted into with `.font-display`. */
+  :root[data-surface="workspace"] :is(h1, h2, h3, h4) {
+    font-family: var(--harbor-font-sans);
+    font-weight: 550;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+
+  :root[data-surface="workspace"] :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--harbor-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+
+  :root[data-surface="workspace"] ::selection {
+    background: color-mix(in srgb, var(--harbor-accent) 24%, transparent);
+  }
+
+  :root[data-surface="workspace"] :is(pre, code, kbd, samp) {
+    font-family: var(--ws-font-code);
+  }
+
+  :root[data-surface="workspace"] input[type="checkbox"] {
+    accent-color: var(--harbor-accent);
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: var(--harbor-font-display);
+    font-optical-sizing: auto;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  /* Royco's small label: Inter 12px, regular, muted. Never uppercase. */
+  .ws-label {
+    font-size: 12px;
+    font-weight: 450;
+    line-height: 1.35;
+    color: var(--harbor-text-secondary);
+  }
+
+  .ws-num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum", "cv11";
+  }
+
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A card: the one surface every section sits on. */
+  .ws-card {
+    min-width: 0;
+    border: 1px solid var(--harbor-border);
+    border-radius: var(--harbor-radius-card);
+    background: var(--harbor-surface);
+    box-shadow: var(--ws-shadow-card);
+  }
+
+  /* An inset well inside a card: the amount boxes on Trade, as Royco's deposit box. */
+  .ws-inset {
+    border-radius: var(--ws-radius-inset);
+    background: var(--ws-inset);
+    box-shadow: inset 0 0 0 1px transparent;
+    transition:
+      box-shadow var(--ws-fast) var(--ws-ease-ui),
+      background-color var(--ws-fast) var(--ws-ease-ui);
+  }
+
+  .ws-inset:focus-within {
+    background: color-mix(in oklab, var(--ws-inset) 70%, var(--harbor-surface));
+    box-shadow:
+      inset 0 0 0 1px var(--ws-accent-border),
+      0 0 0 3px color-mix(in srgb, var(--harbor-accent) 10%, transparent);
+  }
+
+  /* Dashed underline for inline text actions. */
+  .ws-link {
+    color: var(--ws-accent-ink);
+    text-decoration: underline dashed;
+    text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+    text-underline-offset: 3px;
+    transition:
+      text-decoration-color var(--ws-fast) var(--ws-ease-ui),
+      color var(--ws-fast) var(--ws-ease-ui);
+  }
+
+  .ws-link:hover {
+    text-decoration-color: currentColor;
+  }
+
+  /* The ink hero card from Royco's Explore. */
+  .ws-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: var(--harbor-radius-card);
+    background:
+      radial-gradient(120% 140% at 0% 0%, rgb(255 255 255 / 0.055), transparent 55%),
+      linear-gradient(180deg, #1b1e24, var(--harbor-band));
+    color: var(--harbor-band-text);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.05) inset,
+      var(--ws-shadow-raised);
+  }
+
+  /* A hairline of light along the top edge, like a lit bezel. */
+  .ws-hero::before {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: -1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.18), transparent);
+    content: "";
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Primitive overrides. These sit outside the layers on purpose: the shared Button carries the NEAR
+ * look as utilities (an animated rainbow edge and a hard ink shadow on hover) that the landing keeps.
+ * Inside the workspace a filled button is solid cobalt and stays cobalt under the pointer, one step
+ * darker, as Stageshow's craft rules ask.
+ * ------------------------------------------------------------------------------------------- */
+
+:root[data-surface="workspace"] [data-slot="button"] {
+  transition:
+    background-color var(--ws-fast) var(--ws-ease-ui),
+    border-color var(--ws-fast) var(--ws-ease-ui),
+    color var(--ws-fast) var(--ws-ease-ui),
+    box-shadow var(--ws-fast) var(--ws-ease-ui),
+    scale var(--ws-fast) var(--ws-ease-ui);
+}
+
+:root[data-surface="workspace"] [data-slot="button"]:active:not(:disabled):not([aria-haspopup]) {
+  translate: none;
+  scale: 0.985;
+}
+
+:root[data-surface="workspace"] [data-slot="button"][data-variant="default"] {
+  border-color: transparent;
+  background: var(--harbor-accent);
+  background-image: none;
+  animation: none;
+  color: var(--harbor-accent-foreground);
+  box-shadow:
+    0 1px 2px rgb(23 25 31 / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+:root[data-surface="workspace"] [data-slot="button"][data-variant="default"]::before {
+  display: none;
+}
+
+:root[data-surface="workspace"] [data-slot="button"][data-variant="default"]:hover {
+  translate: none;
+  background: var(--harbor-accent-hover);
+  box-shadow:
+    0 1px 2px rgb(23 25 31 / 0.16),
+    0 4px 12px -4px rgb(31 86 199 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+:root[data-surface="workspace"] [data-slot="button"][data-variant="outline"] {
+  border-color: var(--harbor-border-strong);
+  background: var(--harbor-surface);
+  box-shadow: 0 1px 1px rgb(23 25 31 / 0.04);
+}
+
+:root[data-surface="workspace"] [data-slot="button"][data-variant="outline"]:hover,
+:root[data-surface="workspace"] [data-slot="button"][data-variant="outline"][aria-expanded="true"] {
+  background: color-mix(in oklab, var(--harbor-sand) 60%, var(--harbor-surface));
+}
+
+:root[data-surface="workspace"]
+  :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):not(.ws-bare) {
+  border-color: var(--harbor-input-border);
+  background-color: var(--harbor-surface);
+  transition:
+    border-color var(--ws-fast) var(--ws-ease-ui),
+    box-shadow var(--ws-fast) var(--ws-ease-ui);
+}
+
+:root[data-surface="workspace"] :is([data-slot="input"], [data-slot="select-trigger"]):hover:not(:disabled) {
+  border-color: var(--harbor-border-strong);
+}
+
+:root[data-surface="workspace"]
+  :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):not(.ws-bare):focus-visible {
+  border-color: color-mix(in srgb, var(--harbor-accent) 55%, var(--harbor-input-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--harbor-accent) 12%, transparent);
+  outline: none;
+}
+
+/* Popovers, menus and dialogs: raised paper with a soft shadow instead of a hard ring. */
+:root[data-surface="workspace"]
+  :is([data-slot="dropdown-menu-content"], [data-slot="select-content"], [data-slot="popover-content"]) {
+  border: 1px solid var(--harbor-border-strong);
+  border-radius: 10px;
+  background: var(--harbor-surface-raised);
+  box-shadow: var(--ws-shadow-raised);
+}
+
+:root[data-surface="workspace"]
+  :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="select-item"]) {
+  border-radius: 6px;
+}
+
+:root[data-surface="workspace"] [data-slot="dialog-content"] {
+  border: 1px solid var(--harbor-border-strong);
+  border-radius: 14px;
+  background: var(--harbor-surface-raised);
+  box-shadow: 0 24px 64px -16px rgb(23 25 31 / 0.35);
+}
+
+:root[data-surface="workspace"] [data-slot="sheet-content"] {
+  background: var(--harbor-surface-raised);
+  box-shadow: 0 0 64px -12px rgb(23 25 31 / 0.3);
+}
+
+:root[data-surface="workspace"] :is([data-slot="sheet-overlay"], [data-slot="dialog-overlay"]) {
+  background: rgb(23 25 31 / 0.28);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * The shell
+ * ------------------------------------------------------------------------------------------- */
+
+.ws-shell {
+  min-height: 100svh;
+  background: var(--harbor-background);
+  color: var(--harbor-text);
+}
+
+/* A Select keeps a hidden input after its trigger; `space-y-*` would otherwise lift the trigger above its neighbours. */
+:root[data-surface="workspace"] [data-slot="select-trigger"]:has(+ input:last-child) {
+  margin-block-end: 0;
+}
+
+/* A table's first column holds a name and its context on one line each; long names end in an ellipsis. */
+.ws-table .ws-sticky-cell :is(p, span.block) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#workspace-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--harbor-border-strong) transparent;
+}
+
+.ws-shell main {
+  container-type: inline-size;
+  container-name: workspace;
+}
+
+/* A route arriving: the body fades up 8px while the chrome holds still (Stageshow, page swap). */
+.ws-page {
+  animation: ws-page-in 360ms var(--ws-ease-arrive) both;
+}
+
+/* Sections arrive in reading order, 60ms apart, once per visit. */
+.ws-stagger > * {
+  animation: ws-rise var(--ws-arrive) var(--ws-ease-arrive) both;
+}
+.ws-stagger > :nth-child(1) {
+  animation-delay: 0ms;
+}
+.ws-stagger > :nth-child(2) {
+  animation-delay: 60ms;
+}
+.ws-stagger > :nth-child(3) {
+  animation-delay: 120ms;
+}
+.ws-stagger > :nth-child(4) {
+  animation-delay: 180ms;
+}
+.ws-stagger > :nth-child(5) {
+  animation-delay: 240ms;
+}
+.ws-stagger > :nth-child(n + 6) {
+  animation-delay: 300ms;
+}
+
+@keyframes ws-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ws-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ws-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-page,
+  .ws-stagger > * {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Tables: Royco's market table. One card, a quiet header row, 64px rows, numbers right-aligned.
+ * ------------------------------------------------------------------------------------------- */
+
+/*
+ * Every table: columns of equal width, everything left-aligned, so the eye reads across one rhythm.
+ * Below the table's own minimum width it scrolls inside its card instead of squeezing.
+ */
+.ws-table [data-slot="table"] {
+  table-layout: fixed;
+  min-width: calc(var(--ws-cols, 5) * 10rem);
+}
+
+.ws-table :is([data-slot="table-head"], [data-slot="table-cell"]) {
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.ws-table [data-slot="table-head"] {
+  height: 40px;
+  padding-inline: 20px 12px;
+  background: transparent;
+  color: var(--harbor-text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.ws-table [data-slot="table-header"] [data-slot="table-row"] {
+  border-color: var(--harbor-border);
+}
+
+.ws-table [data-slot="table-cell"] {
+  padding: 12px 12px 12px 20px;
+  font-size: 14px;
+  font-weight: 450;
+  white-space: normal;
+}
+
+.ws-table [data-slot="table-body"] [data-slot="table-row"] {
+  border-color: color-mix(in oklab, var(--harbor-border) 80%, transparent);
+  transition: background-color var(--ws-fast) var(--ws-ease-ui);
+}
+
+.ws-table [data-slot="table-body"] [data-slot="table-row"]:hover {
+  background: color-mix(in oklab, var(--harbor-sand) 38%, transparent);
+}
+
+.ws-table [data-slot="table-body"] [data-slot="table-row"]:hover > .ws-sticky-cell {
+  background: color-mix(in oklab, var(--harbor-sand) 38%, var(--harbor-surface));
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Rolling digits (Stageshow's Count): each digit is a column of 0-9 that slides to its value,
+ * the last digit first, unchanged digits still.
+ * ------------------------------------------------------------------------------------------- */
+
+.ws-roll {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ws-roll-digit {
+  position: relative;
+  display: inline-block;
+  height: 1lh;
+  overflow: hidden;
+  vertical-align: bottom;
+  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+
+.ws-roll-column {
+  display: flex;
+  flex-direction: column;
+  transition: transform 640ms var(--ws-ease-travel);
+  transition-delay: var(--ws-roll-delay, 0ms);
+}
+
+.ws-roll-column > span {
+  height: 1lh;
+}
+
+.ws-roll-static {
+  display: inline-block;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Trade
+ * ------------------------------------------------------------------------------------------- */
+
+.trade-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+.trade-ticket {
+  position: sticky;
+  top: 20px;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+@container workspace (max-width: 900px) {
+  .trade-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .trade-ticket {
+    position: static;
+    grid-column: 1;
+    grid-row: auto;
+    order: -1;
+  }
+}
+
+.trade-amount-input,
+.trade-amount-output {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  color: var(--harbor-text);
+  font: 500 30px / 1.2 var(--harbor-font-sans);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  outline: 0;
+  overflow-wrap: anywhere;
+}
+
+.trade-amount-input::placeholder,
+.trade-amount-output[data-empty] {
+  color: color-mix(in oklab, var(--harbor-text-muted) 70%, transparent);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Chat
+ * ------------------------------------------------------------------------------------------- */
+
+.chat-column {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.chat-log {
+  scrollbar-width: thin;
+  scrollbar-color: var(--harbor-border-strong) transparent;
+}
+
+.chat-message {
+  animation: ws-rise 420ms var(--ws-ease-arrive) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-message {
+    animation: none;
+  }
+}
+
+/* The thinking dots: three beats, offset, that keep turning through their fade. */
+.ws-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.ws-dots > span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: ws-dot 1.1s var(--ws-ease-ui) infinite both;
+}
+
+.ws-dots > span:nth-child(2) {
+  animation-delay: 140ms;
+}
+.ws-dots > span:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@keyframes ws-dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-dots > span {
+    animation: none;
+    opacity: 0.6;
+  }
+}

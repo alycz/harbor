@@ -47,19 +47,27 @@ export function HarborMark({
   );
 }
 
-/** The mark and the wordmark together. `band` is for dark ink sections. */
-export function HarborLogo({ tone = 'paper', className = '' }: { tone?: 'paper' | 'band'; className?: string }) {
+/** The mark and the wordmark together. `band` is for dark sections, `size` sets the scale. */
+export function HarborLogo({
+  tone = 'paper',
+  size = 'md',
+  className = '',
+}: {
+  tone?: 'paper' | 'band';
+  size?: 'md' | 'lg';
+  className?: string;
+}) {
   const band = tone === 'band';
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className}`}>
+    <span className={`inline-flex items-center ${size === 'lg' ? 'gap-2.5' : 'gap-2'} ${className}`}>
       <HarborMark
-        className={`size-9 ${band ? 'text-[var(--harbor-band-text)]' : 'text-primary'}`}
+        className={`${size === 'lg' ? 'size-8' : 'size-7'} ${band ? 'text-white' : 'text-primary'}`}
         beacon={band ? 'var(--harbor-sky)' : 'var(--harbor-brand-blue)'}
       />
       <span
-        className={`font-serif text-[22px] font-bold leading-none tracking-[-0.04em] ${band ? 'text-[var(--harbor-band-text)]' : 'text-foreground'}`}
+        className={`${size === 'lg' ? 'text-[21px]' : 'text-[19px]'} leading-none font-semibold tracking-[-0.025em] ${band ? 'text-white' : 'text-foreground'}`}
       >
-        HARBOR
+        Harbor
       </span>
     </span>
   );
