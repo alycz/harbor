@@ -449,13 +449,13 @@ function AskHarbor() {
             </label>
             <textarea
               id={id}
-              rows={4}
+              rows={2}
               value={question}
               onChange={(event) => setQuestion(event.currentTarget.value)}
               onKeyDown={onKeyDown}
               maxLength={4000}
               placeholder={SUGGESTED_QUESTION}
-              className="ws-bare min-h-36 w-full resize-none bg-transparent px-3 pt-2.5 text-[17px] leading-relaxed outline-none placeholder:text-muted-foreground"
+              className="ws-bare min-h-20 w-full resize-none bg-transparent px-3 pt-2.5 text-[17px] leading-relaxed outline-none placeholder:text-muted-foreground"
             />
             <div className="flex justify-end">
               <Button type="submit" className="h-11 gap-1.5 rounded-xl px-5 text-[15px]" aria-label="Ask">
