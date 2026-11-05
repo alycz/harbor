@@ -436,10 +436,7 @@ function AskHarbor() {
         <RevealItem as="h2" className="font-display text-[clamp(32px,4vw,46px)] leading-[1.08]">
           <span id="harbor-ask">Ask Harbor.</span>
         </RevealItem>
-        <RevealItem as="p" className="mt-4 max-w-md text-[16px] leading-relaxed text-muted-foreground">
-          Start with a question. Harbor answers from dated sources and shows you exactly what it would do.
-        </RevealItem>
-        <RevealItem className="mt-10 w-full max-w-3xl">
+        <RevealItem className="mt-8 w-full max-w-3xl">
           <form
             onSubmit={ask}
             className="ws-card flex w-full flex-col p-3 text-left shadow-[var(--ws-shadow-raised)] transition-[border-color,box-shadow] focus-within:border-[color-mix(in_srgb,var(--harbor-accent)_45%,var(--harbor-border))] focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--harbor-accent)_12%,transparent),var(--ws-shadow-raised)]"
@@ -455,7 +452,7 @@ function AskHarbor() {
               onKeyDown={onKeyDown}
               maxLength={4000}
               placeholder={SUGGESTED_QUESTION}
-              className="ws-bare min-h-20 w-full resize-none bg-transparent px-3 pt-2.5 text-[17px] leading-relaxed outline-none placeholder:text-muted-foreground"
+              className="ws-bare min-h-[95px] w-full resize-none bg-transparent px-3 pt-2.5 text-[17px] leading-relaxed outline-none placeholder:text-muted-foreground"
             />
             <div className="flex justify-end">
               <Button type="submit" className="h-11 gap-1.5 rounded-xl px-5 text-[15px]" aria-label="Ask">
