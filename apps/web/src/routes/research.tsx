@@ -40,29 +40,27 @@ export function ResearchPage() {
           <EmptySnapshot />
         </Panel>
       ) : (
-        <>
-          <Tabs value={view} onValueChange={(next) => setView(String(next))} className="gap-3.5">
-            <SectionTitle
-              id="research-table"
-              title={view === 'yields' ? 'Yield pools' : 'Protocols'}
-              actions={
-                <>
-                  <ChainSelect chains={chains} selected={chain} onSelect={setChain} totalTvl={totalTvl} />
-                  <SegmentedList label="Research views">
-                    <Segment value="yields">Yield pools</Segment>
-                    <Segment value="protocols">Protocols</Segment>
-                  </SegmentedList>
-                </>
-              }
-            />
-            <TabsContent value="yields">
-              <YieldTable chain={chain} />
-            </TabsContent>
-            <TabsContent value="protocols">
-              <ProtocolTable chain={chain} />
-            </TabsContent>
-          </Tabs>
-        </>
+        <Tabs value={view} onValueChange={(next) => setView(String(next))} className="gap-3.5">
+          <SectionTitle
+            id="research-table"
+            title={view === 'yields' ? 'Yield pools' : 'Protocols'}
+            actions={
+              <>
+                <ChainSelect chains={chains} selected={chain} onSelect={setChain} totalTvl={totalTvl} />
+                <SegmentedList label="Research views">
+                  <Segment value="yields">Yield pools</Segment>
+                  <Segment value="protocols">Protocols</Segment>
+                </SegmentedList>
+              </>
+            }
+          />
+          <TabsContent value="yields">
+            <YieldTable chain={chain} />
+          </TabsContent>
+          <TabsContent value="protocols">
+            <ProtocolTable chain={chain} />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
