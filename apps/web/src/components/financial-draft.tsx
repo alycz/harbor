@@ -1,6 +1,5 @@
 import { Label } from '@harbor/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@harbor/ui/components/select';
-import { ShieldCheck } from 'lucide-react';
 import { useId } from 'react';
 
 const DRAFT_ASSETS = ['USDC', 'NEAR', 'USDT'];
@@ -25,7 +24,7 @@ export function AssetSelect({
         {label}
       </Label>
       <Select disabled={disabled} value={value} onValueChange={(next) => next !== null && onChange(next)}>
-        <SelectTrigger id={id} className="h-10 w-full">
+        <SelectTrigger id={id} className="h-10 w-full data-[size=default]:h-10">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -37,14 +36,5 @@ export function AssetSelect({
         </SelectContent>
       </Select>
     </div>
-  );
-}
-
-export function ReviewRequirements() {
-  return (
-    <p className="flex items-start gap-2 text-[12px] leading-relaxed text-muted-foreground">
-      <ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden="true" />A fresh quote, a passing policy check and
-      your own wallet signature are required before anything executes.
-    </p>
   );
 }

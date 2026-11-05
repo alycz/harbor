@@ -9,21 +9,16 @@ import {
   SheetTrigger,
 } from '@harbor/ui/components/sheet';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Clock3, LockKeyhole, MessageCircle, PanelLeftClose, PanelLeftOpen, SquarePen, Telescope } from 'lucide-react';
+import { MessageCircle, PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { ConversationDraft } from '../components/conversation-draft.tsx';
 import { useWorkspaceSession } from '../components/workspace-session.tsx';
 
-const HISTORY_LINKS = [
-  { to: '/portfolio', label: 'Action history', icon: Clock3 },
-  { to: '/research', label: 'Market coverage', icon: Telescope },
-] as const;
-
 /** `ask` is a question carried from the landing page; it fills the composer once and is not sent. */
 export function ChatPage({ ask }: { ask?: string | undefined }) {
   const { setDraft, chat } = useWorkspaceSession();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,9 +34,12 @@ export function ChatPage({ ask }: { ask?: string | undefined }) {
 
   return (
     <div
-      className={`grid h-full min-h-0 min-w-0 gap-6 transition-[grid-template-columns] duration-300 ease-[cubic-bezier(0.45,0,0.1,1)] motion-reduce:transition-none ${expanded ? 'lg:grid-cols-[232px_minmax(0,1fr)]' : 'lg:grid-cols-[44px_minmax(0,1fr)]'}`}
+      className={`grid h-full min-h-0 min-w-0 gap-6 transition-[grid-template-columns] duration-300 ease-[cubic-bezier(0.45,0,0.1,1)] motion-reduce:transition-none ${expanded ? '@3xl/workspace:grid-cols-[248px_minmax(0,1fr)]' : '@3xl/workspace:grid-cols-[58px_minmax(0,1fr)]'}`}
     >
-      <aside className="hidden min-h-0 min-w-0 flex-col lg:flex" aria-label="Conversation history">
+      <aside
+        className="ws-card hidden min-h-0 min-w-0 flex-col overflow-hidden p-2 @3xl/workspace:flex"
+        aria-label="Conversation history"
+      >
         <div className="flex flex-col gap-1">
           <Button
             variant="ghost"
@@ -71,10 +69,10 @@ export function ChatPage({ ask }: { ask?: string | undefined }) {
       </aside>
 
       <section className="chat-column flex min-h-0 min-w-0 flex-col gap-4">
-        <div className="-mt-2 -mb-1 flex shrink-0 items-center justify-end gap-3 lg:contents">
+        <div className="-mt-2 -mb-1 flex shrink-0 items-center justify-end gap-3 @3xl/workspace:contents">
           {/* The top bar already names the page. */}
           <h1 className="sr-only">Ask Harbor</h1>
-          <div className="flex items-center gap-1 lg:hidden">
+          <div className="flex items-center gap-1 @3xl/workspace:hidden">
             <Sheet>
               <SheetTrigger
                 render={
@@ -136,34 +134,10 @@ function HistoryContents({ expanded }: { expanded: boolean }) {
         {expanded ? (
           <span className="min-w-0">
             <span className="block truncate">Current conversation</span>
-            <span className="block text-[12px] font-normal text-muted-foreground">Guest session · not saved</span>
+            <span className="block text-[12px] font-normal text-muted-foreground">This session</span>
           </span>
         ) : null}
       </Link>
-      <nav aria-label="Conversation resources" className="mt-4 space-y-0.5 border-t border-border pt-4">
-        {HISTORY_LINKS.map((link) => (
-          <Link
-            key={link.to}
-            to={link.to}
-            aria-label={link.label}
-            title={link.label}
-            className={`flex min-h-9 items-center gap-2.5 rounded-md text-[13.5px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground ${expanded ? 'px-2.5' : 'size-9 justify-center'}`}
-          >
-            <link.icon className="size-4 shrink-0" aria-hidden="true" />
-            {expanded ? link.label : <span className="sr-only">{link.label}</span>}
-          </Link>
-        ))}
-      </nav>
-      {expanded ? (
-        <div className="mt-auto pt-6">
-          <div className="rounded-xl border border-dashed border-border-strong px-3.5 py-3.5">
-            <LockKeyhole className="mb-2 size-4 text-muted-foreground" aria-hidden="true" />
-            <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-              This conversation stays in your current session. Connect your wallet to save conversations.
-            </p>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }

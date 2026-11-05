@@ -9,7 +9,6 @@ import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/w
 import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
 import { research } from '../lib/research.ts';
 import { apyDrift, HOME_CHAIN, projectLogo, projectName } from '../lib/research-view.ts';
-import { SnapshotNotice } from './research.tsx';
 
 /** Pools below this size are left out: their rates move too much to plan around. */
 const MIN_TVL_USD = 1_000_000;
@@ -25,8 +24,6 @@ export function EarnPage() {
   return (
     <div className="ws-stagger flex flex-col gap-8">
       <HeroCard
-        eyebrow="Park idle stablecoins"
-        icon={<PiggyBank />}
         title="The best stablecoin rate on each chain, side by side."
         description="Pools over $1M TVL from the snapshot. Ask Harbor to compare venues for your amount; you sign anything it proposes."
         stats={[
@@ -43,7 +40,6 @@ export function EarnPage() {
             Ask where to park 100 USDC <ArrowRight />
           </Button>
         }
-        footer={<SnapshotNotice onBand />}
       />
       {best.length === 0 ? (
         <Panel>
@@ -57,7 +53,7 @@ export function EarnPage() {
         <>
           <section aria-labelledby="earn-best" className="flex flex-col gap-3.5">
             <SectionTitle id="earn-best" title="Best rate by chain" meta={`Pools over ${formatUsd(MIN_TVL_USD)} TVL`} />
-            <ol className="ws-stagger grid list-none gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <ol className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">
               {best.map((pool) => (
                 <RateCard key={pool.id} pool={pool} />
               ))}
@@ -87,7 +83,7 @@ export function EarnPage() {
                       />
                       <div className="min-w-0">
                         <p className="font-medium">{row.symbol}</p>
-                        <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                        <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
                           {projectName(row.project)}
                           {row.meta ? ` · ${row.meta}` : ''}
                         </p>

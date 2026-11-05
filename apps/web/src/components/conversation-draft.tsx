@@ -15,7 +15,6 @@ import {
   Coins,
   Eraser,
   LoaderCircle,
-  LockKeyhole,
   ShieldCheck,
   Square,
 } from 'lucide-react';
@@ -254,7 +253,7 @@ export function ConversationDraft({
                     : 'Ask about a market, compare venues, or bring a specific action to review.'}
                 </p>
               </div>
-              <div className={`grid gap-2 ${compact ? '' : 'sm:grid-cols-2'}`}>
+              <div className={`grid gap-2 ${compact ? '' : '@xl/workspace:grid-cols-2'}`}>
                 {(purpose === 'strategy' ? STRATEGY_PROMPTS : PROMPTS).map((prompt) => (
                   <button
                     type="button"
@@ -331,7 +330,7 @@ export function ConversationDraft({
               purpose === 'strategy' ? 'Here’s my plan: buy NEAR weekly with a budget I sign…' : 'Ask Harbor anything…'
             }
             aria-describedby={`${id}-hint${sendError ? ` ${id}-error` : ''}`}
-            className={`block max-h-48 resize-none rounded-none border-0 bg-transparent px-4 pt-3.5 pb-2 text-[15px] leading-relaxed shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:outline-none ${compact ? 'min-h-16' : 'min-h-20'}`}
+            className={`ws-bare block max-h-48 resize-none rounded-none border-0 bg-transparent px-4 pt-3.5 pb-2 text-[15px] leading-relaxed shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:outline-none ${compact ? 'min-h-16' : 'min-h-20'}`}
           />
           {sendError ? (
             <p id={`${id}-error`} role="alert" className="px-4 pb-2 text-[12.5px] leading-relaxed text-destructive">
@@ -339,21 +338,16 @@ export function ConversationDraft({
             </p>
           ) : null}
           <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pl-4">
-            <p className="flex min-w-0 items-center gap-1.5 text-[12px] text-muted-foreground">
+            <p role="status" className="flex min-w-0 items-center gap-1.5 text-[12px] text-muted-foreground">
               {running ? (
                 <>
                   <LoaderCircle
                     className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
                     aria-hidden="true"
                   />
-                  <span role="status">Answering…</span>
+                  Answering…
                 </>
-              ) : (
-                <>
-                  <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
-                  <span className="truncate">Review exact effects before signing</span>
-                </>
-              )}
+              ) : null}
             </p>
             <div className="flex shrink-0 items-center gap-1">
               {draft.length >= 3500 ? (
@@ -374,12 +368,17 @@ export function ConversationDraft({
                 <Eraser />
               </Button>
               {running ? (
-                <Button type="button" variant="outline" className="h-9 gap-1.5 px-3" onClick={chat.stop}>
-                  <Square className="size-3 fill-current" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-9 gap-1.5 rounded-lg bg-foreground px-3.5 text-background hover:bg-foreground/85 hover:text-background"
+                  onClick={chat.stop}
+                >
+                  <Square className="size-2.5 fill-current" />
                   Stop
                 </Button>
               ) : (
-                <Button type="submit" className="h-9 gap-1.5 px-3.5" disabled={!draft.trim()}>
+                <Button type="submit" className="h-9 gap-1.5 rounded-lg px-3.5" disabled={!draft.trim()}>
                   Send
                   <ArrowUp />
                 </Button>
@@ -387,16 +386,9 @@ export function ConversationDraft({
             </div>
           </div>
         </form>
-        <div
-          id={`${id}-hint`}
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[11.5px] leading-5 text-muted-foreground"
-        >
-          <p className="flex items-center gap-1.5">
-            <LockKeyhole className="size-3" aria-hidden="true" />
-            Not saved. Nothing is signed or executed.
-          </p>
-          {!compact ? <p className="hidden sm:block">Enter to send · Shift + Enter for a new line</p> : null}
-        </div>
+        <p id={`${id}-hint`} className="sr-only">
+          Enter sends the message. Shift and Enter start a new line.
+        </p>
       </div>
     </div>
   );
@@ -429,7 +421,7 @@ function AllocationDraft({ onDraft }: { onDraft: (text: string) => void }) {
         <p className="text-[14px] font-medium">Plan an allocation</p>
         <p className="text-[12px] text-muted-foreground">Fills the message for you to review</p>
       </div>
-      <div className="grid items-end gap-3 p-4 sm:grid-cols-[1fr_0.8fr_0.9fr_auto]">
+      <div className="grid items-end gap-3 p-4 @xl/workspace:grid-cols-[1fr_0.8fr_0.9fr_auto]">
         <div className="space-y-2">
           <Label htmlFor={id} className="text-[12.5px] font-normal text-muted-foreground">
             Capital
@@ -451,7 +443,7 @@ function AllocationDraft({ onDraft }: { onDraft: (text: string) => void }) {
             Horizon
           </Label>
           <Select value={horizon} onValueChange={(next) => next !== null && setHorizon(next)}>
-            <SelectTrigger id={`${id}-horizon`} className="h-10 w-full">
+            <SelectTrigger id={`${id}-horizon`} className="h-10 w-full data-[size=default]:h-10">
               <SelectValue>{horizon} days</SelectValue>
             </SelectTrigger>
             <SelectContent>

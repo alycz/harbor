@@ -137,20 +137,21 @@ function ActivityTabs({ items }: { items: ActivityItem[] }) {
 function ActivityTable({ items, empty }: { items: ActivityItem[]; empty: string }) {
   if (items.length === 0) return <p className="py-12 text-center text-[13.5px] text-muted-foreground">{empty}</p>;
   return (
-    <Table containerClassName="ws-table -mx-5 w-[calc(100%+2.5rem)] overflow-x-auto">
+    <Table
+      containerClassName="ws-table -mx-5 w-[calc(100%+2.5rem)] overflow-x-auto"
+      style={{ ['--ws-cols' as string]: 5 }}
+    >
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           {['When', 'Action', 'Sent', 'Status', 'Transaction'].map((label) => (
-            <TableHead key={label} className={label === 'Transaction' ? 'pr-5 text-right' : 'first:pl-5'}>
-              {label}
-            </TableHead>
+            <TableHead key={label}>{label}</TableHead>
           ))}
         </TableRow>
       </TableHeader>
       <TableBody>
         {items.map((item) => (
           <TableRow key={item.id}>
-            <TableCell className="ws-num pl-5 whitespace-nowrap text-muted-foreground">
+            <TableCell className="ws-num text-muted-foreground">
               {ACTIVITY_TIME.format(Date.parse(item.createdAt))}
             </TableCell>
             <TableCell>
@@ -161,7 +162,7 @@ function ActivityTable({ items, empty }: { items: ActivityItem[]; empty: string 
             <TableCell>
               <StatusTag status={item.status} />
             </TableCell>
-            <TableCell className="pr-5 text-right">
+            <TableCell>
               {item.explorerUrl ? (
                 <a
                   href={item.explorerUrl}

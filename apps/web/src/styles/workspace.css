@@ -287,7 +287,8 @@
   background: color-mix(in oklab, var(--harbor-sand) 60%, var(--harbor-surface));
 }
 
-:root[data-surface="workspace"] :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
+:root[data-surface="workspace"]
+  :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):not(.ws-bare) {
   border-color: var(--harbor-input-border);
   background-color: var(--harbor-surface);
   transition:
@@ -300,7 +301,7 @@
 }
 
 :root[data-surface="workspace"]
-  :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible {
+  :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):not(.ws-bare):focus-visible {
   border-color: color-mix(in srgb, var(--harbor-accent) 55%, var(--harbor-input-border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--harbor-accent) 12%, transparent);
   outline: none;
@@ -344,6 +345,18 @@
   min-height: 100svh;
   background: var(--harbor-background);
   color: var(--harbor-text);
+}
+
+/* A Select keeps a hidden input after its trigger; `space-y-*` would otherwise lift the trigger above its neighbours. */
+:root[data-surface="workspace"] [data-slot="select-trigger"]:has(+ input:last-child) {
+  margin-block-end: 0;
+}
+
+/* A table's first column holds a name and its context on one line each; long names end in an ellipsis. */
+.ws-table .ws-sticky-cell :is(p, span.block) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #workspace-scroll {
@@ -427,14 +440,30 @@
  * Tables: Royco's market table. One card, a quiet header row, 64px rows, numbers right-aligned.
  * ------------------------------------------------------------------------------------------- */
 
+/*
+ * Every table: columns of equal width, everything left-aligned, so the eye reads across one rhythm.
+ * Below the table's own minimum width it scrolls inside its card instead of squeezing.
+ */
+.ws-table [data-slot="table"] {
+  table-layout: fixed;
+  min-width: calc(var(--ws-cols, 5) * 10rem);
+}
+
+.ws-table :is([data-slot="table-head"], [data-slot="table-cell"]) {
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
 .ws-table [data-slot="table-head"] {
   height: 40px;
-  padding-inline: 16px 8px;
+  padding-inline: 20px 12px;
   background: transparent;
   color: var(--harbor-text-secondary);
   font-size: 12.5px;
   font-weight: 500;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .ws-table [data-slot="table-header"] [data-slot="table-row"] {
@@ -442,9 +471,10 @@
 }
 
 .ws-table [data-slot="table-cell"] {
-  padding: 12px 8px 12px 16px;
+  padding: 12px 12px 12px 20px;
   font-size: 14px;
   font-weight: 450;
+  white-space: normal;
 }
 
 .ws-table [data-slot="table-body"] [data-slot="table-row"] {

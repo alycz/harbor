@@ -64,7 +64,7 @@ export function PageSkeleton() {
         <SkeletonBox width="88%" height={12} />
         <SkeletonBox width="62%" height={12} />
       </div>
-      <div className="ws-card grid gap-6 p-6 sm:grid-cols-4">
+      <div className="ws-card grid gap-6 p-6 @xl/workspace:grid-cols-4">
         {[0, 1, 2, 3].map((cell) => (
           <div key={cell} className="space-y-2.5">
             <SkeletonBox width="45%" height={11} />
@@ -97,7 +97,7 @@ export function ChatSkeleton() {
         <SkeletonBox width={300} height={28} radius={7} />
         <SkeletonBox width={360} height={12} />
       </div>
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="grid gap-2.5 @xl/workspace:grid-cols-2">
         {[0, 1, 2, 3].map((index) => (
           <div key={index} className="ws-card flex items-center gap-3 p-4">
             <SkeletonBox width={28} height={28} radius={8} />

@@ -7,7 +7,6 @@ import { Skeleton } from 'skullet/react';
 
 import { AssetIcon } from '../components/asset-icon.tsx';
 import { AssetPicker, type PickerAsset } from '../components/asset-picker.tsx';
-import { ReviewRequirements } from '../components/financial-draft.tsx';
 import { RollingNumber, RollText } from '../components/motion.tsx';
 import { QuoteSkeleton } from '../components/skeletons.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
@@ -85,7 +84,7 @@ export function TradePage() {
     <div className="trade-layout ws-stagger">
       {/* The pair: who you pay and who you receive, and the quote's terms at a glance (Royco's market header). */}
       <section aria-labelledby="trade-pair" className="ws-card min-w-0">
-        <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6">
+        <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 @xl/workspace:px-6 @xl/workspace:pt-6">
           <div className="flex min-w-0 items-center gap-3.5">
             <span className="flex shrink-0 -space-x-2.5">
               <span className="rounded-full bg-card p-0.5">
@@ -106,11 +105,11 @@ export function TradePage() {
             <RollText id={status.id}>{status.label}</RollText>
           </Chip>
         </div>
-        <p className="mt-4 max-w-2xl px-5 text-[14px] leading-relaxed text-muted-foreground sm:px-6">
+        <p className="mt-4 max-w-2xl px-5 text-[14px] leading-relaxed text-muted-foreground @xl/workspace:px-6">
           Quotes are live and priced for your exact amount. You review every swap and sign it in your own wallet; Harbor
           never holds your keys.
         </p>
-        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border px-5 py-4 sm:grid-cols-3 sm:px-6 lg:grid-cols-5">
+        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border px-5 py-4 @xl/workspace:grid-cols-3 @xl/workspace:px-6 @3xl/workspace:grid-cols-5">
           <Stat
             label="Rate"
             value={
@@ -158,9 +157,9 @@ export function TradePage() {
         {quote && live ? (
           <RouteView quote={quote} />
         ) : quoting ? (
-          <div className="py-2">
+          <div>
             <RouteDiagram sell={pay} buy={receive} />
-            <p className="mt-5 text-center text-[13px] text-muted-foreground">Finding the best route for this size…</p>
+            <p className="mt-3 text-center text-[13px] text-muted-foreground">Finding the best route for this size…</p>
           </div>
         ) : (
           <Skeleton
@@ -296,9 +295,6 @@ export function TradePage() {
             ) : (
               <p className="px-1 py-1 text-[13px] text-muted-foreground">Enter an amount to get a live quote.</p>
             )}
-            <div className="border-t border-border px-1 pt-3">
-              <ReviewRequirements />
-            </div>
           </div>
         )}
       </section>
@@ -348,16 +344,14 @@ function RouteView({ quote }: { quote: Quote }) {
           title={quote.minimumOut.amount}
         />
       </dl>
-      <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-        The policy check runs when you review the swap.
-      </p>
     </div>
   );
 }
 
 /**
- * The path a swap takes, drawn left to right: what you send, the solver network, what you receive.
- * Each connector draws on once both of its ends are in place and ends on a dot (Stageshow's Connector).
+ * The path a swap takes, drawn left to right in an inset well: what you send, the solver network, what
+ * you receive. Each connector draws on once both ends are in place (Stageshow's Connector); while the
+ * quote is live a small pulse runs along it in the direction the funds travel.
  */
 function RouteDiagram({
   sell,
@@ -375,61 +369,78 @@ function RouteDiagram({
   drawn?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 pb-6 sm:gap-3" aria-label={`${sell} through ${venue} to ${buy}`} role="img">
-      <RouteNode symbol={sell} amount={sellAmount} caption="You send" />
-      <Connector drawn={drawn} delay={0.1} />
-      <span className="relative shrink-0">
-        <span className="grid size-10 place-items-center rounded-full border border-border bg-secondary/70 text-muted-foreground">
-          <ArrowLeftRight className="size-4" aria-hidden="true" />
+    <div
+      role="img"
+      aria-label={`${sell} through ${venue} to ${buy}`}
+      className="relative overflow-hidden rounded-xl border border-border bg-[radial-gradient(120%_90%_at_50%_0%,var(--harbor-surface),color-mix(in_oklab,var(--harbor-sand)_55%,var(--harbor-surface)))] px-3 py-6 @xl/workspace:px-6 @xl/workspace:py-7"
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(1.25rem,1fr)_auto_minmax(1.25rem,1fr)_minmax(0,1fr)] items-start">
+        <RouteNode symbol={sell} amount={sellAmount} caption="You send" />
+        <Connector drawn={drawn} delay={0.1} />
+        <span className="flex flex-col items-center px-1 text-center">
+          <span className="relative grid size-12 place-items-center rounded-full bg-card shadow-[0_1px_2px_rgb(23_25_31/0.08),0_6px_18px_-6px_rgb(31_86_199/0.35)] ring-1 ring-[var(--ws-accent-border)]">
+            {drawn ? (
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 animate-ping rounded-full ring-1 ring-primary/30 [animation-duration:2.4s] motion-reduce:hidden"
+              />
+            ) : null}
+            <ArrowLeftRight className="size-[18px] text-primary" aria-hidden="true" />
+          </span>
+          <span className="mt-2.5 text-[12.5px] font-medium whitespace-nowrap">{venue}</span>
+          <span className="text-[11.5px] whitespace-nowrap text-muted-foreground">Solver network</span>
         </span>
-        <span className="absolute top-full left-1/2 mt-1.5 -translate-x-1/2 text-[12px] font-medium whitespace-nowrap">
-          {venue}
-        </span>
-      </span>
-      <Connector drawn={drawn} delay={0.45} />
-      <RouteNode symbol={buy} amount={buyAmount} caption="You receive" align="end" />
+        <Connector drawn={drawn} delay={0.45} />
+        <RouteNode symbol={buy} amount={buyAmount} caption="You receive" />
+      </div>
     </div>
   );
 }
 
-function RouteNode({
-  symbol,
-  amount,
-  caption,
-  align = 'start',
-}: {
-  symbol: string;
-  amount?: string | undefined;
-  caption: string;
-  align?: 'start' | 'end';
-}) {
+function RouteNode({ symbol, amount, caption }: { symbol: string; amount?: string | undefined; caption: string }) {
   return (
-    <span
-      className={`flex min-w-0 shrink-0 items-center gap-2.5 ${align === 'end' ? 'flex-row-reverse text-right' : ''}`}
-    >
-      <AssetIcon symbol={symbol} className="size-10" />
-      <span className="min-w-0">
-        <span className="ws-num block truncate text-[14px] font-medium">{amount ? `${amount} ${symbol}` : symbol}</span>
-        <span className="block text-[12px] text-muted-foreground">{caption}</span>
+    <span className="flex min-w-0 flex-col items-center text-center">
+      <span className="rounded-full bg-card p-1 shadow-[0_1px_2px_rgb(23_25_31/0.08)] ring-1 ring-border">
+        <AssetIcon symbol={symbol} className="size-10" />
       </span>
+      <span
+        className="ws-num mt-2.5 block max-w-full truncate text-[13.5px] font-medium"
+        title={amount ? `${amount} ${symbol}` : symbol}
+      >
+        {amount ? `${amount} ${symbol}` : symbol}
+      </span>
+      <span className="block text-[11.5px] text-muted-foreground">{caption}</span>
     </span>
   );
 }
 
-/** A hairline that draws from left to right and ends on a dot; idle, it waits as a dashed guide. */
+/** A rounded track that fills from left to right, ends on a dot, and carries a pulse while the quote lives. */
 function Connector({ drawn, delay }: { drawn: boolean; delay: number }) {
   const reduced = useReducedMotion();
   return (
-    <span aria-hidden="true" className="relative h-px min-w-6 flex-1">
-      <span className="absolute inset-0 border-t border-dashed border-border-strong" />
+    <span aria-hidden="true" className="relative mt-6 h-0.5 min-w-5 rounded-full bg-border-strong/60">
       <motion.span
-        className="absolute inset-0 origin-left bg-foreground/55"
+        className="absolute inset-0 origin-left rounded-full bg-gradient-to-r from-primary/35 to-primary"
         initial={{ scaleX: 0 }}
         animate={{ scaleX: drawn ? 1 : 0 }}
         transition={reduced ? { duration: 0 } : { duration: 0.8, ease: [0.45, 0, 0.1, 1], delay }}
       />
+      {drawn && !reduced ? (
+        <motion.span
+          className="absolute top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_2px_var(--harbor-accent)]"
+          initial={{ left: '0%', opacity: 0 }}
+          animate={{ left: ['0%', '100%'], opacity: [0, 1, 1, 0] }}
+          transition={{
+            duration: 1.6,
+            ease: [0.45, 0, 0.1, 1],
+            delay: delay + 0.9,
+            repeat: Number.POSITIVE_INFINITY,
+            repeatDelay: 1.2,
+          }}
+        />
+      ) : null}
       <motion.span
-        className="absolute top-1/2 right-0 size-1.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-foreground/70"
+        className="absolute top-1/2 right-0 size-2 -translate-y-1/2 translate-x-1/2 rounded-full bg-primary ring-2 ring-card"
         initial={{ opacity: 0, scale: 0.4 }}
         animate={{ opacity: drawn ? 1 : 0, scale: drawn ? 1 : 0.4 }}
         transition={reduced ? { duration: 0 } : { duration: 0.24, ease: ARRIVE, delay: delay + 0.72 }}
@@ -445,7 +456,7 @@ function SupportedAssets({ assets }: { assets: PickerAsset[] }) {
       <p className="text-[13.5px] leading-relaxed text-muted-foreground">
         Enter an amount and the route, the minimum you receive and the quote's expiry appear here for that exact size.
       </p>
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-2 @xl/workspace:grid-cols-4">
         {assets.map((asset) => (
           <li
             key={asset.symbol}

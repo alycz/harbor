@@ -1,5 +1,4 @@
 import { TabsIndicator, TabsList, TabsTrigger } from '@harbor/ui/components/tabs';
-import { Info } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /*
@@ -12,15 +11,11 @@ import type { ReactNode } from 'react';
 export function PageHeader({
   title,
   description,
-  eyebrow,
-  icon,
   actions,
   meta,
 }: {
   title: string;
   description?: ReactNode;
-  eyebrow?: string;
-  icon?: ReactNode;
   actions?: ReactNode;
   /** A line under the description, such as when the data was captured. */
   meta?: ReactNode;
@@ -28,13 +23,7 @@ export function PageHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div className="min-w-0 max-w-2xl">
-        {eyebrow ? (
-          <p className="ws-label flex items-center gap-1.5 [&_svg]:size-3.5 [&_svg]:text-[var(--ws-accent-ink)]">
-            {icon}
-            {eyebrow}
-          </p>
-        ) : null}
-        <h1 className="font-display mt-1.5 text-[30px] leading-[1.12] text-foreground sm:text-[34px]">{title}</h1>
+        <h1 className="font-display text-[30px] leading-[1.12] text-foreground @xl/workspace:text-[34px]">{title}</h1>
         {description ? (
           <p className="mt-2.5 max-w-xl text-[14.5px] leading-relaxed text-muted-foreground">{description}</p>
         ) : null}
@@ -54,45 +43,37 @@ export type HeroStat = { label: string; value: ReactNode; title?: string };
 export function HeroCard({
   title,
   description,
-  eyebrow,
-  icon,
   stats,
   actions,
   footer,
 }: {
   title: ReactNode;
   description?: ReactNode;
-  eyebrow?: string;
-  icon?: ReactNode;
   stats: HeroStat[];
   actions?: ReactNode;
   footer?: ReactNode;
 }) {
   return (
     <section className="ws-hero" aria-label={typeof title === 'string' ? title : undefined}>
-      <div className="grid gap-7 px-6 pt-6 pb-6 sm:px-8 sm:pt-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-12">
-        <div className="min-w-0 max-w-2xl">
-          {eyebrow ? (
-            <p className="flex items-center gap-1.5 text-[12.5px] text-[var(--ws-band-muted)] [&_svg]:size-3.5 [&_svg]:text-[var(--harbor-sky)]">
-              {icon}
-              {eyebrow}
-            </p>
-          ) : null}
-          <h1 className="font-display mt-2 text-[30px] leading-[1.12] text-band-foreground sm:text-[36px]">{title}</h1>
+      <div className="flex flex-col gap-7 px-5 py-6 @xl/workspace:px-8 @xl/workspace:py-8 @4xl/workspace:flex-row @4xl/workspace:items-end @4xl/workspace:justify-between @4xl/workspace:gap-12">
+        <div className="min-w-0 max-w-2xl @4xl/workspace:min-w-[22rem] @4xl/workspace:flex-1">
+          <h1 className="font-display text-[28px] leading-[1.12] text-band-foreground @xl/workspace:text-[34px] @5xl/workspace:text-[38px]">
+            {title}
+          </h1>
           {description ? (
             <p className="mt-3 max-w-xl text-[14px] leading-relaxed text-[var(--ws-band-muted)]">{description}</p>
           ) : null}
           {actions ? <div className="mt-6 flex flex-wrap items-center gap-2.5">{actions}</div> : null}
         </div>
-        <dl className="grid min-w-0 border-t border-[var(--ws-band-rule)] lg:flex lg:border-t-0">
+        <dl className="grid min-w-0 shrink-0 border-t border-[var(--ws-band-rule)] @xl/workspace:grid-cols-3 @xl/workspace:pt-5 @4xl/workspace:flex @4xl/workspace:border-t-0 @4xl/workspace:pt-0">
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className="flex items-baseline justify-between gap-6 border-b border-[var(--ws-band-rule)] py-3 last:border-b-0 lg:flex-col-reverse lg:items-end lg:justify-end lg:gap-1 lg:border-b-0 lg:border-l lg:py-0 lg:pr-0 lg:pl-7 lg:first:border-l-0 lg:first:pl-0 [&+&]:lg:ml-7"
+              className="flex items-baseline justify-between gap-6 border-b border-[var(--ws-band-rule)] py-3 last:border-b-0 @xl/workspace:flex-col-reverse @xl/workspace:items-start @xl/workspace:justify-end @xl/workspace:gap-1 @xl/workspace:border-b-0 @xl/workspace:border-l @xl/workspace:py-0 @xl/workspace:pl-5 @xl/workspace:first:border-l-0 @xl/workspace:first:pl-0 @4xl/workspace:items-end @4xl/workspace:pl-7 @4xl/workspace:[&+&]:ml-7"
             >
-              <dt className="text-[12.5px] text-[var(--ws-band-muted)]">{stat.label}</dt>
+              <dt className="text-[12.5px] whitespace-nowrap text-[var(--ws-band-muted)]">{stat.label}</dt>
               <dd
-                className="ws-num text-[17px] font-medium tracking-[-0.01em] text-band-foreground lg:text-[27px] lg:leading-none"
+                className="ws-num text-[17px] font-medium tracking-[-0.01em] whitespace-nowrap text-band-foreground @xl/workspace:text-[24px] @xl/workspace:leading-none @4xl/workspace:text-[27px]"
                 title={stat.title}
               >
                 {stat.value}
@@ -102,7 +83,7 @@ export function HeroCard({
         </dl>
       </div>
       {footer ? (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--ws-band-rule)] px-6 py-3 text-[12.5px] text-[var(--ws-band-muted)] sm:px-8">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--ws-band-rule)] px-5 py-3 text-[12.5px] text-[var(--ws-band-muted)] @xl/workspace:px-8">
           {footer}
         </div>
       ) : null}
@@ -316,16 +297,6 @@ export function EmptyState({
   );
 }
 
-/** A calm note in the accent wash, for what a form will and won't do. */
-export function DraftNotice({ children }: { children?: ReactNode }) {
-  return (
-    <div className="flex items-start gap-2.5 rounded-lg border border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] px-3.5 py-3 text-[13px] leading-relaxed text-[var(--ws-accent-ink)]">
-      <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <p>{children ?? 'Unsaved draft only. Nothing is submitted or executed from this form.'}</p>
-    </div>
-  );
-}
-
 /** A disc coloured from an address, so the same account always looks the same. */
 export function AccountDot({ address, className = 'size-4' }: { address: string; className?: string }) {
   let hash = 0;
@@ -339,5 +310,34 @@ export function AccountDot({ address, className = 'size-4' }: { address: string;
         background: `conic-gradient(from ${hash % 90}deg, hsl(${hue} 62% 58%), hsl(${(hue + 70) % 360} 64% 52%), hsl(${(hue + 160) % 360} 58% 60%), hsl(${hue} 62% 58%))`,
       }}
     />
+  );
+}
+
+/** A small on/off switch with its label, for table filters. The thumb slides; on is the accent. */
+export function Toggle({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="group inline-flex h-9 items-center gap-2.5 rounded-lg px-2 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary/60 hover:text-foreground aria-checked:text-foreground"
+    >
+      <span
+        aria-hidden="true"
+        className="relative h-[18px] w-[30px] shrink-0 rounded-full bg-border-strong transition-colors duration-200 group-aria-checked:bg-primary"
+      >
+        <span className="absolute top-[2px] left-[2px] size-[14px] rounded-full bg-white shadow-[0_1px_2px_rgb(23_25_31/0.25)] transition-transform duration-200 ease-[cubic-bezier(0.45,0,0.1,1)] group-aria-checked:translate-x-3 motion-reduce:transition-none" />
+      </span>
+      {children}
+    </button>
   );
 }

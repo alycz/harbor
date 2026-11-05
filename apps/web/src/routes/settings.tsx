@@ -1,6 +1,6 @@
-import { Check, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Check, ShieldCheck } from 'lucide-react';
 
-import { PolicyEditor } from '../components/policy-drawer.tsx';
+import { PolicyEditor } from '../components/policy-editor.tsx';
 import { Chip, PageHeader, Panel } from '../components/workspace.tsx';
 
 const RULES = [
@@ -15,12 +15,10 @@ export function PolicyPage() {
   return (
     <div className="ws-stagger flex flex-col gap-7">
       <PageHeader
-        eyebrow="Settings"
-        icon={<ShieldCheck />}
         title="Your policy"
         description="The limits Harbor may act within once you sign them: budget, assets, your own addresses, schedule and expiry. Anything outside them comes back to you."
       />
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-5 @3xl/workspace:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <Panel
           label="Policy draft"
           icon={<ShieldCheck />}
@@ -30,20 +28,13 @@ export function PolicyPage() {
             </Chip>
           }
           labelId="policy-draft"
-          bodyClassName="p-5 sm:p-6"
+          bodyClassName="p-5 @xl/workspace:p-6"
         >
           <PolicyEditor />
         </Panel>
-        <section aria-labelledby="policy-rules" className="ws-hero lg:sticky lg:top-6">
-          <div className="p-6 sm:p-7">
-            <p className="flex items-center gap-1.5 text-[12.5px] text-[var(--ws-band-muted)]">
-              <LockKeyhole className="size-3.5 text-[var(--harbor-sky)]" aria-hidden="true" />
-              Always on
-            </p>
-            <h2
-              id="policy-rules"
-              className="font-display mt-2 text-[28px] leading-[1.12] font-medium text-band-foreground"
-            >
+        <section aria-labelledby="policy-rules" className="ws-hero @3xl/workspace:sticky @3xl/workspace:top-6">
+          <div className="p-6 @xl/workspace:p-7">
+            <h2 id="policy-rules" className="font-display text-[28px] leading-[1.12] font-medium text-band-foreground">
               Rules no policy can change.
             </h2>
             <ul className="mt-6">

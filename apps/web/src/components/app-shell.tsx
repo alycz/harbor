@@ -39,9 +39,9 @@ import '../styles/workspace.css';
 import { useHealth } from '../lib/health.ts';
 import { shortAddress, useWallet, WalletProvider } from '../lib/wallet.tsx';
 import { AdjacentAssistant, AgentPanel } from './agent-panel.tsx';
-import { HarborMark } from './harbor-logo.tsx';
-import { PolicyDrawer } from './policy-drawer.tsx';
+import { HarborLogo, HarborMark } from './harbor-logo.tsx';
 import { PageSkeleton } from './skeletons.tsx';
+import { useAppSurface } from './surface.ts';
 import { AccountDot } from './workspace.tsx';
 import { useWorkspaceSession, WorkspaceSessionProvider } from './workspace-session.tsx';
 
@@ -68,26 +68,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
   );
 }
 
-/**
- * Marks <html> as the workspace while the shell is mounted, so the workspace tokens also reach the
- * popovers, dialogs and sheets that portal to <body>. The landing page never sets it.
- */
-function useWorkspaceSurface() {
-  useLayoutEffect(() => {
-    const root = document.documentElement;
-    root.dataset.surface = 'workspace';
-    const theme = document.querySelector('meta[name="theme-color"]');
-    const previous = theme?.getAttribute('content') ?? null;
-    theme?.setAttribute('content', '#f3f1eb');
-    return () => {
-      delete root.dataset.surface;
-      if (previous) theme?.setAttribute('content', previous);
-    };
-  }, []);
-}
-
 function WorkspaceShell({ children }: { children: ReactNode }) {
-  useWorkspaceSurface();
+  useAppSurface();
   const { assistantOpen, setAssistantOpen } = useWorkspaceSession();
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1200px)').matches);
   const [assistantWidth, setAssistantWidth] = useState(380);
@@ -134,9 +116,6 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sidebar" />
-          <div className="mt-auto pt-6">
-            <NetworkCard />
-          </div>
         </div>
       </aside>
 
@@ -144,51 +123,51 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 flex h-(--ws-header) min-w-0 shrink-0 items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur-md sm:gap-3 sm:px-5 lg:px-7">
           <MobileNav pathname={pathname} />
           <Link to="/research" aria-label="Harbor home" className="flex shrink-0 items-center lg:hidden">
-            <HarborMark className="size-6 text-primary" />
+            <HarborMark className="size-7 text-primary" />
           </Link>
           <p className="truncate text-[15px] font-medium tracking-[-0.01em]">{pageTitle(pathname)}</p>
           <div className="ml-auto flex shrink-0 items-center gap-2 [&_[data-slot=button]]:h-9 pointer-coarse:[&_[data-slot=button]]:h-11">
-            <div className="hidden xl:block">
+            <div className="hidden md:block">
               <ExecutionChip />
             </div>
-            <PolicyDrawer />
             <WalletButton />
           </div>
         </header>
 
         <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-          <ResizablePanel id="workspace-panel" minSize={desktop && assistantOpen ? 600 : 0}>
-            <div id="workspace-scroll" ref={workspaceScrollRef} className="relative h-full overflow-y-auto">
-              <WorkspaceContent pathname={pathname}>{children}</WorkspaceContent>
-            </div>
-          </ResizablePanel>
+          {/* Ask Harbor opens on the left, beside the navigation it was called from. */}
           {desktop && assistantOpen ? (
             <>
+              <ResizablePanel
+                id="assistant-panel"
+                panelRef={assistantRef}
+                defaultSize={assistantWidth}
+                minSize={320}
+                maxSize={520}
+                groupResizeBehavior="preserve-pixel-size"
+                onResize={(size) => setAssistantWidth(size.inPixels)}
+              >
+                <AdjacentAssistant />
+              </ResizablePanel>
               <ResizableHandle
                 withHandle
                 aria-label="Resize assistant"
                 aria-valuetext={`${Math.round(assistantWidth)} pixels`}
                 onDoubleClick={() => assistantRef.current?.resize(380)}
               />
-              <ResizablePanel
-                id="assistant-panel"
-                panelRef={assistantRef}
-                defaultSize={assistantWidth}
-                minSize={320}
-                maxSize={560}
-                groupResizeBehavior="preserve-pixel-size"
-                onResize={(size) => setAssistantWidth(size.inPixels)}
-              >
-                <AdjacentAssistant />
-              </ResizablePanel>
             </>
           ) : null}
+          <ResizablePanel id="workspace-panel" minSize={desktop && assistantOpen ? 520 : 0}>
+            <div id="workspace-scroll" ref={workspaceScrollRef} className="relative h-full overflow-y-auto">
+              <WorkspaceContent pathname={pathname}>{children}</WorkspaceContent>
+            </div>
+          </ResizablePanel>
         </ResizablePanelGroup>
       </div>
 
       <BottomNav pathname={pathname} />
       {pathname !== '/chat' && !assistantOpen ? (
-        <div className="fixed right-4 bottom-[84px] z-40 md:bottom-6 xl:right-7">
+        <div className="fixed bottom-[calc(84px+env(safe-area-inset-bottom,0px))] left-4 z-40 md:bottom-6 lg:left-[calc(var(--ws-sidebar)+24px)]">
           <AgentPanel desktop={desktop} />
         </div>
       ) : null}
@@ -227,8 +206,7 @@ function isActiveGroup(pathname: string, route: string) {
 function Brand() {
   return (
     <Link to="/research" className="flex items-center gap-2 focus-visible:outline-offset-4" aria-label="Harbor home">
-      <HarborMark className="size-6 text-primary" />
-      <span className="text-[17px] font-semibold tracking-[-0.02em]">Harbor</span>
+      <HarborLogo size="lg" />
     </Link>
   );
 }
@@ -325,9 +303,6 @@ function MobileNav({ pathname }: { pathname: string }) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sheet" onNavigate={() => setOpen(false)} />
-          <div className="mt-auto pt-6">
-            <NetworkCard />
-          </div>
         </div>
         <SheetClose className="sr-only">Close navigation</SheetClose>
       </SheetContent>
@@ -357,40 +332,6 @@ function BottomNav({ pathname }: { pathname: string }) {
         );
       })}
     </nav>
-  );
-}
-
-/** Where Harbor is pointed and whether it can submit anything, at the sidebar's foot. */
-function NetworkCard() {
-  const health = useHealth();
-  const ok = health.data?.ok;
-  const executing = Boolean(health.data?.executionEnabled);
-  return (
-    <div className="rounded-xl border border-border bg-card/60 p-3.5" aria-live="polite">
-      <div className="flex items-center justify-between gap-3">
-        <span className="ws-label">Network</span>
-        <span className="flex items-center gap-1.5 text-[12.5px] font-medium">
-          <span
-            aria-hidden="true"
-            className={`size-1.5 rounded-full ${health.isPending ? 'animate-pulse bg-muted-foreground' : ok ? 'bg-success' : 'bg-destructive'}`}
-          />
-          {health.isPending
-            ? 'Checking…'
-            : ok
-              ? `NEAR ${health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet'}`
-              : 'Unavailable'}
-        </span>
-      </div>
-      <div className="mt-2.5 flex items-center justify-between gap-3">
-        <span className="ws-label">Execution</span>
-        <span className="text-[12.5px] font-medium">{executing ? 'On' : 'Review only'}</span>
-      </div>
-      <p className="mt-3 border-t border-border pt-3 text-[11.5px] leading-[1.45] text-muted-foreground">
-        {executing
-          ? 'You sign every action in your own wallet.'
-          : 'Swaps can be reviewed and approved. Nothing is submitted from this server.'}
-      </p>
-    </div>
   );
 }
 

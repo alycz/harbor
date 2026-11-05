@@ -40,60 +40,52 @@ export function PortfolioPage() {
   const health = useHealth();
   if (!wallet.address && !wallet.restoring) return <ConnectShowcase />;
   return (
-    <div className="ws-stagger flex flex-col gap-7">
+    <div className="ws-stagger flex flex-col gap-6">
       <PageHeader
-        eyebrow="Account"
-        icon={<WalletCards />}
         title="Portfolio"
         description="What Harbor has done for the connected account, from its own records. Every entry was signed in your wallet."
       />
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <Panel label="Activity" icon={<History />} labelId="portfolio-activity" bodyClassName="px-5 pb-1">
-          <WalletActivity />
-        </Panel>
-        <Skeleton loading={wallet.restoring} label="Loading your account" data={wallet.address} sample={SAMPLE_ADDRESS}>
-          {(address) => (
-            <section aria-labelledby="portfolio-account" className="ws-card overflow-hidden">
-              <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-                <AccountDot address={address} className="size-9" />
-                <div className="min-w-0">
-                  <h2 id="portfolio-account" className="text-[14px] font-medium">
-                    Connected account
-                  </h2>
-                  <p className="truncate text-[12.5px] text-muted-foreground" title={address}>
-                    {shortAddress(address)}
-                  </p>
-                </div>
+      <Skeleton loading={wallet.restoring} label="Loading your account" data={wallet.address} sample={SAMPLE_ADDRESS}>
+        {(address) => (
+          <section
+            aria-labelledby="portfolio-account"
+            className="ws-card flex flex-col gap-4 p-4 @3xl/workspace:flex-row @3xl/workspace:items-center @3xl/workspace:gap-8 @3xl/workspace:px-5"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <AccountDot address={address} className="size-10" />
+              <div className="min-w-0">
+                <h2 id="portfolio-account" className="text-[14px] font-medium">
+                  Connected account
+                </h2>
+                <p className="truncate text-[13px] text-muted-foreground" title={address}>
+                  {shortAddress(address)}
+                </p>
               </div>
-              <dl className="px-5 py-1.5">
-                <FactRow label="Network" value={health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet'} />
-                <FactRow label="Execution" value={health.data?.executionEnabled ? 'On' : 'Review only'} />
-                <FactRow label="Keys" value="Stay in your wallet" />
-              </dl>
-              <div className="flex flex-col gap-1.5 border-t border-border p-3">
-                <Button
-                  nativeButton={false}
-                  variant="outline"
-                  className="h-10 justify-between px-3.5"
-                  render={<Link to="/settings/policy" />}
-                >
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="text-muted-foreground" /> Review your policy
-                  </span>
-                  <ArrowRight className="text-muted-foreground" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="h-10 justify-start gap-2 px-3.5 text-muted-foreground"
-                  onClick={wallet.disconnect}
-                >
-                  <LogOut /> Disconnect
-                </Button>
-              </div>
-            </section>
-          )}
-        </Skeleton>
-      </div>
+            </div>
+            <dl className="grid grid-cols-3 gap-4 border-t border-border pt-4 @3xl/workspace:flex-1 @3xl/workspace:border-t-0 @3xl/workspace:border-l @3xl/workspace:pt-0 @3xl/workspace:pl-8">
+              <Stat label="Network" value={health.data?.network === 'testnet' ? 'Testnet' : 'Mainnet'} />
+              <Stat label="Execution" value={health.data?.executionEnabled ? 'On' : 'Review only'} />
+              <Stat label="Keys" value="In your wallet" />
+            </dl>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                nativeButton={false}
+                variant="outline"
+                className="h-9 flex-1 gap-2 px-3 @3xl/workspace:flex-none"
+                render={<Link to="/settings/policy" />}
+              >
+                <ShieldCheck className="text-muted-foreground" /> Review policy
+              </Button>
+              <Button variant="ghost" className="h-9 gap-2 px-3 text-muted-foreground" onClick={wallet.disconnect}>
+                <LogOut /> Disconnect
+              </Button>
+            </div>
+          </section>
+        )}
+      </Skeleton>
+      <Panel label="Activity" icon={<History />} labelId="portfolio-activity" bodyClassName="px-5 pb-1">
+        <WalletActivity />
+      </Panel>
     </div>
   );
 }
@@ -103,13 +95,9 @@ function ConnectShowcase() {
   const wallet = useWallet();
   return (
     <div className="ws-stagger flex flex-col gap-5">
-      <section className="ws-hero grid min-h-[420px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-        <div className="flex flex-col justify-center px-6 py-10 sm:px-10">
-          <p className="flex items-center gap-1.5 text-[12.5px] text-[var(--ws-band-muted)]">
-            <Wallet className="size-3.5 text-[var(--harbor-sky)]" aria-hidden="true" />
-            No wallet connected
-          </p>
-          <h1 className="font-display mt-2.5 max-w-[16ch] text-[32px] leading-[1.1] text-band-foreground sm:text-[38px]">
+      <section className="ws-hero grid min-h-[420px] @3xl/workspace:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+        <div className="flex flex-col justify-center px-6 py-10 @xl/workspace:px-10">
+          <h1 className="font-display max-w-[16ch] text-[32px] leading-[1.1] text-band-foreground @xl/workspace:text-[38px]">
             Connect a wallet to see what Harbor did for it.
           </h1>
           <p className="mt-4 max-w-md text-[14px] leading-relaxed text-[var(--ws-band-muted)]">
@@ -136,11 +124,11 @@ function ConnectShowcase() {
             </p>
           ) : null}
         </div>
-        <div className="relative hidden overflow-hidden pt-12 pl-10 lg:block">
+        <div className="relative hidden items-center py-10 pr-10 pl-4 @3xl/workspace:flex">
           <ActivityShowcase />
         </div>
       </section>
-      <ul className="grid gap-3 sm:grid-cols-3">
+      <ul className="grid gap-3 @xl/workspace:grid-cols-3">
         {WHAT_SHOWS.map((item) => (
           <li key={item.title} className="ws-card flex gap-3.5 p-4">
             <span
@@ -166,8 +154,6 @@ export function PlanStatusPage({ planId }: { planId: string }) {
   return (
     <div className="ws-stagger flex flex-col gap-7">
       <PageHeader
-        eyebrow="Activity"
-        icon={<FileSearch />}
         title="Plan status"
         description="The reviewed plan, its policy decision and its lifecycle, from Harbor's records."
         actions={
@@ -193,10 +179,10 @@ function PlanView({ plan }: { plan: Plan }) {
   const { quote } = plan;
   const problem = planProblem(plan);
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid items-start gap-5 @3xl/workspace:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-5">
         <section aria-labelledby="plan-title" className="ws-card">
-          <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 sm:px-6">
+          <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 @xl/workspace:px-6">
             <div className="flex min-w-0 items-center gap-3.5">
               <span className="flex shrink-0 -space-x-2.5">
                 <span className="rounded-full bg-card p-0.5">
@@ -212,7 +198,7 @@ function PlanView({ plan }: { plan: Plan }) {
             </div>
             <StatusTag status={plan.status} />
           </div>
-          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border px-5 py-4 sm:grid-cols-4 sm:px-6">
+          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border px-5 py-4 @xl/workspace:grid-cols-4 @xl/workspace:px-6">
             <Stat
               label="You send"
               value={`${formatTokenAmount(quote.sell.amount)} ${quote.sell.symbol}`}
@@ -227,7 +213,7 @@ function PlanView({ plan }: { plan: Plan }) {
             <Stat label="Policy" value={<span className="capitalize">{plan.policy.verdict}</span>} />
           </dl>
           {plan.policy.reasons.some((reason) => !reason.pass) || problem ? (
-            <div className="space-y-2 border-t border-border px-5 py-4 sm:px-6">
+            <div className="space-y-2 border-t border-border px-5 py-4 @xl/workspace:px-6">
               {plan.policy.reasons
                 .filter((reason) => !reason.pass)
                 .map((reason) => (

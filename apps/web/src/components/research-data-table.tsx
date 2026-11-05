@@ -99,14 +99,16 @@ export function ResearchDataTable<Row>({
           </DropdownMenu>
         </div>
       ) : null}
-      <Table containerClassName="ws-table overflow-auto" containerLabel={`${label} observations`} className="w-full">
+      <Table
+        containerClassName="ws-table overflow-auto"
+        containerLabel={`${label} observations`}
+        className="w-full"
+        style={{ ['--ws-cols' as string]: visibleColumns.length }}
+      >
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {visibleColumns.map((column, index) => (
-              <TableHead
-                key={column.id}
-                className={`sticky top-0 z-20 bg-card ${index === 0 ? 'left-0 z-30' : ''} ${column.numeric ? 'text-right' : ''} last:pr-5`}
-              >
+              <TableHead key={column.id} className={`sticky top-0 z-20 bg-card ${index === 0 ? 'left-0 z-30' : ''}`}>
                 {column.label}
               </TableHead>
             ))}
@@ -118,7 +120,7 @@ export function ResearchDataTable<Row>({
               {visibleColumns.map((column, index) => (
                 <TableCell
                   key={column.id}
-                  className={`last:pr-5 ${index === 0 ? 'ws-sticky-cell sticky left-0 z-10 max-w-[20rem] min-w-[14rem] bg-card whitespace-normal break-words transition-colors duration-150' : ''} ${column.numeric ? 'ws-num text-right' : ''} ${column.emphasis ? 'font-semibold text-foreground' : ''}`}
+                  className={`${index === 0 ? 'ws-sticky-cell sticky left-0 z-10 bg-card transition-colors duration-150' : ''} ${column.numeric ? 'ws-num' : ''} ${column.emphasis ? 'font-semibold text-foreground' : ''}`}
                 >
                   {column.cell(row)}
                 </TableCell>

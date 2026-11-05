@@ -13,7 +13,7 @@ import { Chip } from './workspace.tsx';
  * receipt that you signed it slides in at the window's edge; the status rolls to Confirmed and the
  * received amount rolls in; the result holds, the receipt leaves, and the next swap arrives on top,
  * carrying the rows below it (a conveyor, so data never rewinds in view). Real words sit only on the
- * swap the story is about; older rows go quiet. The window bleeds off the hero's right and bottom edges.
+ * swap the story is about; older rows go quiet. The window sits whole inside the hero.
  * It is an illustration: hidden from assistive technology and labelled "Example" on screen.
  */
 
@@ -60,7 +60,7 @@ export function ActivityShowcase() {
     };
   }, [reduced, visible]);
 
-  const rows: Swap[] = Array.from({ length: 5 }, (_, offset) => {
+  const rows: Swap[] = Array.from({ length: 4 }, (_, offset) => {
     const id = count - offset;
     const swap = SWAPS[((id % SWAPS.length) + SWAPS.length) % SWAPS.length] ?? FIRST;
     return { id, ...swap };
@@ -69,9 +69,9 @@ export function ActivityShowcase() {
   const settled = phase === 'confirmed' || phase === 'leaving';
 
   return (
-    <div ref={ref} aria-hidden="true" className="pointer-events-none relative h-full min-h-[300px] select-none">
-      {/* The window: anchored top-left, running off the hero's right and bottom edges. */}
-      <div className="absolute top-0 left-0 w-[560px] overflow-hidden rounded-tl-xl border-t border-l border-white/10 bg-[var(--harbor-surface)] text-foreground shadow-[0_24px_60px_-20px_rgb(0_0_0/0.6)]">
+    <div ref={ref} aria-hidden="true" className="pointer-events-none relative select-none">
+      {/* The window: a whole product card, set inside the hero. */}
+      <div className="relative w-full max-w-[520px] overflow-hidden rounded-xl border border-white/10 bg-[var(--harbor-surface)] text-foreground shadow-[0_24px_60px_-20px_rgb(0_0_0/0.6)]">
         <div className="flex h-11 items-center gap-2 border-b border-border px-4">
           <span className="flex gap-1.5">
             <span className="size-2.5 rounded-full bg-[#e4e1da]" />

@@ -35,16 +35,16 @@ Harbor follows the NEAR hackathon's visual language: warm cream paper, ink text,
 
 ## Workspace
 
-Every page except the landing uses a second look, taken from Pilot (`alycz/pilot`), which follows Royco: warm paper, off-white cards with 12px corners and 6px controls, hairline warm-grey rules, Inter for reading and figures, Newsreader for display, and one cobalt accent. The landing keeps the NEAR look above.
+Every page, the landing included, uses the app look, taken from Pilot (`alycz/pilot`), which follows Royco: warm paper, off-white cards with 12px corners and 6px controls, hairline warm-grey rules, Inter for reading and figures, Newsreader for display, and one cobalt accent. The landing keeps only its black-hole hero background from the NEAR look above.
 
-- `apps/web/src/styles/workspace.css`: the workspace tokens. The shell sets `data-surface="workspace"` on `<html>` while it is mounted, so they also reach popovers, dialogs and sheets that portal to `<body>`, and they never touch the landing. Inside the workspace, a filled button is solid cobalt, without the rainbow edge.
+- `apps/web/src/styles/workspace.css`: the workspace tokens. The shell and the landing set `data-surface="workspace"` on `<html>` (`useAppSurface`), so the tokens also reach popovers, dialogs and sheets that portal to `<body>`. Page layouts respond to the workspace's own width with container queries (`@3xl/workspace:` and the like), so they hold up when Ask Harbor is open beside them. Inside the workspace, a filled button is solid cobalt, without the rainbow edge.
 - `apps/web/src/components/workspace.tsx`: the building blocks.
-  - **Page header:** a small label with an icon, a serif title, one paragraph, actions to the right.
+  - **Page header:** a serif title, one paragraph, actions to the right. No label above the title.
   - **Hero card:** Royco's ink card: a serif statement and the page's few headline figures, each on a hairline. One per page, where the page spends its emphasis (Research, Earn, the disconnected Portfolio, the rules on Policy).
   - **Panel:** a card with an optional title row and an aside for a status or count.
   - **Tabs:** underline tabs and Royco's segmented control, each with a highlight that slides to the choice.
   - **Chips:** small rounded status labels, coloured by meaning only. A status that changes rolls rather than swapping.
-- Tables follow Royco's market table: one card, the filters in its header, sentence-case heads, roomy rows, numbers right-aligned.
+- Tables follow Royco's market table: one card, the filters in its header, sentence-case heads, roomy rows. Every column is left-aligned and the same width; below its minimum width a table scrolls inside its card.
 - Logos are real marks from DefiLlama's icon CDN (chains, protocols, swap assets); a bridged asset such as `USDC.arb` carries its chain as a small badge.
 
 Motion follows Benji Taylor's Stageshow rules: feedback stays quick (150ms); arrivals take `cubic-bezier(0.25, 0.8, 0.25, 1)`; things that travel take `cubic-bezier(0.45, 0, 0.1, 1)`; sections stagger 60ms in reading order; numbers roll digit by digit (`RollingNumber`), and words roll in place (`RollText`). Everything holds still under reduced motion.
