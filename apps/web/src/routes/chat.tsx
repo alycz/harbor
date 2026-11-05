@@ -34,13 +34,13 @@ export function ChatPage({ ask }: { ask?: string | undefined }) {
 
   return (
     <div
-      className={`grid h-full min-h-0 min-w-0 gap-6 transition-[grid-template-columns] duration-300 ease-[cubic-bezier(0.45,0,0.1,1)] motion-reduce:transition-none ${expanded ? '@3xl/workspace:grid-cols-[248px_minmax(0,1fr)]' : '@3xl/workspace:grid-cols-[58px_minmax(0,1fr)]'}`}
+      className={`grid h-full min-h-0 min-w-0 gap-6 transition-[grid-template-columns] duration-300 ease-[cubic-bezier(0.45,0,0.1,1)] motion-reduce:transition-none ${expanded ? '@3xl/workspace:grid-cols-[248px_minmax(0,1fr)]' : '@3xl/workspace:grid-cols-[56px_minmax(0,1fr)]'}`}
     >
       <aside
-        className="ws-card hidden min-h-0 min-w-0 flex-col overflow-hidden p-2 @3xl/workspace:flex"
+        className={`ws-card hidden min-h-0 min-w-0 flex-col overflow-hidden p-2 @3xl/workspace:flex ${expanded ? '' : 'items-center'}`}
         aria-label="Conversation history"
       >
-        <div className="flex flex-col gap-1">
+        <div className={`flex w-full flex-col gap-1 ${expanded ? '' : 'items-center'}`}>
           <Button
             variant="ghost"
             size="icon"
@@ -63,7 +63,10 @@ export function ChatPage({ ask }: { ask?: string | undefined }) {
             {expanded ? 'New conversation' : null}
           </Button>
         </div>
-        <div id="conversation-history" className="mt-4 flex min-h-0 flex-1 flex-col">
+        <div
+          id="conversation-history"
+          className={`mt-4 flex min-h-0 w-full flex-1 flex-col ${expanded ? '' : 'items-center'}`}
+        >
           <HistoryContents expanded={expanded} />
         </div>
       </aside>

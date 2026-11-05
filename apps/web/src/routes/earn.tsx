@@ -25,7 +25,6 @@ export function EarnPage() {
     <div className="ws-stagger flex flex-col gap-8">
       <HeroCard
         title="The best stablecoin rate on each chain, side by side."
-        description="Pools over $1M TVL from the snapshot. Ask Harbor to compare venues for your amount; you sign anything it proposes."
         stats={[
           { label: 'Best rate', value: top ? formatApy(top.totalApyPct) : '—' },
           { label: 'On NEAR', value: home ? formatApy(home.totalApyPct) : '—' },
@@ -52,7 +51,7 @@ export function EarnPage() {
       ) : (
         <>
           <section aria-labelledby="earn-best" className="flex flex-col gap-3.5">
-            <SectionTitle id="earn-best" title="Best rate by chain" meta={`Pools over ${formatUsd(MIN_TVL_USD)} TVL`} />
+            <SectionTitle id="earn-best" title="Best rate by chain" />
             <ol className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">
               {best.map((pool) => (
                 <RateCard key={pool.id} pool={pool} />
@@ -60,11 +59,7 @@ export function EarnPage() {
             </ol>
           </section>
           <section aria-labelledby="earn-all" className="flex flex-col gap-3.5">
-            <SectionTitle
-              id="earn-all"
-              title="All stablecoin pools"
-              meta={`${pools.length} pools · highest APY first`}
-            />
+            <SectionTitle id="earn-all" title="All stablecoin pools" />
             <ResearchDataTable<YieldPoolRow>
               tableKey="earn-stable"
               label="Stablecoin pools"

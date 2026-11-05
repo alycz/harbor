@@ -247,11 +247,6 @@ export function ConversationDraft({
                 <h2 className={`font-display ${compact ? 'text-[20px]' : 'text-[30px]'} leading-tight`}>
                   {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to do?'}
                 </h2>
-                <p className="text-[14px] leading-relaxed text-muted-foreground">
-                  {purpose === 'strategy'
-                    ? 'Tell Harbor what you want to test, over what period, and what would make the strategy worth pursuing.'
-                    : 'Ask about a market, compare venues, or bring a specific action to review.'}
-                </p>
               </div>
               <div className={`grid gap-2 ${compact ? '' : '@xl/workspace:grid-cols-2'}`}>
                 {(purpose === 'strategy' ? STRATEGY_PROMPTS : PROMPTS).map((prompt) => (

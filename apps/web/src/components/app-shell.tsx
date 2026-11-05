@@ -116,20 +116,20 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sidebar" />
+          <div className="mt-auto px-2.5 pt-6">
+            <ExecutionStatus />
+          </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-(--ws-header) min-w-0 shrink-0 items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur-md sm:gap-3 sm:px-5 lg:px-7">
           <MobileNav pathname={pathname} />
-          <Link to="/research" aria-label="Harbor home" className="flex shrink-0 items-center lg:hidden">
+          <Link to="/" aria-label="Harbor home" className="flex shrink-0 items-center lg:hidden">
             <HarborMark className="size-7 text-primary" />
           </Link>
           <p className="truncate text-[15px] font-medium tracking-[-0.01em]">{pageTitle(pathname)}</p>
           <div className="ml-auto flex shrink-0 items-center gap-2 [&_[data-slot=button]]:h-9 pointer-coarse:[&_[data-slot=button]]:h-11">
-            <div className="hidden md:block">
-              <ExecutionChip />
-            </div>
             <WalletButton />
           </div>
         </header>
@@ -205,7 +205,7 @@ function isActiveGroup(pathname: string, route: string) {
 
 function Brand() {
   return (
-    <Link to="/research" className="flex items-center gap-2 focus-visible:outline-offset-4" aria-label="Harbor home">
+    <Link to="/" className="flex items-center gap-2 focus-visible:outline-offset-4" aria-label="Harbor home">
       <HarborLogo size="lg" />
     </Link>
   );
@@ -303,6 +303,9 @@ function MobileNav({ pathname }: { pathname: string }) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sheet" onNavigate={() => setOpen(false)} />
+          <div className="mt-auto px-2.5 pt-6">
+            <ExecutionStatus />
+          </div>
         </div>
         <SheetClose className="sr-only">Close navigation</SheetClose>
       </SheetContent>
@@ -335,31 +338,23 @@ function BottomNav({ pathname }: { pathname: string }) {
   );
 }
 
-/** The execution state, in the header on wide screens. */
-function ExecutionChip() {
+/** Where Harbor is pointed and whether it can submit, as one quiet line at the foot of the sidebar. */
+function ExecutionStatus() {
   const health = useHealth();
-  if (health.isPending) return <span className="block h-7 w-36 animate-pulse rounded-md bg-secondary" />;
+  if (health.isPending) return <span className="block h-4 w-40 animate-pulse rounded bg-secondary" />;
   if (health.isError || !health.data.ok) {
-    return <span className="text-[12.5px] text-destructive">Connection unavailable</span>;
+    return <p className="text-[12.5px] text-destructive">Connection unavailable</p>;
   }
   return (
-    <dl className="flex items-center gap-4 pr-2 text-[12.5px]">
-      <div className="flex items-center gap-2">
-        <dt className="text-muted-foreground">Network</dt>
-        <dd className="font-medium">{health.data.network === 'mainnet' ? 'Mainnet' : 'Testnet'}</dd>
-      </div>
-      <span aria-hidden="true" className="h-4 w-px bg-border" />
-      <div className="flex items-center gap-2">
-        <dt className="text-muted-foreground">Execution</dt>
-        <dd className="flex items-center gap-1.5 font-medium">
-          <span
-            aria-hidden="true"
-            className={`size-1.5 rounded-full ${health.data.executionEnabled ? 'bg-success' : 'bg-warning'}`}
-          />
-          {health.data.executionEnabled ? 'On' : 'Review only'}
-        </dd>
-      </div>
-    </dl>
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
+      <span
+        aria-hidden="true"
+        className={`size-1.5 rounded-full ${health.data.executionEnabled ? 'bg-success' : 'bg-warning'}`}
+      />
+      <span className="font-medium text-foreground">{health.data.network === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
+      <span aria-hidden="true">·</span>
+      {health.data.executionEnabled ? 'Execution on' : 'Review only'}
+    </p>
   );
 }
 

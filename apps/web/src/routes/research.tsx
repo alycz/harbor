@@ -8,16 +8,7 @@ import { type ReactNode, useState } from 'react';
 
 import { ChainLogo, chainLogoUrl, LogoPair, ProtocolLogo } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
-import {
-  Chip,
-  EmptyState,
-  HeroCard,
-  Panel,
-  SectionTitle,
-  Segment,
-  SegmentedList,
-  Toggle,
-} from '../components/workspace.tsx';
+import { EmptyState, HeroCard, Panel, SectionTitle, Segment, SegmentedList, Toggle } from '../components/workspace.tsx';
 import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
 import { research } from '../lib/research.ts';
 import { apyDrift, chainsWithPools, projectLogo, projectName } from '../lib/research-view.ts';
@@ -34,7 +25,6 @@ export function ResearchPage() {
     <div className="ws-stagger flex flex-col gap-8">
       <HeroCard
         title="Yields and protocols across every chain Harbor can reach."
-        description="From a dated snapshot, so you can compare before you ask."
         stats={
           empty
             ? [{ label: 'Snapshot', value: 'None yet' }]
@@ -55,7 +45,6 @@ export function ResearchPage() {
             <SectionTitle
               id="research-table"
               title={view === 'yields' ? 'Yield pools' : 'Protocols'}
-              meta={`${chain === ALL ? 'All chains' : chain} · ${view === 'yields' ? 'highest APY first' : 'largest TVL first'}`}
               actions={
                 <>
                   <ChainSelect chains={chains} selected={chain} onSelect={setChain} totalTvl={totalTvl} />
@@ -73,14 +62,6 @@ export function ResearchPage() {
               <ProtocolTable chain={chain} />
             </TabsContent>
           </Tabs>
-          <ul className="grid gap-2 border-t border-border pt-5 text-[12.5px] leading-relaxed text-muted-foreground @xl/workspace:grid-cols-2">
-            {research.caveats.map((caveat) => (
-              <li key={caveat} className="flex gap-2.5">
-                <span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-border-strong" />
-                {caveat}
-              </li>
-            ))}
-          </ul>
         </>
       )}
     </div>
@@ -105,14 +86,18 @@ function ChainSelect({
     <Select value={selected} onValueChange={(next) => next !== null && onSelect(String(next))}>
       <SelectTrigger
         aria-label="Filter by chain"
-        className="h-9 min-w-44 gap-2 rounded-lg bg-card pr-2.5 pl-2 text-[13px] font-medium data-[size=default]:h-9"
+        className="h-9 min-w-48 gap-2.5 rounded-lg bg-card pr-3 pl-2.5 text-[13px] font-medium data-[size=default]:h-9"
       >
         <SelectValue>{current ? <ChainOption name={current.name} /> : null}</SelectValue>
       </SelectTrigger>
-      <SelectContent align="end" className="max-h-80 min-w-60">
+      <SelectContent align="end" className="max-h-96 min-w-72 p-2">
         {options.map((option) => (
-          <SelectItem key={option.name} value={option.name} className="min-h-9 pr-8">
-            <span className="flex w-full items-center justify-between gap-4">
+          <SelectItem
+            key={option.name}
+            value={option.name}
+            className="min-h-11 rounded-lg py-2 pr-10 pl-3 text-[13.5px]"
+          >
+            <span className="flex w-full items-center justify-between gap-6">
               <ChainOption name={option.name} />
               <span className="ws-num text-[12.5px] text-muted-foreground">{formatUsd(option.tvl)}</span>
             </span>
@@ -201,11 +186,6 @@ function YieldTable({ chain }: { chain: string }) {
               <div className="min-w-0">
                 <p className="flex min-w-0 items-center gap-1.5 font-medium" title={row.symbol}>
                   <span className="truncate">{row.symbol}</span>
-                  {row.stablecoin ? (
-                    <Chip tone="neutral" className="h-[18px] px-1 text-[11px]">
-                      Stable
-                    </Chip>
-                  ) : null}
                 </p>
                 <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
                   {projectName(row.project)}

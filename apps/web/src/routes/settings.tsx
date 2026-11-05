@@ -14,10 +14,7 @@ const RULES = [
 export function PolicyPage() {
   return (
     <div className="ws-stagger flex flex-col gap-7">
-      <PageHeader
-        title="Your policy"
-        description="The limits Harbor may act within once you sign them: budget, assets, your own addresses, schedule and expiry. Anything outside them comes back to you."
-      />
+      <PageHeader title="Your policy" />
       <div className="grid items-start gap-5 @3xl/workspace:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <Panel
           label="Policy draft"

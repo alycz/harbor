@@ -41,10 +41,7 @@ export function PortfolioPage() {
   if (!wallet.address && !wallet.restoring) return <ConnectShowcase />;
   return (
     <div className="ws-stagger flex flex-col gap-6">
-      <PageHeader
-        title="Portfolio"
-        description="What Harbor has done for the connected account, from its own records. Every entry was signed in your wallet."
-      />
+      <PageHeader title="Portfolio" />
       <Skeleton loading={wallet.restoring} label="Loading your account" data={wallet.address} sample={SAMPLE_ADDRESS}>
         {(address) => (
           <section
@@ -100,10 +97,6 @@ function ConnectShowcase() {
           <h1 className="font-display max-w-[16ch] text-[32px] leading-[1.1] text-band-foreground @xl/workspace:text-[38px]">
             Connect a wallet to see what Harbor did for it.
           </h1>
-          <p className="mt-4 max-w-md text-[14px] leading-relaxed text-[var(--ws-band-muted)]">
-            Harbor reads its own records for the account you sign in with. It never asks for your keys; you approve each
-            action in your wallet.
-          </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Button className="h-11 gap-2 px-4 text-[14px]" onClick={wallet.connect} disabled={wallet.connecting}>
               <Wallet /> {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
@@ -155,7 +148,6 @@ export function PlanStatusPage({ planId }: { planId: string }) {
     <div className="ws-stagger flex flex-col gap-7">
       <PageHeader
         title="Plan status"
-        description="The reviewed plan, its policy decision and its lifecycle, from Harbor's records."
         actions={
           <Button nativeButton={false} variant="outline" className="h-9 gap-2 px-3" render={<Link to="/portfolio" />}>
             <ArrowLeft /> Portfolio

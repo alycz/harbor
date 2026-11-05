@@ -98,17 +98,12 @@ export function TradePage() {
               <h1 id="trade-pair" className="font-display truncate text-[28px] leading-tight">
                 {pay} to {receive}
               </h1>
-              <p className="ws-label mt-0.5">Cross-chain swap through NEAR Intents</p>
             </div>
           </div>
           <Chip tone={status.tone} dot>
             <RollText id={status.id}>{status.label}</RollText>
           </Chip>
         </div>
-        <p className="mt-4 max-w-2xl px-5 text-[14px] leading-relaxed text-muted-foreground @xl/workspace:px-6">
-          Quotes are live and priced for your exact amount. You review every swap and sign it in your own wallet; Harbor
-          never holds your keys.
-        </p>
         <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border px-5 py-4 @xl/workspace:grid-cols-3 @xl/workspace:px-6 @3xl/workspace:grid-cols-5">
           <Stat
             label="Rate"
