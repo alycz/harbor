@@ -312,7 +312,7 @@ function Dash() {
 
 function formatRate(quote: Quote): string {
   const rate = Number(quote.expectedOut.amount) / Number(quote.sell.amount);
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: rate >= 100 ? 2 : 6 }).format(rate);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: rate >= 100 ? 2 : rate >= 1 ? 4 : 6 }).format(rate);
 }
 
 /** The live quote: the path it takes, then the amounts at each end. */
