@@ -243,7 +243,7 @@ export function ConversationDraft({
                   <HarborMark className={`${compact ? 'size-10' : 'size-16'} text-primary`} />
                 </div>
                 <h2
-                  className={`font-display ${compact ? 'text-[24px]' : 'text-[clamp(32px,4vw,42px)]'} leading-[1.1] tracking-[-0.01em]`}
+                  className={`font-display ${compact ? 'text-[24px]' : 'text-[clamp(30px,3.4vw,38px)]'} leading-[1.1] tracking-[-0.01em]`}
                 >
                   {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to ask Harbor?'}
                 </h2>
