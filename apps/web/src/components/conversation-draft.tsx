@@ -238,14 +238,14 @@ export function ConversationDraft({
             </div>
           ) : (
             <div className={`flex min-h-full flex-col gap-6 ${compact ? 'py-3' : 'justify-center py-8'}`}>
-              <div className={compact ? 'space-y-2' : 'mx-auto max-w-xl space-y-2.5 text-center'}>
-                <div className={`mb-4 flex ${compact ? '' : 'justify-center'}`}>
-                  <span className="grid size-11 place-items-center rounded-xl border border-border bg-card shadow-[var(--ws-shadow-card)]">
-                    <HarborMark className="size-6 text-primary" />
-                  </span>
+              <div className={compact ? 'space-y-2' : 'mx-auto w-full max-w-3xl space-y-2.5 text-center'}>
+                <div className={`mb-5 flex ${compact ? '' : 'justify-center'}`}>
+                  <HarborMark className={`${compact ? 'size-10' : 'size-16'} text-primary`} />
                 </div>
-                <h2 className={`font-display ${compact ? 'text-[20px]' : 'text-[30px]'} leading-tight`}>
-                  {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to do?'}
+                <h2
+                  className={`font-display ${compact ? 'text-[24px]' : 'text-[clamp(30px,3.4vw,38px)]'} leading-[1.1] tracking-[-0.01em]`}
+                >
+                  {purpose === 'strategy' ? 'What’s your thesis?' : 'What would you like to ask Harbor?'}
                 </h2>
               </div>
               <div className={`grid gap-2 ${compact ? '' : '@xl/workspace:grid-cols-2'}`}>

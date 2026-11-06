@@ -39,6 +39,7 @@ export function ResearchDataTable<Row>({
   getRowId,
   compact = false,
   controls,
+  onRowClick,
 }: {
   tableKey: string;
   label: string;
@@ -47,6 +48,8 @@ export function ResearchDataTable<Row>({
   getRowId: (row: Row) => string;
   compact?: boolean;
   controls?: ReactNode;
+  /** Opens a row. The first cell should also hold a button that does the same, for keyboards. */
+  onRowClick?: (row: Row) => void;
 }) {
   const [preferences, setPreferences] = useState(() => PREFERENCES.get(tableKey) ?? INITIAL_PREFERENCES);
   const [page, setPage] = useState(0);
@@ -116,7 +119,19 @@ export function ResearchDataTable<Row>({
         </TableHeader>
         <TableBody>
           {visibleRows.map((row) => (
-            <TableRow key={getRowId(row)}>
+            <TableRow
+              key={getRowId(row)}
+              className={onRowClick ? 'cursor-pointer' : undefined}
+              onClick={
+                onRowClick
+                  ? (event) => {
+                      // Links and buttons inside the row keep their own job.
+                      if ((event.target as HTMLElement).closest('a, button')) return;
+                      onRowClick(row);
+                    }
+                  : undefined
+              }
+            >
               {visibleColumns.map((column, index) => (
                 <TableCell
                   key={column.id}

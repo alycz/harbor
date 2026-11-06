@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router';
 import { ArrowDownRight, ArrowUpRight, Database, Search, Telescope } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
+import { PoolDialog, poolPrompt } from '../components/pool-dialog.tsx';
 import { ChainLogo, chainLogoUrl, LogoPair, ProtocolLogo } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { EmptyState, HeroCard, Panel, SectionTitle, Segment, SegmentedList, Toggle } from '../components/workspace.tsx';
@@ -124,10 +125,6 @@ function ChainOption({ name }: { name: string }) {
   );
 }
 
-function askAbout(pool: YieldPoolRow): string {
-  return `Compare ${pool.symbol} on ${projectName(pool.project)} (${pool.chain}) with similar pools. What are the risks, and how would I exit?`;
-}
-
 /** A search field with its icon inside, for the table toolbars. */
 function SearchField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
@@ -148,6 +145,7 @@ function SearchField({ label, value, onChange }: { label: string; value: string;
 function YieldTable({ chain }: { chain: string }) {
   const [query, setQuery] = useState('');
   const [stableOnly, setStableOnly] = useState(false);
+  const [open, setOpen] = useState<YieldPoolRow | null>(null);
   const rows = research.yieldPools
     .filter((pool) => chain === ALL || pool.chain === chain)
     .filter((pool) => !stableOnly || pool.stablecoin)
@@ -156,74 +154,93 @@ function YieldTable({ chain }: { chain: string }) {
     )
     .sort((a, b) => (b.totalApyPct ?? -1) - (a.totalApyPct ?? -1));
   return (
-    <ResearchDataTable<YieldPoolRow>
-      tableKey="research-yields"
-      label="Yield pools"
-      rows={rows}
-      getRowId={(row) => row.id}
-      controls={
-        <>
-          <SearchField label="Search project or asset" value={query} onChange={setQuery} />
-          <Toggle checked={stableOnly} onChange={setStableOnly}>
-            Stablecoins only
-          </Toggle>
-        </>
-      }
-      columns={[
-        {
-          id: 'pool',
-          label: 'Pool',
-          required: true,
-          cell: (row) => (
-            <div className="flex items-center gap-3">
-              <LogoPair
-                className="size-8"
-                primary={{ name: projectName(row.project), url: projectLogo(row.project) }}
-                secondary={{ name: row.chain, url: chainLogoUrl(row.chain) }}
-              />
-              <div className="min-w-0">
-                <p className="flex min-w-0 items-center gap-1.5 font-medium" title={row.symbol}>
-                  <span className="truncate">{row.symbol}</span>
-                </p>
-                <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
-                  {projectName(row.project)}
-                  {row.meta ? ` · ${row.meta}` : ''}
-                </p>
-              </div>
-            </div>
-          ),
-        },
-        {
-          id: 'chain',
-          label: 'Chain',
-          cell: (row) => (
-            <span className="inline-flex items-center gap-2">
-              <ChainLogo chain={row.chain} className="size-4" />
-              {row.chain}
-            </span>
-          ),
-        },
-        {
-          id: 'apy',
-          label: 'Total APY',
-          numeric: true,
-          emphasis: true,
-          cell: (row) => formatApy(row.totalApyPct),
-        },
-        { id: 'mean', label: 'vs 30d mean', numeric: true, cell: (row) => <Drift row={row} /> },
-        { id: 'base', label: 'Base', numeric: true, cell: (row) => <Muted>{formatApy(row.baseApyPct)}</Muted> },
-        { id: 'reward', label: 'Rewards', numeric: true, cell: (row) => <Muted>{formatApy(row.rewardApyPct)}</Muted> },
-        { id: 'tvl', label: 'TVL', numeric: true, cell: (row) => (row.tvlUsd === null ? '—' : formatUsd(row.tvlUsd)) },
-        {
-          id: 'ask',
-          label: 'Ask Harbor',
-          numeric: true,
-          cell: (row) => (
-            <AskLink to={askAbout(row)} label={`Ask Harbor about ${row.symbol} on ${projectName(row.project)}`} />
-          ),
-        },
-      ]}
-    />
+    <>
+      <PoolDialog pool={open} onOpenChange={(next) => !next && setOpen(null)} onSelect={setOpen} />
+      <ResearchDataTable<YieldPoolRow>
+        tableKey="research-yields"
+        label="Yield pools"
+        rows={rows}
+        getRowId={(row) => row.id}
+        onRowClick={setOpen}
+        controls={
+          <>
+            <SearchField label="Search project or asset" value={query} onChange={setQuery} />
+            <Toggle checked={stableOnly} onChange={setStableOnly}>
+              Stablecoins only
+            </Toggle>
+          </>
+        }
+        columns={[
+          {
+            id: 'pool',
+            label: 'Pool',
+            required: true,
+            cell: (row) => (
+              <button
+                type="button"
+                onClick={() => setOpen(row)}
+                aria-label={`Open ${row.symbol} on ${projectName(row.project)}, ${row.chain}`}
+                className="flex w-full min-w-0 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <LogoPair
+                  className="size-8"
+                  primary={{ name: projectName(row.project), url: projectLogo(row.project) }}
+                  secondary={{ name: row.chain, url: chainLogoUrl(row.chain) }}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate font-medium" title={row.symbol}>
+                    {row.symbol}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[12.5px] text-muted-foreground">
+                    {projectName(row.project)}
+                    {row.meta ? ` · ${row.meta}` : ''}
+                  </span>
+                </span>
+              </button>
+            ),
+          },
+          {
+            id: 'chain',
+            label: 'Chain',
+            cell: (row) => (
+              <span className="inline-flex items-center gap-2">
+                <ChainLogo chain={row.chain} className="size-4" />
+                {row.chain}
+              </span>
+            ),
+          },
+          {
+            id: 'apy',
+            label: 'Total APY',
+            numeric: true,
+            emphasis: true,
+            cell: (row) => formatApy(row.totalApyPct),
+          },
+          { id: 'mean', label: 'vs 30d mean', numeric: true, cell: (row) => <Drift row={row} /> },
+          { id: 'base', label: 'Base', numeric: true, cell: (row) => <Muted>{formatApy(row.baseApyPct)}</Muted> },
+          {
+            id: 'reward',
+            label: 'Rewards',
+            numeric: true,
+            cell: (row) => <Muted>{formatApy(row.rewardApyPct)}</Muted>,
+          },
+          {
+            id: 'tvl',
+            label: 'TVL',
+            numeric: true,
+            cell: (row) => (row.tvlUsd === null ? '—' : formatUsd(row.tvlUsd)),
+          },
+          {
+            id: 'ask',
+            label: 'Ask Harbor',
+            numeric: true,
+            cell: (row) => (
+              <AskLink to={poolPrompt(row)} label={`Ask Harbor about ${row.symbol} on ${projectName(row.project)}`} />
+            ),
+          },
+        ]}
+      />
+    </>
   );
 }
 
