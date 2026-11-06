@@ -347,6 +347,16 @@
   color: var(--harbor-text);
 }
 
+/* The navigation and the top bar are white, so the frame stands off the sand page it holds. */
+.ws-chrome {
+  background: #fff;
+}
+
+header.ws-chrome {
+  background: rgb(255 255 255 / 0.94);
+  backdrop-filter: blur(12px);
+}
+
 /* A Select keeps a hidden input after its trigger; `space-y-*` would otherwise lift the trigger above its neighbours. */
 :root[data-surface="workspace"] [data-slot="select-trigger"]:has(+ input:last-child) {
   margin-block-end: 0;
@@ -638,5 +648,37 @@
   .ws-dots > span {
     animation: none;
     opacity: 0.6;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Pool market dialog: bars grow from the left and the pool's marker lands, on the arrive curve.
+ * ------------------------------------------------------------------------------------------- */
+.ws-pool-dialog .ws-pool-bar {
+  transform-origin: left center;
+  animation: ws-pool-grow 720ms var(--ws-ease-arrive) 160ms both;
+}
+
+.ws-pool-dialog .ws-pool-marker {
+  animation: ws-pool-land 520ms var(--ws-ease-arrive) 260ms both;
+}
+
+@keyframes ws-pool-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes ws-pool-land {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-pool-dialog .ws-pool-bar,
+  .ws-pool-dialog .ws-pool-marker {
+    animation: none;
   }
 }

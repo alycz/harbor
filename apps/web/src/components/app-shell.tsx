@@ -36,9 +36,9 @@ import { type ReactNode, Suspense, useEffect, useLayoutEffect, useRef, useState 
 
 import '../styles/workspace.css';
 
-import { useHealth } from '../lib/health.ts';
 import { shortAddress, useWallet, WalletProvider } from '../lib/wallet.tsx';
 import { AdjacentAssistant, AgentPanel } from './agent-panel.tsx';
+import { ConversationList } from './conversation-list.tsx';
 import { HarborLogo, HarborMark } from './harbor-logo.tsx';
 import { PageSkeleton } from './skeletons.tsx';
 import { useAppSurface } from './surface.ts';
@@ -109,21 +109,23 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
 
       <aside
         aria-label="Sidebar"
-        className="hidden w-(--ws-sidebar) shrink-0 flex-col border-r border-border bg-background lg:flex"
+        className="ws-chrome hidden w-(--ws-sidebar) shrink-0 flex-col border-r border-border lg:flex"
       >
         <div className="flex h-(--ws-header) shrink-0 items-center border-b border-border px-5">
           <Brand />
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sidebar" />
-          <div className="mt-auto px-2.5 pt-6">
-            <ExecutionStatus />
-          </div>
+          {pathname === '/chat' ? (
+            <div className="mt-6 border-t border-border pt-5">
+              <ConversationList />
+            </div>
+          ) : null}
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-(--ws-header) min-w-0 shrink-0 items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur-md sm:gap-3 sm:px-5 lg:px-7">
+        <header className="sticky top-0 z-30 flex h-(--ws-header) min-w-0 shrink-0 items-center gap-2 ws-chrome border-b border-border px-3 sm:gap-3 sm:px-5 lg:px-7">
           <MobileNav pathname={pathname} />
           <Link to="/" aria-label="Harbor home" className="flex shrink-0 items-center lg:hidden">
             <HarborMark className="size-7 text-primary" />
@@ -303,9 +305,6 @@ function MobileNav({ pathname }: { pathname: string }) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sheet" onNavigate={() => setOpen(false)} />
-          <div className="mt-auto px-2.5 pt-6">
-            <ExecutionStatus />
-          </div>
         </div>
         <SheetClose className="sr-only">Close navigation</SheetClose>
       </SheetContent>
@@ -335,26 +334,6 @@ function BottomNav({ pathname }: { pathname: string }) {
         );
       })}
     </nav>
-  );
-}
-
-/** Where Harbor is pointed and whether it can submit, as one quiet line at the foot of the sidebar. */
-function ExecutionStatus() {
-  const health = useHealth();
-  if (health.isPending) return <span className="block h-4 w-40 animate-pulse rounded bg-secondary" />;
-  if (health.isError || !health.data.ok) {
-    return <p className="text-[12.5px] text-destructive">Connection unavailable</p>;
-  }
-  return (
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
-      <span
-        aria-hidden="true"
-        className={`size-1.5 rounded-full ${health.data.executionEnabled ? 'bg-success' : 'bg-warning'}`}
-      />
-      <span className="font-medium text-foreground">{health.data.network === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
-      <span aria-hidden="true">·</span>
-      {health.data.executionEnabled ? 'Execution on' : 'Review only'}
-    </p>
   );
 }
 
