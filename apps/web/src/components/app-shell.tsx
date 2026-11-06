@@ -116,11 +116,9 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sidebar" />
-          {pathname === '/chat' ? (
-            <div className="mt-6 border-t border-border pt-5">
-              <ConversationList />
-            </div>
-          ) : null}
+          <div className="mt-6 border-t border-border pt-5">
+            <ConversationList />
+          </div>
         </div>
       </aside>
 
@@ -262,13 +260,13 @@ function NavLink({
       to={item.to}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
-      className={`group relative flex h-9 items-center gap-3 rounded-md px-2.5 text-[14px] font-medium transition-colors duration-150 pointer-coarse:h-11 ${active ? 'text-foreground' : 'text-muted-foreground hover:bg-secondary/55 hover:text-foreground'}`}
+      className={`group relative flex h-9 items-center gap-3 rounded-md px-2.5 text-[14px] font-medium transition-colors duration-150 pointer-coarse:h-11 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${active ? 'text-[var(--ws-accent-ink)]' : 'text-muted-foreground hover:bg-[var(--ws-nav-hover)] hover:text-foreground'}`}
     >
       {active ? (
         <motion.span
           layoutId="nav-active"
           aria-hidden="true"
-          className="absolute inset-0 rounded-md bg-secondary"
+          className="absolute inset-0 rounded-md bg-[var(--harbor-accent-tint)] ring-1 ring-[var(--ws-accent-border)] ring-inset"
           transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }}
         />
       ) : null}
@@ -305,6 +303,9 @@ function MobileNav({ pathname }: { pathname: string }) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <NavGroups pathname={pathname} layoutId="sheet" onNavigate={() => setOpen(false)} />
+          <div className="mt-6 border-t border-border pt-5">
+            <ConversationList onNavigate={() => setOpen(false)} />
+          </div>
         </div>
         <SheetClose className="sr-only">Close navigation</SheetClose>
       </SheetContent>

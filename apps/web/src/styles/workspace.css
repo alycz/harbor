@@ -349,6 +349,8 @@
 
 /* The navigation and the top bar are white, so the frame stands off the sand page it holds. */
 .ws-chrome {
+  /* A cool grey for hover: the page's warm sand reads muddy on pure white. */
+  --ws-nav-hover: #f3f4f6;
   background: #fff;
 }
 
