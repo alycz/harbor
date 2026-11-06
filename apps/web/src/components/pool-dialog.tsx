@@ -1,9 +1,8 @@
 import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@harbor/ui/components/dialog';
-import { Tabs, TabsContent } from '@harbor/ui/components/tabs';
 import { Link } from '@tanstack/react-router';
-import { ArrowDownRight, ArrowUpRight, ExternalLink, MessageCircle } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ExternalLink, MessageCircle, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { formatApy, formatPercentPoints, formatUsd, formatUtc } from '../lib/format.ts';
@@ -11,7 +10,7 @@ import { research } from '../lib/research.ts';
 import { apyDrift, projectLogo, projectName } from '../lib/research-view.ts';
 import { RollingNumber } from './motion.tsx';
 import { ChainLogo, chainLogoUrl, LogoPair, ProtocolLogo } from './protocol-logo.tsx';
-import { Chip, FactRow, LineTab, LineTabsList } from './workspace.tsx';
+import { Chip, FactRow } from './workspace.tsx';
 
 /*
  * A pool's market page, Royco style, in a dialog over the table. Every figure is from the dated
@@ -36,57 +35,77 @@ export function PoolDialog({
 }) {
   return (
     <Dialog open={pool !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="ws-pool-dialog max-w-[880px] gap-0 border-border bg-background p-0 sm:max-h-[calc(100svh-4rem)]">
-        {pool ? <PoolMarket pool={pool} onSelect={onSelect} /> : null}
+      <DialogContent
+        showCloseButton={false}
+        className="ws-pool-dialog max-w-[880px] gap-0 border-border bg-background p-0 sm:max-h-[calc(100svh-4rem)]"
+      >
+        {pool ? <PoolMarket pool={pool} onSelect={onSelect} onClose={() => onOpenChange(false)} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function PoolMarket({ pool, onSelect }: { pool: YieldPoolRow; onSelect: (pool: YieldPoolRow) => void }) {
+function PoolMarket({
+  pool,
+  onSelect,
+  onClose,
+}: {
+  pool: YieldPoolRow;
+  onSelect: (pool: YieldPoolRow) => void;
+  onClose: () => void;
+}) {
   const protocol = PROTOCOLS.get(pool.project);
   const name = projectName(pool.project);
   return (
     <div key={pool.id} className="ws-stagger flex flex-col gap-3 p-3 sm:p-4">
-      {/* Header card: identity, then the KPI row. */}
-      <section className="ws-card relative overflow-hidden p-5 sm:p-6">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -right-24 size-72 rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--harbor-accent)_14%,transparent),transparent)]"
-        />
-        <div className="relative flex items-start gap-3.5 pr-8">
+      {/* Header: identity on the left, close on the right, the snapshot date beside the protocol line. */}
+      <section className="ws-card p-5 sm:p-6">
+        <div className="flex items-start gap-3.5">
           <LogoPair
             className="size-11"
             primary={{ name, url: projectLogo(pool.project) }}
             secondary={{ name: pool.chain, url: chainLogoUrl(pool.chain) }}
           />
-          <div className="min-w-0">
-            <DialogTitle className="font-display text-[26px] leading-tight [overflow-wrap:anywhere]">
-              {pool.symbol}
-            </DialogTitle>
-            <DialogDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px]">
-              <span>
-                {name}
-                {pool.meta ? ` · ${pool.meta}` : ''}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <ChainLogo chain={pool.chain} className="size-4" /> {pool.chain}
-              </span>
-              {protocol ? (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>{protocol.category}</span>
-                </>
-              ) : null}
-            </DialogDescription>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {pool.stablecoin ? <Chip tone="accent">Stablecoin</Chip> : null}
-              <Chip>Snapshot {formatUtc(pool.observedAt)}</Chip>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <DialogTitle className="font-display text-[26px] leading-tight [overflow-wrap:anywhere]">
+                {pool.symbol}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                aria-label="Close"
+                className="-mt-1 -mr-2 size-9 shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-[18px]" />
+              </Button>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px]">
+                <span>
+                  {name}
+                  {pool.meta ? ` · ${pool.meta}` : ''}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <ChainLogo chain={pool.chain} className="size-4" /> {pool.chain}
+                </span>
+                {protocol ? (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{protocol.category}</span>
+                  </>
+                ) : null}
+              </DialogDescription>
+              <div className="flex flex-wrap gap-1.5">
+                {pool.stablecoin ? <Chip tone="accent">Stablecoin</Chip> : null}
+                <Chip>Snapshot {formatUtc(pool.observedAt)}</Chip>
+              </div>
             </div>
           </div>
         </div>
-        <dl className="relative mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5 sm:grid-cols-5">
+        <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5 sm:grid-cols-5">
           <Kpi label="Pool TVL" value={formatUsd(pool.tvlUsd)} />
           <Kpi label="Total APY" value={formatApy(pool.totalApyPct)} strong />
           <Kpi label="Base APY" value={formatApy(pool.baseApyPct)} />
@@ -95,47 +114,36 @@ function PoolMarket({ pool, onSelect }: { pool: YieldPoolRow; onSelect: (pool: Y
         </dl>
       </section>
 
-      <Tabs defaultValue="overview" className="gap-3">
-        <div className="px-1">
-          <LineTabsList label="Pool details">
-            <LineTab value="overview">Overview</LineTab>
-            <LineTab value="protocol">Protocol</LineTab>
-          </LineTabsList>
-        </div>
+      <section className="ws-card p-5">
+        <PeerStrip pool={pool} />
+      </section>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <section className="ws-card flex flex-col gap-5 p-5">
+          <MeanBars pool={pool} />
+        </section>
+        <section className="ws-card flex flex-col gap-5 p-5">
+          <Composition pool={pool} />
+        </section>
+      </div>
+      <ProtocolPanel pool={pool} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <section className="ws-card px-5 py-2">
+          <dl>
+            <FactRow label="Stablecoin pool" value={pool.stablecoin ? 'Yes' : 'No'} />
+            <FactRow label="Underlying tokens" value={<Tokens tokens={pool.underlyingTokens} />} />
+            <FactRow label="Source" value="DefiLlama Yields" />
+          </dl>
+        </section>
+        <section className="ws-card p-5">
+          <SimilarPools pool={pool} onSelect={onSelect} />
+        </section>
+      </div>
 
-        <TabsContent value="overview" className="flex flex-col gap-3">
-          <section className="ws-card p-5">
-            <PeerStrip pool={pool} />
-          </section>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <section className="ws-card flex flex-col gap-5 p-5">
-              <MeanBars pool={pool} />
-            </section>
-            <section className="ws-card flex flex-col gap-5 p-5">
-              <Composition pool={pool} />
-            </section>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <section className="ws-card px-5 py-2">
-              <dl>
-                <FactRow label="Stablecoin pool" value={pool.stablecoin ? 'Yes' : 'No'} />
-                <FactRow label="Share of protocol on chain" value={protocolShare(pool)} />
-                <FactRow label="Underlying tokens" value={<Tokens tokens={pool.underlyingTokens} />} />
-                <FactRow label="Source" value="DefiLlama Yields" />
-              </dl>
-            </section>
-            <section className="ws-card p-5">
-              <SimilarPools pool={pool} onSelect={onSelect} />
-            </section>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="protocol">
-          <ProtocolPanel pool={pool} />
-        </TabsContent>
-      </Tabs>
-
-      <footer className="sticky bottom-0 z-10 -mx-3 -mb-3 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:-mx-4 sm:-mb-4 sm:px-5">
+      <footer className="sticky bottom-0 z-10 -mx-3 -mb-3 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:-mx-4 sm:-mb-4 sm:px-5">
+        <ExternalButton href={`https://defillama.com/yields/pool/${encodeURIComponent(pool.id)}`}>
+          View on DefiLlama
+        </ExternalButton>
+        {protocol?.url ? <ExternalButton href={protocol.url}>Open {protocol.name}</ExternalButton> : null}
         <Button
           nativeButton={false}
           render={<Link to="/chat" search={{ ask: poolPrompt(pool) }} />}
@@ -143,11 +151,6 @@ function PoolMarket({ pool, onSelect }: { pool: YieldPoolRow; onSelect: (pool: Y
         >
           <MessageCircle /> Ask Harbor about this pool
         </Button>
-        <ExternalButton href={`https://defillama.com/yields/pool/${encodeURIComponent(pool.id)}`}>
-          View on DefiLlama
-        </ExternalButton>
-        {protocol?.url ? <ExternalButton href={protocol.url}>Open {protocol.name}</ExternalButton> : null}
-        <p className="ml-auto text-[12px] text-muted-foreground">Research only · not an executable quote</p>
       </footer>
     </div>
   );
@@ -319,14 +322,17 @@ function Legend({ tone, label, value }: { tone: string; label: string; value: st
 function SimilarPools({ pool, onSelect }: { pool: YieldPoolRow; onSelect: (pool: YieldPoolRow) => void }) {
   const others = research.yieldPools.filter((other) => other.id !== pool.id);
   const sameAsset = others.filter((other) => other.symbol === pool.symbol);
-  const list = (sameAsset.length > 0 ? sameAsset : others.filter((other) => other.project === pool.project))
-    .sort((a, b) => (b.totalApyPct ?? -1) - (a.totalApyPct ?? -1))
-    .slice(0, 4);
+  const sameProject = others.filter((other) => other.project === pool.project);
+  const [title, candidates] =
+    sameAsset.length > 0
+      ? [`${pool.symbol} elsewhere`, sameAsset]
+      : sameProject.length > 0
+        ? [`More from ${projectName(pool.project)}`, sameProject]
+        : [`Top pools on ${pool.chain}`, others.filter((other) => other.chain === pool.chain)];
+  const list = candidates.sort((a, b) => (b.totalApyPct ?? -1) - (a.totalApyPct ?? -1)).slice(0, 4);
   return (
     <>
-      <p className="text-[13px] text-muted-foreground">
-        {sameAsset.length > 0 ? `${pool.symbol} elsewhere` : `More from ${projectName(pool.project)}`}
-      </p>
+      <p className="text-[13px] text-muted-foreground">{title}</p>
       {list.length === 0 ? (
         <p className="mt-3 text-[13.5px] text-muted-foreground">No other pools in the snapshot.</p>
       ) : (
@@ -361,26 +367,34 @@ function SimilarPools({ pool, onSelect }: { pool: YieldPoolRow; onSelect: (pool:
 
 function ProtocolPanel({ pool }: { pool: YieldPoolRow }) {
   const protocol = PROTOCOLS.get(pool.project);
-  if (!protocol) {
-    return (
-      <section className="ws-card p-6 text-[13.5px] text-muted-foreground">
-        {projectName(pool.project)} isn't among the protocols in this snapshot, so there are no protocol figures for it.
-      </section>
-    );
-  }
+  // A pool whose protocol isn't in the snapshot has no protocol figures to show.
+  if (!protocol) return null;
   const onChain = protocol.tvlByChainUsd[pool.chain] ?? null;
   return (
     <section className="ws-card p-5 sm:p-6">
-      <div className="flex items-center gap-3">
-        <ProtocolLogo name={protocol.name} fallback={protocol.logo} className="size-10" />
-        <div>
-          <p className="text-[16px] font-medium">{protocol.name}</p>
-          <p className="text-[13px] text-muted-foreground">{protocol.category}</p>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="flex items-center gap-3">
+          <ProtocolLogo name={protocol.name} fallback={protocol.logo} className="size-10" />
+          <div>
+            <p className="text-[16px] font-medium">{protocol.name}</p>
+            <p className="text-[13px] text-muted-foreground">{protocol.category}</p>
+          </div>
         </div>
+        <ul aria-label={`${protocol.name} is deployed on`} className="flex flex-wrap gap-1.5">
+          {protocol.chains.map((chain) => (
+            <li
+              key={chain}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px] ${chain === pool.chain ? 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] text-[var(--ws-accent-ink)]' : 'border-border bg-card'}`}
+            >
+              <ChainLogo chain={chain} className="size-4" /> {chain}
+            </li>
+          ))}
+        </ul>
       </div>
-      <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5 sm:grid-cols-4">
+      <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5 sm:grid-cols-5">
         <Kpi label="TVL, all chains" value={formatUsd(protocol.allChainsTvlUsd)} />
         <Kpi label={`TVL on ${pool.chain}`} value={formatUsd(onChain)} />
+        <Kpi label="This pool's share" value={protocolShare(pool)} />
         <div className="min-w-0">
           <dt className="text-[12.5px] text-muted-foreground">1d change</dt>
           <dd className="ws-num mt-1 text-[19px] font-medium">
@@ -394,17 +408,6 @@ function ProtocolPanel({ pool }: { pool: YieldPoolRow }) {
           </dd>
         </div>
       </dl>
-      <p className="mt-6 text-[13px] text-muted-foreground">Deployed on {protocol.chains.length} chains</p>
-      <ul className="mt-2.5 flex flex-wrap gap-1.5">
-        {protocol.chains.map((chain) => (
-          <li
-            key={chain}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px] ${chain === pool.chain ? 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] text-[var(--ws-accent-ink)]' : 'border-border bg-card'}`}
-          >
-            <ChainLogo chain={chain} className="size-4" /> {chain}
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }
