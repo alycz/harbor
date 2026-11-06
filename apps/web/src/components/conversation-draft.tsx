@@ -238,7 +238,7 @@ export function ConversationDraft({
             </div>
           ) : (
             <div className={`flex min-h-full flex-col gap-6 ${compact ? 'py-3' : 'justify-center py-8'}`}>
-              <div className={compact ? 'space-y-2' : 'mx-auto max-w-3xl space-y-2.5 text-center'}>
+              <div className={compact ? 'space-y-2' : 'mx-auto w-full max-w-3xl space-y-2.5 text-center'}>
                 <div className={`mb-5 flex ${compact ? '' : 'justify-center'}`}>
                   <HarborMark className={`${compact ? 'size-10' : 'size-16'} text-primary`} />
                 </div>
