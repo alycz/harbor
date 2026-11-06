@@ -395,7 +395,7 @@ function WalletButton() {
                 disabled={connecting}
                 aria-label={`Manage wallet ${shortAddress(address)}`}
                 title={address}
-                className="gap-2 px-2.5"
+                className="ws-wallet gap-2 px-2.5"
               />
             }
           >

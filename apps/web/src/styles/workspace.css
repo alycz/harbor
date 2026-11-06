@@ -287,6 +287,19 @@
   background: color-mix(in oklab, var(--harbor-sand) 60%, var(--harbor-surface));
 }
 
+/* The connected account stands off the sand page as a white chip, not a tinted one. */
+:root[data-surface="workspace"] [data-slot="button"][data-variant="outline"].ws-wallet {
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(23 25 31 / 0.06),
+    0 4px 12px -6px rgb(23 25 31 / 0.12);
+}
+
+:root[data-surface="workspace"] [data-slot="button"][data-variant="outline"].ws-wallet:hover,
+:root[data-surface="workspace"] [data-slot="button"][data-variant="outline"].ws-wallet[aria-expanded="true"] {
+  background: color-mix(in oklab, var(--harbor-sand) 35%, #fff);
+}
+
 :root[data-surface="workspace"]
   :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):not(.ws-bare) {
   border-color: var(--harbor-input-border);
