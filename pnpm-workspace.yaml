@@ -48,6 +48,8 @@ catalog:
   tw-animate-css: 1.4.0
   typebox: 1.3.27
   typescript: 7.0.2
+  vocs: 2.12.0
+  waku: 1.0.0-rc.4
   vite: 8.3.5
   vitest: 5.0.5
   wrangler: 4.152.0
@@ -61,3 +63,6 @@ allowBuilds:
   # Pulled in by Pi's provider SDKs; their install scripts are not needed at runtime.
   "@google/genai": false
   protobufjs: false
+  # Documentation transitive dependencies do not require install-time scripts.
+  es5-ext: false
+  vue-demi: false

@@ -4,6 +4,9 @@
   "workspaces": {
     ".": {
       "entry": ["scripts/prepare-deployment.mjs"]
+    },
+    "apps/docs": {
+      "entry": ["vocs.config.ts"]
     }
   }
 }

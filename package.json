@@ -18,7 +18,10 @@
     "format": "biome check --write .",
     "knip": "knip",
     "check": "biome ci . && turbo run typecheck test build && knip",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "docs:dev": "pnpm --filter @harbor/docs dev",
+    "docs:build": "pnpm --filter @harbor/docs build",
+    "docs:preview": "pnpm --filter @harbor/docs preview"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
