@@ -78,6 +78,18 @@ research/data/     dated snapshots
 
 See [docs/architecture-decisions.md](docs/architecture-decisions.md) for why it is built this way and [AGENTS.md](AGENTS.md) for the safety rules.
 
+## Documentation
+
+The Vocs site in `apps/docs` documents this Harbor repository and its current product behavior.
+
+```sh
+pnpm docs:dev
+pnpm docs:build
+pnpm docs:preview
+```
+
+Start with the [overview](apps/docs/src/pages/index.md) and [capability status](apps/docs/src/pages/status.md).
+
 ## License
 
 [MIT](LICENSE). Third-party libraries and fonts are listed in [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md).

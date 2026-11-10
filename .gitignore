@@ -18,3 +18,7 @@ coverage/
 *.log
 .pnpm-store/
 
+
+# Vocs / Waku generated files
+.vocs/
+.waku/
