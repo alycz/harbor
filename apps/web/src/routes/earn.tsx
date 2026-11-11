@@ -2,7 +2,7 @@ import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
-
+import { EarnVaults } from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
@@ -51,6 +51,7 @@ export function EarnPage() {
         </Panel>
       ) : (
         <>
+          <EarnVaults />
           <section aria-labelledby="earn-best" className="flex flex-col gap-3.5">
             <SectionTitle id="earn-best" title="Best rate by chain" />
             <ol className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">

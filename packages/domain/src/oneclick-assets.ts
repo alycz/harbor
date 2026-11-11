@@ -71,4 +71,22 @@ export const ONE_CLICK_ASSETS: readonly AssetRef[] = [
     chain: 'sol',
     decimals: 9,
   },
+  // 1Click Earn receipt tokens, checked against 1Click's token list and quotes on 2026-11-11. Buying one
+  // deposits into the vault; 1Click quotes them from about 50 USDC.
+  {
+    network: 'mainnet',
+    canonicalId: 'nep141:base-0x0bb69b79bc829e1cfcc34a740110886d98d2bd14.omft.near',
+    symbol: 'gtUSDCp',
+    name: 'Gauntlet USDC Prime (Morpho) on Base',
+    chain: 'base',
+    decimals: 18,
+  },
+  {
+    network: 'mainnet',
+    canonicalId: 'nep141:eth-0x0f38f1ce62776d4a0038bc6cac66877a5687383b.omft.near',
+    symbol: 'TLO',
+    name: 'Taler USDC on Ethereum',
+    chain: 'eth',
+    decimals: 8,
+  },
 ];
