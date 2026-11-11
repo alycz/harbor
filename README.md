@@ -22,7 +22,8 @@ Harbor is being built for the NEAR hackathon. This is what runs today. "Tested" 
 | Signed policy: per-asset spend limits, assets, own destinations, slippage, schedule, expiry; freeze and revoke | Built and tested with an independent NEP-413 signer. Signing needs a real wallet. |
 | Real swaps: executable 1Click quote for your own addresses, one wallet transaction, on-chain deposit check | Built and tested; executable quotes checked live. A real signed deposit has not been made yet. |
 | Settlement: verified 1Click status, delivery measured on the destination chain, refunds and unknowns kept apart | Built and tested with recorded-shape status answers. |
-| Agent acting on its own: recurring buys queued under the signed policy, signed by you in one tap | Built and tested. The leash contract that would let the agent sign within limits is not deployed. |
+| Agent acting on its own: recurring buys queued under the signed policy, signed by you in one tap | Built and tested. |
+| Leash contract: the agent spends a vault only on 1Click-signed deposits to your own addresses, within caps (`contracts/leash`) | Built, 18 contract tests. Not deployed, and the Worker does not call it yet. |
 | Poisoned-post block | Built and tested through the real agent loop with a model scripted to obey the post. |
 | Models: NEAR AI Cloud (attested TEE models only) or free OpenRouter models | Built. Needs a key; without one, chat is scripted. |
 | Research and Earn | Built, on a dated snapshot that shows its source and capture time. Earn has no deposit flow yet. |
