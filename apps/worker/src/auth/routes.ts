@@ -4,7 +4,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { z } from 'zod';
 
 import type { AppEnv } from '../app.ts';
-import { SESSION_COOKIE } from './guard.ts';
+import { recipientOf, SESSION_COOKIE } from './guard.ts';
 import { authDeps, completeSignIn, endSession, issueChallenge, readSession } from './session.ts';
 
 const CHALLENGE_COOKIE = 'harbor_sign_in';
@@ -70,11 +70,6 @@ export function createAuthRoutes() {
   });
 
   return routes;
-}
-
-/** The signature names who it is for. Using this host means one signed for another site never verifies here. */
-function recipientOf(c: Context<AppEnv>): string {
-  return new URL(c.req.url).host;
 }
 
 function cookieOptions(c: Context<AppEnv>, path: string) {

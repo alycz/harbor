@@ -108,7 +108,8 @@ export const assetRegistry = sqliteTable(
 );
 
 export const INTENT_KINDS = ['swap'] as const;
-export const INTENT_SOURCES = ['chat', 'form'] as const;
+export const INTENT_SOURCES = ['chat', 'form', 'autopilot'] as const;
+export const PLAN_SOURCES = ['user', 'autopilot'] as const;
 export const PLAN_STATUSES = [
   'policy_checked',
   'blocked',
@@ -137,6 +138,9 @@ export const intents = sqliteTable(
     buyAsset: text('buy_asset').notNull(),
     sellAmountRaw: text('sell_amount_raw').notNull(),
     source: text('source', { enum: INTENT_SOURCES }).notNull(),
+    // Where the bought asset should go, as asked. NULL means the signed-in account; the plan checks
+    // whatever is asked against the owner's own addresses before anything can be approved.
+    recipient: text('recipient'),
     createdAtMs: integer('created_at_ms').notNull(),
   },
   () => [check('intents_network_ck', NETWORK_CHECK)],
@@ -185,7 +189,15 @@ export const plans = sqliteTable(
     idempotencyKey: text('idempotency_key').notNull(),
     status: text('status', { enum: PLAN_STATUSES }).notNull(),
     digest: text('digest').notNull(),
+    // The plan's own checks: a block here stops the plan for everyone, owner included.
     policy: text('policy').notNull(),
+    // The owner's signed policy applied to this plan: a block here means only the owner can approve it.
+    policyCheck: text('policy_check'),
+    policyId: text('policy_id'),
+    source: text('source', { enum: PLAN_SOURCES }).notNull().default('user'),
+    // Where delivery and any refund go, both checked against the owner's own addresses.
+    recipient: text('recipient'),
+    recipientChain: text('recipient_chain'),
     validUntilMs: integer('valid_until_ms'),
     approvedAtMs: integer('approved_at_ms'),
     quoteHash: text('quote_hash'),
@@ -227,6 +239,59 @@ export const planEvents = sqliteTable(
     createdAtMs: integer('created_at_ms').notNull(),
   },
   (table) => [index('plan_events_plan_idx').on(table.planId)],
+);
+
+export const POLICY_STATUSES = ['pending', 'active', 'frozen', 'revoked', 'superseded'] as const;
+const POLICY_STATUS_CHECK = sql.raw(`status IN (${POLICY_STATUSES.map((status) => `'${status}'`).join(', ')})`);
+
+/**
+ * A policy the owner signs with NEP-413: `body` is the canonical policy JSON, `message` the exact text
+ * the wallet showed, which names `digest`. Only `pending` can be signed, once; freezing or revoking
+ * never needs a signature, and only signing a new revision unfreezes.
+ */
+export const policies = sqliteTable(
+  'policies',
+  {
+    id: text('id').primaryKey(),
+    network: text('network', { enum: NETWORKS }).notNull(),
+    ownerAccount: text('owner_account').notNull(),
+    revision: integer('revision').notNull(),
+    body: text('body').notNull(),
+    digest: text('digest').notNull(),
+    message: text('message').notNull(),
+    nonce: text('nonce').notNull(),
+    status: text('status', { enum: POLICY_STATUSES }).notNull(),
+    publicKey: text('public_key'),
+    signature: text('signature'),
+    signedAtMs: integer('signed_at_ms'),
+    frozenAtMs: integer('frozen_at_ms'),
+    expiresAtMs: integer('expires_at_ms').notNull(),
+    createdAtMs: integer('created_at_ms').notNull(),
+    updatedAtMs: integer('updated_at_ms').notNull(),
+  },
+  (table) => [
+    uniqueIndex('policies_owner_revision_uq').on(table.network, table.ownerAccount, table.revision),
+    uniqueIndex('policies_nonce_uq').on(table.nonce),
+    index('policies_owner_status_idx').on(table.network, table.ownerAccount, table.status),
+    check('policies_network_ck', NETWORK_CHECK),
+    check('policies_status_ck', POLICY_STATUS_CHECK),
+  ],
+);
+
+export const policyEvents = sqliteTable(
+  'policy_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    policyId: text('policy_id')
+      .notNull()
+      .references(() => policies.id),
+    fromStatus: text('from_status'),
+    toStatus: text('to_status').notNull(),
+    actor: text('actor', { enum: ['user', 'system'] }).notNull(),
+    reason: text('reason').notNull(),
+    createdAtMs: integer('created_at_ms').notNull(),
+  },
+  (table) => [index('policy_events_policy_idx').on(table.policyId)],
 );
 
 export const AUTOMATION_KINDS = ['price_alert'] as const;

@@ -1,5 +1,10 @@
 import { isNearAccountId, isOnNetwork } from '@harbor/domain/account';
+import { rawFromText } from '@harbor/domain/amount';
 import { AppError } from '@harbor/domain/errors';
+import { checkAction } from '@harbor/policy/check';
+import { ownAddresses } from '@harbor/policy/policy';
+
+import { loadSignedPolicy, spentOf } from '../policy/policies.ts';
 import {
   type ExecutionDeps,
   existingPlan,
@@ -14,7 +19,7 @@ import {
   type QuoteRow,
   transitionOrReload,
 } from './store.ts';
-import { compareSwap, swapIntentView, swapPlanPolicy, swapPlanView } from './swap.ts';
+import { assetOf, compareSwap, swapIntentView, swapPlanPolicy, swapPlanView, swapRecipient } from './swap.ts';
 
 const ACTIVITY_LIMIT = 30;
 /** How long an approval stays usable before the plan must be reviewed again. */
@@ -29,10 +34,20 @@ export async function compareIntent(deps: ExecutionDeps, intentId: string) {
   return compareSwap(deps, await loadIntent(deps, intentId));
 }
 
-/** Runs the policy over an exact quote and records the plan, blocked or ready for review. */
+/**
+ * Runs the plan's own checks and the owner's signed policy over an exact quote, and records the plan.
+ * A failed plan check blocks it. A failed policy check leaves it for the owner to approve by hand:
+ * the agent can never act on it.
+ */
 export async function createPlan(
   deps: ExecutionDeps,
-  input: { intentId: string; quoteId: string; accountId: string; idempotencyKey: string },
+  input: {
+    intentId: string;
+    quoteId: string;
+    accountId: string;
+    idempotencyKey: string;
+    source?: PlanRow['source'];
+  },
 ) {
   if (!isNearAccountId(input.accountId)) throw new AppError('INVALID_REQUEST', 'Connect a wallet to review this.');
   if (!isOnNetwork(input.accountId, deps.config.network)) {
@@ -45,7 +60,32 @@ export async function createPlan(
   const quote = await loadQuote(deps, input.quoteId);
   if (quote.intent_id !== intent.id) throw new AppError('INVALID_REQUEST', 'That quote belongs to another request.');
   const now = deps.now();
-  const { decision, digest } = await swapPlanPolicy(intent, quote, input.accountId, now);
+  const source = input.source ?? 'user';
+  const signed = await loadSignedPolicy(deps.db, deps.config.network, input.accountId);
+  const own = ownAddresses(signed?.body ?? null, input.accountId);
+  const recipient = swapRecipient(deps, intent, input.accountId, own);
+  const { decision, digest } = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own });
+  const spent = await spentOf(
+    deps.db,
+    deps.config.network,
+    input.accountId,
+    intent.sell_asset,
+    signed?.signedAtMs ?? now,
+    now,
+  );
+  const policyCheck = checkAction(signed, {
+    nowMs: now,
+    byAgent: source === 'autopilot',
+    sellAsset: intent.sell_asset,
+    buyAsset: intent.buy_asset,
+    amountInRaw: rawFromText(quote.amount_in_raw),
+    recipient: recipient ?? { chain: assetOf(deps, intent.buy_asset).chain, address: '(none)' },
+    slippageBps: quote.slippage_bps,
+    quoteObservedAtMs: quote.observed_at_ms,
+    spentLastDayRaw: spent.lastDay,
+    spentSinceSignedRaw: spent.sinceSigned,
+    lastAgentActionMs: signed ? await lastAgentAction(deps, input.accountId, signed.signedAtMs) : null,
+  });
   const row = newPlanRow({
     intent,
     quoteId: quote.id,
@@ -54,11 +94,27 @@ export async function createPlan(
     status: decision.verdict === 'block' ? 'blocked' : 'awaiting_review',
     digest,
     policy: JSON.stringify(decision),
+    policyCheck: JSON.stringify(policyCheck),
+    policyId: signed?.id ?? null,
+    source,
+    recipient,
     errorCode: firstBlock(decision),
     now,
   });
   await insertPlan(deps, row);
   return planView(deps, row);
+}
+
+/** When the agent last had a plan approved for this owner since the policy was signed. */
+async function lastAgentAction(deps: ExecutionDeps, account: string, sinceMs: number): Promise<number | null> {
+  const row = await deps.db
+    .prepare(
+      `SELECT MAX(approved_at_ms) AS at FROM plans
+       WHERE network = ? AND account_id = ? AND source = 'autopilot' AND approved_at_ms >= ?`,
+    )
+    .bind(deps.config.network, account, sinceMs)
+    .first<{ at: number | null }>();
+  return row?.at ?? null;
 }
 
 /** The account's plans that reached the network, newest first. */

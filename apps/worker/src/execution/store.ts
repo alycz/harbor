@@ -9,7 +9,7 @@ import type { Network } from '@harbor/domain/network';
 import type { Decision } from '@harbor/policy/engine';
 
 import { decodeExecutionConfig, type ExecutionConfig } from '../config.ts';
-import type { INTENT_KINDS, PLAN_STATUSES } from '../db/schema.ts';
+import type { INTENT_KINDS, INTENT_SOURCES, PLAN_SOURCES, PLAN_STATUSES } from '../db/schema.ts';
 import { type AssetRegistry, assetRegistry } from './assets.ts';
 
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
@@ -49,7 +49,9 @@ export interface IntentRow {
   /** The canonical ID of the asset bought. */
   buy_asset: string;
   sell_amount_raw: string;
-  source: 'chat' | 'form';
+  source: (typeof INTENT_SOURCES)[number];
+  /** Where the bought asset should go, as asked; null means the signed-in account. */
+  recipient: string | null;
   created_at_ms: number;
 }
 
@@ -78,6 +80,11 @@ export interface PlanRow {
   status: PlanStatus;
   digest: string;
   policy: string;
+  policy_check: string | null;
+  policy_id: string | null;
+  source: (typeof PLAN_SOURCES)[number];
+  recipient: string | null;
+  recipient_chain: string | null;
   valid_until_ms: number | null;
   approved_at_ms: number | null;
   quote_hash: string | null;
@@ -112,8 +119,8 @@ export type Patch = Partial<Record<(typeof PATCHABLE)[number], string | number |
 export async function insertIntent(deps: ExecutionDeps, row: IntentRow): Promise<void> {
   await deps.db
     .prepare(
-      `INSERT INTO intents (id, network, kind, sell_asset, buy_asset, sell_amount_raw, source, created_at_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO intents (id, network, kind, sell_asset, buy_asset, sell_amount_raw, source, recipient, created_at_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       row.id,
@@ -123,6 +130,7 @@ export async function insertIntent(deps: ExecutionDeps, row: IntentRow): Promise
       row.buy_asset,
       row.sell_amount_raw,
       row.source,
+      row.recipient,
       row.created_at_ms,
     )
     .run();
@@ -177,8 +185,8 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
     deps.db
       .prepare(
         `INSERT INTO plans (id, intent_id, quote_id, network, account_id, idempotency_key, status, digest, policy,
-           error_code, created_at_ms, updated_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           policy_check, policy_id, source, recipient, recipient_chain, error_code, created_at_ms, updated_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         row.id,
@@ -190,6 +198,11 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
         row.status,
         row.digest,
         row.policy,
+        row.policy_check,
+        row.policy_id,
+        row.source,
+        row.recipient,
+        row.recipient_chain,
         row.error_code,
         row.created_at_ms,
         row.updated_at_ms,
@@ -198,8 +211,18 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
       .prepare(
         'INSERT INTO plan_events (plan_id, from_status, to_status, actor, reason, created_at_ms) VALUES (?, NULL, ?, ?, ?, ?)',
       )
-      .bind(row.id, row.status, 'user', 'Plan created from a quote', row.created_at_ms),
+      .bind(row.id, row.status, row.source === 'autopilot' ? 'system' : 'user', createdReason(row), row.created_at_ms),
   ]);
+}
+
+function createdReason(row: PlanRow): string {
+  if (row.status === 'blocked') return `Blocked before review: ${row.error_code ?? 'a check failed'}`;
+  const check = row.policy_check ? (JSON.parse(row.policy_check) as Decision) : null;
+  if (check?.verdict === 'block') {
+    const reason = check.reasons.find((entry) => !entry.pass);
+    return `Outside the signed policy (${reason?.code ?? 'NO_POLICY'}): approval requested from the owner`;
+  }
+  return row.source === 'autopilot' ? 'Proposed by the agent within the signed policy' : 'Plan created from a quote';
 }
 
 /** A new plan row with nothing approved yet. */
@@ -211,6 +234,10 @@ export function newPlanRow(input: {
   status: PlanStatus;
   digest: string;
   policy: string;
+  policyCheck: string;
+  policyId: string | null;
+  source: PlanRow['source'];
+  recipient: { chain: string; address: string } | null;
   errorCode: string | null;
   now: number;
 }): PlanRow {
@@ -224,6 +251,11 @@ export function newPlanRow(input: {
     status: input.status,
     digest: input.digest,
     policy: input.policy,
+    policy_check: input.policyCheck,
+    policy_id: input.policyId,
+    source: input.source,
+    recipient: input.recipient?.address ?? null,
+    recipient_chain: input.recipient?.chain ?? null,
     valid_until_ms: null,
     approved_at_ms: null,
     quote_hash: null,
@@ -353,6 +385,9 @@ export function basePlanView(row: PlanRow) {
     account: row.account_id,
     digest: row.digest,
     policy: JSON.parse(row.policy) as Decision,
+    policyCheck: row.policy_check ? (JSON.parse(row.policy_check) as Decision) : null,
+    source: row.source,
+    recipient: row.recipient && row.recipient_chain ? { chain: row.recipient_chain, address: row.recipient } : null,
     validUntil: row.valid_until_ms === null ? null : new Date(row.valid_until_ms).toISOString(),
     approvedAt: row.approved_at_ms === null ? null : new Date(row.approved_at_ms).toISOString(),
     depositAddress: row.deposit_address,

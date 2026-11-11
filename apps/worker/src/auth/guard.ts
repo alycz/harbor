@@ -1,4 +1,5 @@
 import { AppError } from '@harbor/domain/errors';
+import type { Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 
@@ -14,3 +15,8 @@ export const requireSession = createMiddleware<AppEnv>(async (c, next) => {
   c.set('account', session.accountId);
   await next();
 });
+
+/** Who a NEP-413 signature is for. Using this host means one signed for another site never verifies here. */
+export function recipientOf(c: Context<AppEnv>): string {
+  return new URL(c.req.url).host;
+}

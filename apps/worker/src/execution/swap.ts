@@ -3,6 +3,7 @@ import { AmountError, MAX_U128_RAW, parseDecimalAmount, rawFromText, rawToText }
 import type { AssetRef } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
 import { type Decision, evaluate, type Rule } from '@harbor/policy/engine';
+import { type Destination, isOwnAddress } from '@harbor/policy/policy';
 
 import {
   basePlanView,
@@ -23,11 +24,16 @@ const SLIPPAGE_BPS = 50;
 const QUOTE_MAX_AGE_MS = 30_000;
 const PRICE_IMPACT_WARNING_BPS = 100;
 
+const RECIPIENT = /^[\x21-\x7e]{2,128}$/;
+
 export async function createSwapIntent(
   deps: ExecutionDeps,
-  input: { sell: string; buy: string; amount: string; source: 'chat' | 'form' },
+  input: { sell: string; buy: string; amount: string; source: IntentRow['source']; recipient?: string | undefined },
 ) {
   if (input.sell === input.buy) throw new AppError('INVALID_REQUEST', 'Choose two different assets to swap.');
+  if (input.recipient !== undefined && !RECIPIENT.test(input.recipient)) {
+    throw new AppError('INVALID_REQUEST', 'The recipient must be an address of visible characters.');
+  }
   const sell = resolve(deps, input.sell);
   const buy = resolve(deps, input.buy);
   let raw: bigint;
@@ -45,6 +51,7 @@ export async function createSwapIntent(
     buy_asset: buy.canonicalId,
     sell_amount_raw: rawToText(raw),
     source: input.source,
+    recipient: input.recipient ?? null,
     created_at_ms: deps.now(),
   };
   await insertIntent(deps, row);
@@ -97,9 +104,46 @@ interface SwapPlanFacts {
   minOut: bigint;
   priceImpactBps: number | null;
   harborFeeBps: number;
+  /** Where the bought asset goes, or null when no own address on that chain is known. */
+  recipient: Destination | null;
+  buyChain: string;
+  /** The owner's own addresses: their NEAR account and the destinations they signed. */
+  own: readonly Destination[];
+  sellChain: string;
 }
 
+/** The plan's own checks. A block here stops the plan for everyone; no approval can override it. */
 const SWAP_RULES: readonly Rule<SwapPlanFacts>[] = [
+  {
+    id: 'origin_near',
+    severity: 'block',
+    check: (facts) => ({
+      pass: facts.sellChain === 'near',
+      code: 'ORIGIN_NOT_NEAR',
+      detail: 'Harbor sends only from your NEAR account. Choose an asset held on NEAR to sell.',
+    }),
+  },
+  {
+    id: 'recipient_known',
+    severity: 'block',
+    check: (facts) => ({
+      pass: facts.recipient !== null,
+      code: 'RECIPIENT_MISSING',
+      detail: `Add your own ${facts.buyChain} address to your policy to receive this there.`,
+    }),
+  },
+  {
+    id: 'destination_own',
+    severity: 'block',
+    check: (facts) => ({
+      pass: facts.recipient === null || isOwnAddress(facts.own, facts.recipient),
+      code: 'DESTINATION_NOT_OWN',
+      detail: facts.recipient
+        ? `${facts.recipient.address} is not one of your addresses. Harbor only delivers to addresses you signed.`
+        : 'Harbor only delivers to addresses you signed.',
+      ...(facts.recipient ? { facts: { recipient: facts.recipient.address, chain: facts.recipient.chain } } : {}),
+    }),
+  },
   {
     id: 'quote_fresh',
     severity: 'block',
@@ -142,12 +186,14 @@ const SWAP_RULES: readonly Rule<SwapPlanFacts>[] = [
   },
 ];
 
-/** The policy decision and the digest the user's approval binds, for a swap plan. */
+/** The plan's own decision and the digest the user's approval binds, for a swap plan. */
 export async function swapPlanPolicy(
+  deps: ExecutionDeps,
   intent: IntentRow,
   quote: QuoteRow,
   accountId: string,
   now: number,
+  destination: { recipient: Destination | null; own: readonly Destination[] },
 ): Promise<{ decision: Decision; digest: string }> {
   const decision = evaluate(SWAP_RULES, {
     nowMs: now,
@@ -156,6 +202,10 @@ export async function swapPlanPolicy(
     minOut: rawFromText(quote.min_out_raw),
     priceImpactBps: quote.price_impact_bps,
     harborFeeBps: 0,
+    recipient: destination.recipient,
+    buyChain: assetOf(deps, intent.buy_asset).chain,
+    own: destination.own,
+    sellChain: assetOf(deps, intent.sell_asset).chain,
   });
   const digest = await sha256Hex(
     canonicalJson({
@@ -168,9 +218,28 @@ export async function swapPlanPolicy(
       amountInRaw: quote.amount_in_raw,
       minOutRaw: quote.min_out_raw,
       slippageBps: quote.slippage_bps,
+      recipient: destination.recipient?.address ?? '',
+      recipientChain: destination.recipient?.chain ?? '',
     }),
   );
   return { decision, digest };
+}
+
+/**
+ * Where a swap delivers: the address asked for, or else the owner's own address on the bought
+ * asset's chain (their NEAR account, or the one destination they signed on that chain).
+ */
+export function swapRecipient(
+  deps: ExecutionDeps,
+  intent: IntentRow,
+  account: string,
+  own: readonly Destination[],
+): Destination | null {
+  const chain = assetOf(deps, intent.buy_asset).chain;
+  if (intent.recipient !== null) return { chain, address: intent.recipient };
+  if (chain === 'near') return { chain, address: account };
+  const onChain = own.filter((entry) => entry.chain === chain);
+  return onChain.length === 1 && onChain[0] ? onChain[0] : null;
 }
 
 export function swapIntentView(deps: ExecutionDeps, row: IntentRow) {
@@ -180,7 +249,8 @@ export function swapIntentView(deps: ExecutionDeps, row: IntentRow) {
     network: row.network,
     kind: 'swap' as const,
     sell: rawAmount(assetOf(deps, row.sell_asset), row.sell_amount_raw),
-    buy: { symbol: buy.symbol, canonicalId: buy.canonicalId },
+    buy: { symbol: buy.symbol, canonicalId: buy.canonicalId, chain: buy.chain },
+    recipient: row.recipient,
     source: row.source,
     createdAt: new Date(row.created_at_ms).toISOString(),
   };
@@ -220,7 +290,7 @@ function resolve(deps: ExecutionDeps, symbol: string): AssetRef {
 }
 
 /** Stored intents name registry assets; one missing from the registry is a configuration fault. */
-function assetOf(deps: ExecutionDeps, canonicalId: string): AssetRef {
+export function assetOf(deps: ExecutionDeps, canonicalId: string): AssetRef {
   const asset = deps.assets.byId(canonicalId);
   if (!asset) throw new AppError('UNAVAILABLE', 'This request names an asset the server no longer supports.');
   return asset;

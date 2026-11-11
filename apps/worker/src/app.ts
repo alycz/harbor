@@ -12,6 +12,7 @@ import { createAutomationRoutes } from './automations/routes.ts';
 import { ConfigError, decodeConfig } from './config.ts';
 import { createExecutionRoutes } from './execution/routes.ts';
 import { createMarketRoutes } from './markets/routes.ts';
+import { createPolicyRoutes } from './policy/routes.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const STATUS_BY_CODE: Record<ErrorCode, ContentfulStatusCode> = {
@@ -67,6 +68,7 @@ export function createApp() {
   app.route('/auth', createAuthRoutes());
   app.route('/markets', createMarketRoutes());
   app.route('/automations', createAutomationRoutes());
+  app.route('/policies', createPolicyRoutes());
   app.route('/agent', createAgentRoutes());
   app.route('/', createExecutionRoutes());
 
