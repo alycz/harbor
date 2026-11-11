@@ -19,7 +19,9 @@ export interface Intent {
   id: string;
   network: 'mainnet' | 'testnet';
   sell: AssetAmount;
-  buy: { symbol: string };
+  buy: { symbol: string; chain: string };
+  /** An address the request asked to deliver to; null means the signed-in account. */
+  recipient: string | null;
 }
 
 export interface Quote {

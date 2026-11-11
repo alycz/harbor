@@ -204,6 +204,16 @@ export function SwapProposalCard({
           </div>
         ) : null}
 
+        {intent?.recipient && intent.recipient !== wallet.address ? (
+          <p className="flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/8 px-3.5 py-2.5 text-[12.5px] text-warning">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              This asks to deliver to <span className="font-mono">{intent.recipient}</span>, which is not your signed-in
+              account. Harbor blocks it unless it is an address you signed in your policy.
+            </span>
+          </p>
+        ) : null}
+
         {quote && phase !== 'quoting' && phase !== 'stopped' ? (
           <dl>
             <FactRow
