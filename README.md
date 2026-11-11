@@ -25,9 +25,10 @@ Harbor is being built for the NEAR hackathon. This is what runs today. "Tested" 
 | Agent acting on its own: recurring buys queued under the signed policy, signed by you in one tap | Built and tested. |
 | Leash contract: the agent spends a vault only on 1Click-signed deposits to your own addresses, within caps (`contracts/leash`) | Built, 18 contract tests. Not deployed, and the Worker does not call it yet. |
 | Poisoned-post block | Built and tested through the real agent loop with a model scripted to obey the post. |
-| Models: NEAR AI Cloud (attested TEE models only) or free OpenRouter models | Built. Needs a key; without one, chat is scripted. |
-| Research and Earn | Built, on a dated snapshot that shows its source and capture time. Earn has no deposit flow yet. |
-| Price alerts | Built, quoting the venue; no web page yet. |
+| Models: free OpenRouter models (NEAR AI Cloud attested TEE models also supported) | Built. Needs a key; without one, chat is scripted. Earlier chats are kept in your browser and reopen from the sidebar. |
+| Research and Earn | Built, on a dated snapshot that shows its source and capture time. Earn deposits into Gauntlet USDC Prime (Base) and Taler USDC (Ethereum) through 1Click Earn, from about 50 USDC, with the same checks as any swap. |
+| Venue comparison | Rhea's route price is shown next to 1Click's for pairs on NEAR, for comparison only. |
+| Price alerts | Built, quoting the venue; set and managed on Trade. |
 
 ## Quick start
 

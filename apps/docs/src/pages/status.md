@@ -11,10 +11,11 @@ These docs were checked against Harbor's source, not just its product descriptio
 | Mainnet swaps | Executable 1Click quote made out to the owner's recipient and refund account; one wallet transaction (register, wrap, transfer); deposit accepted only after decoding to exactly the planned transfer | Executable quotes checked live; a real signed deposit has not been made yet |
 | Settlement | Verified 1Click status; `confirmed` only after the delivery is measured on the destination chain (NEAR balance, or EVM transfer receipt); refunds stay refunds; unknown stays unknown | Solana deliveries cannot be verified and stay unconfirmed |
 | Autonomy | Recurring buys queued by the agent only under an active policy, each still checked against it, signed by the owner in one tap | The leash contract (`contracts/leash`) is built and tested but not deployed, and the Worker does not call it yet |
-| Chat | Durable Object conversation; research, sample-feed and swap-proposal tools; outside text is wrapped as untrusted data | Scripted fallback without a model key |
+| Chat | Durable Object conversation; research, sample-feed and swap-proposal tools; outside text is wrapped as untrusted data; earlier chats kept in the browser | Scripted fallback without a model key |
 | Models | OpenRouter free models, or NEAR AI Cloud with an allowlist of attested models on NEAR AI's own TEE fleet | Per-response signature verification is not shown yet |
-| Research and Earn | Dated snapshot with source and capture time shown | Not live rates; Earn has no deposit flow yet |
-| Price alerts | Draft, activate, pause; scheduled checks against a dry venue quote; alerts | Monitoring only; no web page for alerts yet |
+| Research and Earn | Dated snapshot with source and capture time shown; Earn deposits into two 1Click Earn vaults as a swap into their receipt token | Not live rates; vault deposits start at about 50 USDC and withdraw on the vault's own chain |
+| Venue comparison | Rhea route price beside 1Click for pairs on NEAR | For comparison only; Harbor does not execute on Rhea |
+| Price alerts | Set, pause and delete on Trade; scheduled checks against a dry venue quote; alerts | Monitoring only; never trades |
 
 ## The poisoned-post demo
 
