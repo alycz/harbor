@@ -133,6 +133,8 @@ export const execution = {
     call<Plan>('/api/plans', { method: 'POST', body: input, headers: { 'idempotency-key': crypto.randomUUID() } }),
   approve: (plan: Plan) =>
     call<Plan>(`/api/plans/${plan.id}/approve`, { method: 'POST', body: { digest: plan.digest } }),
+  /** Token registrations the account must sign before this swap can be quoted for execution. */
+  setup: (intentId: string) => call<{ transactions: WalletTransaction[] }>(`/api/intents/${intentId}/setup`),
   /** Reports the deposit the wallet sent; Harbor accepts it once the chain shows the planned transfer. */
   deposit: (planId: string, txHash: string) =>
     call<Plan>(`/api/plans/${planId}/deposit`, { method: 'POST', body: { txHash } }),

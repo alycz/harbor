@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 
 import { assetRegistry } from '../src/execution/assets.ts';
-import { approvePlan, compareIntent, createPlan, readPlan } from '../src/execution/lifecycle.ts';
+import { approvePlan, compareIntent, createPlan, intentSetup, readPlan } from '../src/execution/lifecycle.ts';
 import { recoverPendingPlans } from '../src/execution/recovery.ts';
 import { recordDeposit, settlePlans } from '../src/execution/settlement.ts';
 import type { ExecutionDeps } from '../src/execution/store.ts';
@@ -99,6 +99,33 @@ describe('signing a deposit', () => {
       amount: '1000000000000000000000000',
     });
     expect(h.world.quotes.at(-1)).toMatchObject({ refundTo: 'signer.near', recipient: 'signer.near' });
+  });
+});
+
+describe('account setup', () => {
+  it('asks a new account to register on both tokens before 1Click can quote it, and nothing else', async () => {
+    const h = setup();
+    const account = 'newcomer.near';
+    h.world.unregistered.add(`wrap.near:${account}`);
+    h.world.unregistered.add(`${USDC_CONTRACT}:${account}`);
+    const intent = await createSwapIntent(h.deps, { sell: 'NEAR', buy: 'USDC', amount: '1', source: 'form' });
+    const [quote] = (await compareIntent(h.deps, intent.id)).quotes;
+    if (!quote) throw new Error('no quote');
+    const plan = { intentId: intent.id, quoteId: quote.id, accountId: account, idempotencyKey: crypto.randomUUID() };
+    await expect(createPlan(h.deps, plan)).rejects.toMatchObject({ code: 'SETUP_REQUIRED' });
+    expect(h.world.quotes).toHaveLength(0);
+
+    const { transactions } = await intentSetup(h.deps, intent.id, account);
+    expect(transactions.map((transaction) => transaction.receiverId)).toEqual(['wrap.near', USDC_CONTRACT]);
+    expect(transactions[0]?.actions[0]?.params).toMatchObject({
+      methodName: 'storage_deposit',
+      args: { account_id: account, registration_only: true },
+      deposit: '1250000000000000000000',
+    });
+
+    h.world.unregistered.clear();
+    expect((await intentSetup(h.deps, intent.id, account)).transactions).toEqual([]);
+    expect((await createPlan(h.deps, plan)).status).toBe('awaiting_review');
   });
 });
 

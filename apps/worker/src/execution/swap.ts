@@ -2,7 +2,7 @@ import { type DepositQuote, type VenueQuote, VenueRefusal } from '@harbor/adapte
 import { AmountError, MAX_U128_RAW, parseDecimalAmount, rawFromText, rawToText } from '@harbor/domain/amount';
 import type { AssetRef } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
-import { depositTransaction, tokenContractOf } from '@harbor/near/chain';
+import { ChainReadFailed, depositTransaction, registrationTransaction, tokenContractOf } from '@harbor/near/chain';
 import { type Decision, evaluate, type Rule } from '@harbor/policy/engine';
 import { type Destination, isOwnAddress } from '@harbor/policy/policy';
 
@@ -102,6 +102,38 @@ export async function compareSwap(deps: ExecutionDeps, intent: IntentRow) {
   await insertQuote(deps, row);
   const view = swapQuoteView(deps, row, intent);
   return { quotes: [view], selectedQuoteId: view.id };
+}
+
+/**
+ * The token registrations a swap needs before 1Click will quote it: the owner on the token sold, so a
+ * refund can reach them, and a NEAR recipient on the token bought. Each is the transaction that adds it.
+ */
+export async function missingRegistrations(
+  deps: ExecutionDeps,
+  intent: IntentRow,
+  account: string,
+  recipient: Destination | null,
+) {
+  const needs: { tokenContract: string; account: string }[] = [];
+  const sold = tokenContractOf(intent.sell_asset);
+  if (sold) needs.push({ tokenContract: sold, account });
+  const bought = tokenContractOf(intent.buy_asset);
+  if (bought && recipient?.chain === 'near') needs.push({ tokenContract: bought, account: recipient.address });
+  try {
+    const missing = [];
+    for (const need of needs) {
+      if (await deps.chain.storageRegistered(need.tokenContract, need.account)) continue;
+      missing.push(
+        registrationTransaction(need.tokenContract, need.account, await deps.chain.storageMinimum(need.tokenContract)),
+      );
+    }
+    return missing;
+  } catch (error) {
+    if (error instanceof ChainReadFailed) {
+      throw new AppError('UNAVAILABLE', 'NEAR could not be read right now. Try again shortly.');
+    }
+    throw error;
+  }
 }
 
 /**

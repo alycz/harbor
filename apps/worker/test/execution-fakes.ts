@@ -13,6 +13,8 @@ interface FakeWorld {
   balances: Map<string, bigint>;
   receipts: Map<string, unknown>;
   down: boolean;
+  /** `token:account` pairs not registered on the token; everything else is. */
+  unregistered: Set<string>;
   quotes: { refundTo: string; recipient: string; amountIn: bigint }[];
   notices: { txHash: string; sender: string }[];
 }
@@ -26,6 +28,7 @@ export function fakeWorld(clock: { now: number }, amountOut = 26_000_000_000_000
     balances: new Map(),
     receipts: new Map(),
     down: false,
+    unregistered: new Set(),
     quotes: [],
     notices: [],
   };
@@ -67,6 +70,12 @@ export function fakeWorld(clock: { now: number }, amountOut = 26_000_000_000_000
     async ftBalance(token, account) {
       if (world.down) throw new (await import('@harbor/near/chain')).ChainReadFailed('down');
       return world.balances.get(`${token}:${account}`) ?? 0n;
+    },
+    async storageRegistered(token, account) {
+      return !world.unregistered.has(`${token}:${account}`);
+    },
+    async storageMinimum() {
+      return 1_250_000_000_000_000_000_000n;
     },
   };
   const evm: EvmReader = { receipt: async (_chain, hash) => world.receipts.get(hash) ?? null };

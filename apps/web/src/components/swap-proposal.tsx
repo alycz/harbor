@@ -13,6 +13,8 @@ import { Chip, FactRow } from './workspace.tsx';
 type Phase =
   | 'quoting'
   | 'quoted'
+  | 'setup'
+  | 'settingUp'
   | 'planning'
   | 'review'
   | 'approving'
@@ -46,7 +48,13 @@ export function SwapProposalCard({
   const [error, setError] = useState<string | null>(null);
   const secondsLeft = useCountdown(phase === 'quoted' || phase === 'review' ? quote?.expiresAt : undefined);
   useEffect(() => {
-    onInteractionLock?.(phase === 'planning' || phase === 'approving' || phase === 'signing' || phase === 'submitting');
+    onInteractionLock?.(
+      phase === 'planning' ||
+        phase === 'approving' ||
+        phase === 'signing' ||
+        phase === 'submitting' ||
+        phase === 'settingUp',
+    );
   }, [phase, onInteractionLock]);
   // Follows a sent swap until it settles: confirmed, refunded, failed or unknown.
   useEffect(() => {
@@ -103,8 +111,27 @@ export function SwapProposalCard({
       setQuote(created.quote);
       setPhase(created.status === 'awaiting_review' ? 'review' : 'stopped');
     } catch (caught) {
+      if (caught instanceof ExecutionRequestError && caught.code === 'SETUP_REQUIRED') {
+        setPhase('setup');
+        return;
+      }
       fail(caught);
       setPhase('quoted');
+    }
+  }
+
+  /** Signs the one-time token registrations 1Click needs, then reviews the swap again. */
+  async function setUpAccount() {
+    setError(null);
+    setPhase('settingUp');
+    try {
+      const { transactions } = await execution.setup(intentId);
+      for (const transaction of transactions) await wallet.sendTransaction(transaction);
+      await review();
+    } catch (caught) {
+      const message = walletProblem(caught);
+      if (message) setError(message);
+      setPhase('setup');
     }
   }
 
@@ -239,6 +266,12 @@ export function SwapProposalCard({
           </p>
         ) : null}
         {plan && phase === 'tracking' ? <SwapProgress plan={plan} /> : null}
+        {phase === 'setup' || phase === 'settingUp' ? (
+          <p className="rounded-lg border border-border bg-secondary/40 px-3.5 py-3 text-[13px] leading-relaxed">
+            One-time setup: your account needs to be registered on these tokens before NEAR Intents can deliver to it or
+            refund it. Your wallet asks for a small storage deposit per token, which stays yours.
+          </p>
+        ) : null}
 
         {plan && phase === 'stopped' ? (
           <p className="text-destructive">{planProblem(plan) ?? 'This swap stopped.'}</p>
@@ -289,6 +322,16 @@ export function SwapProposalCard({
           {phase === 'approved' ? (
             <Button className="h-10 gap-2 px-4" onClick={approveAndSign}>
               <Wallet /> Sign the deposit
+            </Button>
+          ) : null}
+          {phase === 'setup' ? (
+            <Button className="h-10 gap-2 px-4" onClick={setUpAccount}>
+              <Wallet /> Set up in wallet
+            </Button>
+          ) : null}
+          {phase === 'settingUp' ? (
+            <Button className="h-10 gap-2 px-4" disabled>
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" /> Confirm in your wallet…
             </Button>
           ) : null}
           {secondsLeft !== null ? (

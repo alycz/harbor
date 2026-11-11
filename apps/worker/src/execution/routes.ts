@@ -4,7 +4,15 @@ import { z } from 'zod';
 
 import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
-import { approvePlan, compareIntent, createPlan, listActivity, readIntent, readPlan } from './lifecycle.ts';
+import {
+  approvePlan,
+  compareIntent,
+  createPlan,
+  intentSetup,
+  listActivity,
+  readIntent,
+  readPlan,
+} from './lifecycle.ts';
 import { recordDeposit } from './settlement.ts';
 import { executionDeps } from './store.ts';
 import { createSwapIntent } from './swap.ts';
@@ -55,6 +63,11 @@ export function createExecutionRoutes() {
   });
 
   routes.get('/intents/:id', async (c) => c.json(await readIntent(executionDeps(c.env), uuid(c.req.param('id')))));
+
+  /** Token registrations the signed-in owner must sign before this swap can be quoted for execution. */
+  routes.get('/intents/:id/setup', requireSession, async (c) =>
+    c.json(await intentSetup(executionDeps(c.env), uuid(c.req.param('id')), c.get('account'))),
+  );
 
   routes.post('/intents/:id/compare', async (c) =>
     c.json(await compareIntent(executionDeps(c.env), uuid(c.req.param('id')))),

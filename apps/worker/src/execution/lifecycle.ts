@@ -25,6 +25,7 @@ import {
   compareSwap,
   type Deposit,
   executableQuote,
+  missingRegistrations,
   swapIntentView,
   swapPlanPolicy,
   swapPlanView,
@@ -79,6 +80,12 @@ export async function createPlan(
   // With execution on, the owner reviews the executable quote itself: its deposit address, made out to
   // their own recipient and refund address. A plan its own checks block never gets one.
   if (checked.decision.verdict !== 'block' && deps.executor && recipient) {
+    if ((await missingRegistrations(deps, intent, input.accountId, recipient)).length > 0) {
+      throw new AppError(
+        'SETUP_REQUIRED',
+        'Your account needs to be set up for these tokens first: a small, refundable storage deposit.',
+      );
+    }
     const executable = await executableQuote(deps, intent, input.accountId, recipient);
     quote = executable.row;
     deposit = executable.deposit;
@@ -167,6 +174,14 @@ export async function listActivity(deps: ExecutionDeps, account: string) {
       return intent && quote ? [activityItem(deps, plan, intent, quote)] : [];
     }),
   };
+}
+
+/** The registrations the signed-in owner must sign before this intent can be quoted for execution. */
+export async function intentSetup(deps: ExecutionDeps, intentId: string, account: string) {
+  const intent = await loadIntent(deps, intentId);
+  const signed = await loadSignedPolicy(deps.db, deps.config.network, account);
+  const recipient = swapRecipient(deps, intent, account, ownAddresses(signed?.body ?? null, account));
+  return { transactions: await missingRegistrations(deps, intent, account, recipient) };
 }
 
 export async function readPlan(deps: ExecutionDeps, planId: string, account: string) {

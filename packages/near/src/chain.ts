@@ -18,6 +18,10 @@ export interface NearChain {
   /** The transaction's final result, or null when the chain does not know it (yet). */
   transaction(hash: string, sender: string): Promise<unknown | null>;
   ftBalance(tokenContract: string, account: string): Promise<bigint>;
+  /** Whether the account holds a storage registration on the token, so it can receive it. */
+  storageRegistered(tokenContract: string, account: string): Promise<boolean>;
+  /** The least the token asks to register an account, in yoctoNEAR. */
+  storageMinimum(tokenContract: string): Promise<bigint>;
 }
 
 export function isTxHash(value: string): boolean {
@@ -56,22 +60,58 @@ export function createNearChain(rpcUrl: string, fetcher: typeof fetch = fetch): 
       return body.result ?? null;
     },
     async ftBalance(tokenContract, account) {
-      const args = btoa(JSON.stringify({ account_id: account }));
-      const body = await rpc('query', {
-        request_type: 'call_function',
-        finality: 'final',
-        account_id: tokenContract,
-        method_name: 'ft_balance_of',
-        args_base64: args,
-      });
-      const bytes = (body.result as { result?: unknown } | undefined)?.result;
-      if (body.error || !Array.isArray(bytes)) throw new ChainReadFailed('The NEAR RPC could not read the balance.');
-      const value = JSON.parse(new TextDecoder().decode(Uint8Array.from(bytes as number[]))) as unknown;
+      const value = await view(tokenContract, 'ft_balance_of', { account_id: account });
       if (typeof value !== 'string' || !/^(0|[1-9]\d*)$/.test(value)) {
         throw new ChainReadFailed('The token answered with an unreadable balance.');
       }
       return BigInt(value);
     },
+    async storageRegistered(tokenContract, account) {
+      const value = await view(tokenContract, 'storage_balance_of', { account_id: account });
+      return value !== null && typeof value === 'object';
+    },
+    async storageMinimum(tokenContract) {
+      const value = (await view(tokenContract, 'storage_balance_bounds', {})) as { min?: unknown } | null;
+      if (typeof value?.min !== 'string' || !/^[1-9]\d*$/.test(value.min)) {
+        throw new ChainReadFailed('The token answered with unreadable storage bounds.');
+      }
+      return BigInt(value.min);
+    },
+  };
+
+  async function view(contract: string, method: string, args: Record<string, string>): Promise<unknown> {
+    const body = await rpc('query', {
+      request_type: 'call_function',
+      finality: 'final',
+      account_id: contract,
+      method_name: method,
+      args_base64: btoa(JSON.stringify(args)),
+    });
+    const bytes = (body.result as { result?: unknown } | undefined)?.result;
+    if (body.error || !Array.isArray(bytes)) throw new ChainReadFailed(`The NEAR RPC could not call ${method}.`);
+    try {
+      return JSON.parse(new TextDecoder().decode(Uint8Array.from(bytes as number[]))) as unknown;
+    } catch {
+      throw new ChainReadFailed(`${contract} answered ${method} with something unreadable.`);
+    }
+  }
+}
+
+/** The transaction that registers `account` on a token so it can receive it: refundable storage, nothing else. */
+export function registrationTransaction(tokenContract: string, account: string, minimumYocto: bigint) {
+  return {
+    receiverId: tokenContract,
+    actions: [
+      {
+        type: 'FunctionCall' as const,
+        params: {
+          methodName: 'storage_deposit',
+          args: { account_id: account, registration_only: true },
+          gas: '30000000000000',
+          deposit: minimumYocto.toString(),
+        },
+      },
+    ],
   };
 }
 
