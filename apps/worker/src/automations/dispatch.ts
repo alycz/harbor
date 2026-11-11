@@ -1,10 +1,12 @@
+import { formatRawAmount, MAX_U128_RAW, parseDecimalAmount } from '@harbor/domain/amount';
 import { claim, complete, enqueue, fail, failExhausted, type Lease, Superseded } from '@harbor/jobs/jobs';
 import { drizzle } from 'drizzle-orm/d1';
 import { z } from 'zod';
 
 import { decodeExecutionConfig } from '../config.ts';
+import { type ExecutionDeps, executionDeps } from '../execution/store.ts';
 import type { PriceAlertConfig } from './config.ts';
-import { evaluatePriceAlert } from './evaluate.ts';
+import { evaluatePriceAlert, type QuoteSource } from './evaluate.ts';
 import type { AutomationDeps, RuleRow } from './rules.ts';
 
 const JOB_KIND = 'automation.evaluate';
@@ -25,12 +27,36 @@ const JobPayloadSchema = z.strictObject({
 
 export function automationDeps(env: Env): AutomationDeps {
   const config = decodeExecutionConfig(env);
+  const execution = executionDeps(env);
   return {
     db: env.DB,
     network: config.network,
     now: Date.now,
-    quotes: {
-      read: () => Promise.reject(new Error('No quote venue is configured on this server.')),
+    quotes: venueQuotes(execution),
+  };
+}
+
+/** Reads a rule's swap from this network's venue: a dry quote, so a check can never create anything. */
+function venueQuotes(deps: ExecutionDeps): QuoteSource {
+  return {
+    async read(request) {
+      const venue = deps.venue;
+      if (!venue) throw new Error('No quote venue is configured on this network.');
+      const sell = deps.assets.byId(request.sellAssetId);
+      const buy = deps.assets.byId(request.buyAssetId);
+      if (!sell || !buy) throw new Error('This alert names an asset Harbor does not support.');
+      const quote = await venue.quote({
+        network: deps.config.network,
+        sell,
+        buy,
+        amountIn: parseDecimalAmount(request.amount, sell.decimals, MAX_U128_RAW),
+        slippageBps: 50,
+      });
+      return {
+        amountOut: formatRawAmount(quote.amountOut, buy.decimals),
+        venue: venue.id,
+        observedAtMs: deps.now(),
+      };
     },
   };
 }
