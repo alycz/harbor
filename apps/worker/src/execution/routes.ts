@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
 import { approvePlan, compareIntent, createPlan, listActivity, readIntent, readPlan } from './lifecycle.ts';
+import { recordDeposit } from './settlement.ts';
 import { executionDeps } from './store.ts';
 import { createSwapIntent } from './swap.ts';
 
@@ -17,6 +18,7 @@ const SwapIntentSchema = z.strictObject({
 });
 const PlanSchema = z.strictObject({ intentId: z.uuid(), quoteId: z.uuid() });
 const ApproveSchema = z.strictObject({ digest: z.string().regex(/^[0-9a-f]{64}$/) });
+const DepositSchema = z.strictObject({ txHash: z.string().min(43).max(44) });
 const IdempotencyKeySchema = z
   .string()
   .min(8)
@@ -76,6 +78,12 @@ export function createExecutionRoutes() {
   routes.get('/plans/:id', requireSession, async (c) =>
     c.json(await readPlan(executionDeps(c.env), uuid(c.req.param('id')), c.get('account'))),
   );
+
+  /** The hash of the deposit the owner's wallet sent. Accepted only once the chain shows the planned transfer. */
+  routes.post('/plans/:id/deposit', requireSession, async (c) => {
+    const body = parse(DepositSchema, await c.req.json().catch(() => null), 'Send the deposit txHash.');
+    return c.json(await recordDeposit(executionDeps(c.env), uuid(c.req.param('id')), c.get('account'), body.txHash));
+  });
 
   routes.post('/plans/:id/approve', requireSession, async (c) => {
     const body = parse(ApproveSchema, await c.req.json().catch(() => null), 'Send the reviewed digest.');

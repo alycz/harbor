@@ -1,16 +1,18 @@
 import { createOneClickClient } from '@harbor/adapters/oneclick/client';
-import { oneClickVenue } from '@harbor/adapters/oneclick/venue';
-import type { SwapVenue } from '@harbor/adapters/venue';
+import { oneClickExecutor, oneClickVenue } from '@harbor/adapters/oneclick/venue';
+import type { SwapExecutor, SwapVenue } from '@harbor/adapters/venue';
 import { formatRawAmount, rawFromText } from '@harbor/domain/amount';
 import type { AssetRef } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
 import { txExplorerUrl } from '@harbor/domain/near';
 import type { Network } from '@harbor/domain/network';
+import { createNearChain, type NearChain } from '@harbor/near/chain';
 import type { Decision } from '@harbor/policy/engine';
 
 import { decodeExecutionConfig, type ExecutionConfig } from '../config.ts';
 import type { INTENT_KINDS, INTENT_SOURCES, PLAN_SOURCES, PLAN_STATUSES } from '../db/schema.ts';
 import { type AssetRegistry, assetRegistry } from './assets.ts';
+import { createEvmReader, type EvmReader } from './delivery.ts';
 
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
 type IntentKind = (typeof INTENT_KINDS)[number];
@@ -20,6 +22,12 @@ export interface ExecutionDeps {
   config: ExecutionConfig;
   /** Where swaps are quoted on this network, or null when none is configured. */
   venue: SwapVenue | null;
+  /** Who executes a deposit, only while execution and the adapter are both enabled; otherwise null. */
+  executor: SwapExecutor | null;
+  /** Reads from NEAR itself, for checking deposits and deliveries independently of the provider. */
+  chain: NearChain;
+  /** Reads from EVM chains, for checking deliveries there. */
+  evm: EvmReader;
   /** The assets this network can swap, resolved from a verified registry, never from a ticker alone. */
   assets: AssetRegistry;
   now(): number;
@@ -27,14 +35,20 @@ export interface ExecutionDeps {
 
 export function executionDeps(env: Env): ExecutionDeps {
   const config = decodeExecutionConfig(env);
+  // 1Click has no testnet, so swaps are quoted and executed on mainnet only.
+  const mainnet = config.network === 'mainnet';
+  const executes = mainnet && config.executionEnabled && config.writeAdapters.has('oneclick');
+  const client = createOneClickClient({
+    ...(config.oneClickJwt ? { jwt: config.oneClickJwt } : {}),
+    allowExecutableQuotes: executes,
+  });
   return {
     db: env.DB,
     config,
-    // 1Click has no testnet, so swaps are quoted on mainnet only.
-    venue:
-      config.network === 'mainnet'
-        ? oneClickVenue(createOneClickClient(config.oneClickJwt ? { jwt: config.oneClickJwt } : {}))
-        : null,
+    venue: mainnet ? oneClickVenue(client) : null,
+    executor: executes ? oneClickExecutor(client) : null,
+    chain: createNearChain(config.rpcUrl),
+    evm: createEvmReader(),
     assets: assetRegistry(config.network),
     now: Date.now,
   };
@@ -170,11 +184,9 @@ export async function existingPlan(
     .bind(input.idempotencyKey)
     .first<PlanRow>();
   if (!existing) return null;
-  if (
-    existing.intent_id !== input.intentId ||
-    existing.quote_id !== input.quoteId ||
-    existing.account_id !== input.accountId
-  ) {
+  // The plan may hold the executable quote fetched at review, not the one the request named, so the
+  // intent and account identify a retry.
+  if (existing.intent_id !== input.intentId || existing.account_id !== input.accountId) {
     throw new AppError('CONFLICT', 'This idempotency key was already used for a different plan.');
   }
   return existing;
@@ -185,8 +197,9 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
     deps.db
       .prepare(
         `INSERT INTO plans (id, intent_id, quote_id, network, account_id, idempotency_key, status, digest, policy,
-           policy_check, policy_id, source, recipient, recipient_chain, error_code, created_at_ms, updated_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           policy_check, policy_id, source, recipient, recipient_chain, quote_hash, deposit_address, deposit_memo,
+           error_code, created_at_ms, updated_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         row.id,
@@ -203,6 +216,9 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
         row.source,
         row.recipient,
         row.recipient_chain,
+        row.quote_hash,
+        row.deposit_address,
+        row.deposit_memo,
         row.error_code,
         row.created_at_ms,
         row.updated_at_ms,
@@ -238,6 +254,7 @@ export function newPlanRow(input: {
   policyId: string | null;
   source: PlanRow['source'];
   recipient: { chain: string; address: string } | null;
+  deposit: { address: string; memo: string | null; quoteHash: string } | null;
   errorCode: string | null;
   now: number;
 }): PlanRow {
@@ -258,9 +275,9 @@ export function newPlanRow(input: {
     recipient_chain: input.recipient?.chain ?? null,
     valid_until_ms: null,
     approved_at_ms: null,
-    quote_hash: null,
-    deposit_address: null,
-    deposit_memo: '',
+    quote_hash: input.deposit?.quoteHash ?? null,
+    deposit_address: input.deposit?.address ?? null,
+    deposit_memo: input.deposit?.memo ?? '',
     tx_hash: null,
     one_click_status: null,
     delivery_tx_hash: null,

@@ -525,6 +525,28 @@ export class OneClickClient {
     };
   }
 
+  /**
+   * Tells 1Click a deposit was sent, so it starts sooner. Optional by design: 1Click watches the
+   * deposit address anyway, and its reply proves nothing, so it is not read.
+   */
+  async submitDeposit(input: {
+    txHash: string;
+    depositAddress: string;
+    nearSenderAccount?: string;
+    memo?: string;
+  }): Promise<void> {
+    if (!this.#allowExecutableQuotes) {
+      throw new OneClickClientError('EXECUTION_DISABLED', 'NEAR Intents deposits are disabled');
+    }
+    const body = {
+      txHash: PrintableTextSchema.parse(input.txHash),
+      depositAddress: AddressSchema.parse(input.depositAddress),
+      ...(input.nearSenderAccount ? { nearSenderAccount: AddressSchema.parse(input.nearSenderAccount) } : {}),
+      ...(input.memo ? { memo: PrintableTextSchema.parse(input.memo) } : {}),
+    };
+    await this.#request('/v0/deposit/submit', { method: 'POST', body: JSON.stringify(body) });
+  }
+
   async status(input: OneClickStatusInput): Promise<OneClickStatusResponse> {
     const depositAddress = AddressSchema.parse(input.depositAddress);
     const depositMemo = input.depositMemo === undefined ? undefined : PrintableTextSchema.parse(input.depositMemo);

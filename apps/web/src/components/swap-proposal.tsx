@@ -4,13 +4,25 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ExecutionRequestError, execution, type Intent, type Plan, planProblem, type Quote } from '../lib/execution.ts';
 import { formatTokenAmount, venueName } from '../lib/format.ts';
-import { shortAddress, useWallet } from '../lib/wallet.tsx';
+import { shortAddress, useWallet, walletProblem } from '../lib/wallet.tsx';
 import { AssetIcon } from './asset-icon.tsx';
 import { RollingNumber, RollText } from './motion.tsx';
 import { FactRowsSkeleton } from './skeletons.tsx';
 import { Chip, FactRow } from './workspace.tsx';
 
-type Phase = 'quoting' | 'quoted' | 'planning' | 'review' | 'approving' | 'approved' | 'stopped';
+type Phase =
+  | 'quoting'
+  | 'quoted'
+  | 'planning'
+  | 'review'
+  | 'approving'
+  | 'approved'
+  | 'signing'
+  | 'submitting'
+  | 'tracking'
+  | 'stopped';
+
+const SETTLED = new Set(['confirmed', 'refunded', 'failed', 'outcome_unknown', 'expired', 'blocked']);
 
 /**
  * A swap proposal from chat or the Trade form. Everything shown comes from Harbor's own records: the
@@ -34,8 +46,16 @@ export function SwapProposalCard({
   const [error, setError] = useState<string | null>(null);
   const secondsLeft = useCountdown(phase === 'quoted' || phase === 'review' ? quote?.expiresAt : undefined);
   useEffect(() => {
-    onInteractionLock?.(phase === 'planning' || phase === 'approving');
+    onInteractionLock?.(phase === 'planning' || phase === 'approving' || phase === 'signing' || phase === 'submitting');
   }, [phase, onInteractionLock]);
+  // Follows a sent swap until it settles: confirmed, refunded, failed or unknown.
+  useEffect(() => {
+    if (phase !== 'tracking' || !plan || SETTLED.has(plan.status)) return;
+    const timer = setTimeout(() => {
+      execution.read(plan.id).then(setPlan, () => undefined);
+    }, 4_000);
+    return () => clearTimeout(timer);
+  }, [phase, plan]);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -79,6 +99,8 @@ export function SwapProposalCard({
     try {
       const created = await execution.plan({ intentId, quoteId: quote.id });
       setPlan(created);
+      // With execution on, the plan carries the executable quote: review exactly those terms.
+      setQuote(created.quote);
       setPhase(created.status === 'awaiting_review' ? 'review' : 'stopped');
     } catch (caught) {
       fail(caught);
@@ -86,17 +108,31 @@ export function SwapProposalCard({
     }
   }
 
-  async function approve() {
+  /** Approves the reviewed terms, then asks the wallet to sign the one deposit transaction. */
+  async function approveAndSign() {
     if (!plan) return;
     setError(null);
-    setPhase('approving');
+    let current = plan;
     try {
-      const approved = await execution.approve(plan);
-      setPlan(approved);
-      setPhase(approved.status === 'awaiting_signature' ? 'approved' : 'stopped');
+      if (current.status === 'awaiting_review') {
+        setPhase('approving');
+        current = await execution.approve(current);
+        setPlan(current);
+      }
+      if (current.status !== 'awaiting_signature' || !current.signing) {
+        setPhase('stopped');
+        return;
+      }
+      setPhase('signing');
+      const hash = await wallet.sendTransaction(current.signing);
+      setPhase('submitting');
+      current = await execution.deposit(current.id, hash);
+      setPlan(current);
+      setPhase('tracking');
     } catch (caught) {
-      fail(caught);
-      setPhase('review');
+      const message = walletProblem(caught);
+      if (message) setError(message);
+      setPhase(current.status === 'awaiting_signature' ? 'approved' : 'review');
     }
   }
 
@@ -199,9 +235,10 @@ export function SwapProposalCard({
         {phase === 'approved' ? (
           <p className="flex items-start gap-2.5 rounded-lg border border-success/20 bg-success/6 px-3.5 py-3 text-[13px]">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" /> Approved. Nothing has
-            moved: the next step is your signature in your own wallet.
+            moved: sign the deposit in your wallet to start the swap.
           </p>
         ) : null}
+        {plan && phase === 'tracking' ? <SwapProgress plan={plan} /> : null}
 
         {plan && phase === 'stopped' ? (
           <p className="text-destructive">{planProblem(plan) ?? 'This swap stopped.'}</p>
@@ -234,14 +271,24 @@ export function SwapProposalCard({
               Review swap
             </Button>
           ) : null}
-          {phase === 'planning' || phase === 'approving' ? (
+          {phase === 'planning' || phase === 'approving' || phase === 'signing' || phase === 'submitting' ? (
             <Button className="h-10 gap-2 px-4" disabled>
-              <LoaderCircle className="animate-spin motion-reduce:animate-none" /> Checking the policy…
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" />
+              {phase === 'signing'
+                ? 'Confirm in your wallet…'
+                : phase === 'submitting'
+                  ? 'Checking the deposit on NEAR…'
+                  : 'Checking the policy…'}
             </Button>
           ) : null}
           {phase === 'review' && !expired ? (
-            <Button className="h-10 px-4" onClick={approve}>
-              Approve these exact terms
+            <Button className="h-10 px-4" onClick={approveAndSign}>
+              Approve and sign in wallet
+            </Button>
+          ) : null}
+          {phase === 'approved' ? (
+            <Button className="h-10 gap-2 px-4" onClick={approveAndSign}>
+              <Wallet /> Sign the deposit
             </Button>
           ) : null}
           {secondsLeft !== null ? (
@@ -261,6 +308,45 @@ export function SwapProposalCard({
         {wallet.error ? <p className="text-[12.5px] text-destructive">{wallet.error}</p> : null}
       </div>
     </section>
+  );
+}
+
+const PROGRESS: Record<string, { label: string; tone: 'accent' | 'success' | 'warning' | 'danger' }> = {
+  awaiting_signature: { label: 'Deposit sent, waiting for NEAR to show it', tone: 'accent' },
+  submitted: { label: 'Deposit verified on NEAR', tone: 'accent' },
+  confirming: { label: 'Swapping through NEAR Intents', tone: 'accent' },
+  confirmed: { label: 'Delivered and verified on chain', tone: 'success' },
+  refunded: { label: 'Refunded to your account: the swap did not happen', tone: 'warning' },
+  failed: { label: 'Failed', tone: 'danger' },
+  outcome_unknown: { label: 'Outcome not known yet', tone: 'warning' },
+};
+
+/** Where a sent swap stands, from Harbor's own records, with the receipts to check it. */
+function SwapProgress({ plan }: { plan: Plan }) {
+  const step = PROGRESS[plan.status] ?? { label: plan.status, tone: 'accent' as const };
+  const settled = SETTLED.has(plan.status);
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-secondary/40 px-3.5 py-3 text-[13px]">
+      <p className="flex items-center gap-2 font-medium">
+        {settled ? null : (
+          <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        )}
+        <Chip tone={step.tone} dot>
+          {step.label}
+        </Chip>
+      </p>
+      {planProblem(plan) ? <p className="text-muted-foreground">{planProblem(plan)}</p> : null}
+      <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
+        {plan.explorerUrl ? (
+          <a href={plan.explorerUrl} target="_blank" rel="noreferrer" className="ws-link">
+            Deposit transaction
+          </a>
+        ) : null}
+        <a href={`/plans/${plan.id}`} className="ws-link">
+          Full receipt
+        </a>
+      </p>
+    </div>
   );
 }
 

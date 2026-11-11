@@ -9,6 +9,7 @@ import { approvePlan, compareIntent, createPlan, listActivity, readPlan } from '
 import { recoverPendingPlans } from '../src/execution/recovery.ts';
 import type { ExecutionDeps } from '../src/execution/store.ts';
 import { createSwapIntent } from '../src/execution/swap.ts';
+import { fakeWorld } from './execution-fakes.ts';
 import { sessionCookie } from './session.ts';
 
 const ORIGIN = 'https://harbor.test';
@@ -37,16 +38,22 @@ interface Fixture {
 function createFixture(overrides: Partial<ExecutionConfig> = {}): Fixture {
   const clock = { now: START_MS };
   const venue = { refuse: false, minOut: MIN_OUT };
+  const config: ExecutionConfig = {
+    network: 'mainnet',
+    executionEnabled: true,
+    writeAdapters: new Set(['oneclick']),
+    oneClickJwt: null,
+    rpcUrl: 'https://rpc.test',
+    ...overrides,
+  };
+  const fakes = fakeWorld(clock, AMOUNT_OUT);
+  fakes.world.minOut = MIN_OUT;
   const deps: ExecutionDeps = {
     db: env.DB,
-    config: {
-      network: 'mainnet',
-      executionEnabled: true,
-      writeAdapters: new Set(['oneclick']),
-      oneClickJwt: null,
-      rpcUrl: 'https://rpc.test',
-      ...overrides,
-    },
+    config,
+    executor: config.executionEnabled && config.writeAdapters.has('oneclick') ? fakes.executor : null,
+    chain: fakes.chain,
+    evm: fakes.evm,
     venue: {
       id: 'oneclick',
       quote: async (request) => {
@@ -137,7 +144,9 @@ describe('plans', () => {
     const { plan } = await quotedPlan(h);
     expect(plan).toMatchObject({ status: 'awaiting_review', account: ACCOUNT, errorCode: null });
     expect(plan.digest).toMatch(/^[0-9a-f]{64}$/);
-    expect(plan.policy.verdict).toBe('allow');
+    expect(plan.policy.verdict).not.toBe('block');
+    expect(plan.depositAddress).toMatch(/^[0-9a-f]{64}$/);
+    expect(plan.recipient).toEqual({ chain: 'near', address: ACCOUNT });
 
     const approved = await approvePlan(h.deps, plan.id, ACCOUNT, { digest: plan.digest });
     expect(approved).toMatchObject({ status: 'awaiting_signature' });
@@ -184,7 +193,7 @@ describe('plans', () => {
     await expect(approvePlan(h.deps, plan.id, ACCOUNT, { digest: '0'.repeat(64) })).rejects.toThrow(
       'changed since you reviewed',
     );
-    h.clock.now += 31_000;
+    h.clock.now += 6 * 60_000;
     const expired = await approvePlan(h.deps, plan.id, ACCOUNT, { digest: plan.digest });
     expect(expired).toMatchObject({ status: 'expired', errorCode: 'QUOTE_EXPIRED' });
   });

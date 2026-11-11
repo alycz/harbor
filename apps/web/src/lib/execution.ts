@@ -1,4 +1,5 @@
 /** Typed calls to Harbor's intent → quote → plan → approve endpoints. */
+import type { WalletTransaction } from './wallet.tsx';
 
 interface AssetAmount {
   symbol: string;
@@ -65,6 +66,8 @@ export interface Plan {
   policyCheck: Decision | null;
   source: 'user' | 'autopilot';
   recipient: { chain: string; address: string } | null;
+  /** The one transaction the wallet signs, once the plan is approved and before its deposit is sent. */
+  signing: WalletTransaction | null;
   validUntil: string | null;
   approvedAt: string | null;
   depositAddress: string | null;
@@ -130,6 +133,9 @@ export const execution = {
     call<Plan>('/api/plans', { method: 'POST', body: input, headers: { 'idempotency-key': crypto.randomUUID() } }),
   approve: (plan: Plan) =>
     call<Plan>(`/api/plans/${plan.id}/approve`, { method: 'POST', body: { digest: plan.digest } }),
+  /** Reports the deposit the wallet sent; Harbor accepts it once the chain shows the planned transfer. */
+  deposit: (planId: string, txHash: string) =>
+    call<Plan>(`/api/plans/${planId}/deposit`, { method: 'POST', body: { txHash } }),
   read: (planId: string) => call<Plan>(`/api/plans/${planId}`),
 };
 
@@ -152,6 +158,16 @@ export function planProblem(plan: Pick<Plan, 'errorCode'>): string | null {
       return 'Add your own address on that chain to your policy, then try again.';
     case 'ORIGIN_NOT_NEAR':
       return 'Harbor sends only from your NEAR account. Choose an asset held on NEAR to sell.';
+    case 'DEPOSIT_FAILED':
+      return 'The deposit transaction failed on NEAR, so nothing moved.';
+    case 'PROVIDER_FAILED':
+      return 'NEAR Intents reports the swap failed. Any refund goes back to your account.';
+    case 'INCOMPLETE_DEPOSIT':
+      return 'NEAR Intents saw less than the planned deposit. Harbor cannot tell yet how it ends.';
+    case 'STATUS_UNAVAILABLE':
+      return 'NEAR Intents stopped answering about this swap. Harbor cannot tell yet how it ended.';
+    case 'DELIVERY_UNVERIFIED':
+      return 'NEAR Intents reports success, but Harbor could not see the delivery on chain.';
     default:
       return `Harbor stopped this (${plan.errorCode}).`;
   }

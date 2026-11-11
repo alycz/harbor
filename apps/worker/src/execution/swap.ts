@@ -1,7 +1,8 @@
-import { type VenueQuote, VenueRefusal } from '@harbor/adapters/venue';
+import { type DepositQuote, type VenueQuote, VenueRefusal } from '@harbor/adapters/venue';
 import { AmountError, MAX_U128_RAW, parseDecimalAmount, rawFromText, rawToText } from '@harbor/domain/amount';
 import type { AssetRef } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
+import { depositTransaction, tokenContractOf } from '@harbor/near/chain';
 import { type Decision, evaluate, type Rule } from '@harbor/policy/engine';
 import { type Destination, isOwnAddress } from '@harbor/policy/policy';
 
@@ -22,6 +23,12 @@ import {
 /** Applied to every quote until a signed policy sets its own; shown in the review the user approves. */
 const SLIPPAGE_BPS = 50;
 const QUOTE_MAX_AGE_MS = 30_000;
+/** How long the owner has to review an executable quote, at most. */
+const EXECUTABLE_REVIEW_MS = 5 * 60_000;
+/** An executable quote stops being usable this long before 1Click's own deadline. */
+const DEADLINE_MARGIN_MS = 2 * 60_000;
+
+export type Deposit = DepositQuote['deposit'];
 const PRICE_IMPACT_WARNING_BPS = 100;
 
 const RECIPIENT = /^[\x21-\x7e]{2,128}$/;
@@ -95,6 +102,52 @@ export async function compareSwap(deps: ExecutionDeps, intent: IntentRow) {
   await insertQuote(deps, row);
   const view = swapQuoteView(deps, row, intent);
   return { quotes: [view], selectedQuoteId: view.id };
+}
+
+/**
+ * An executable quote for exactly this owner and recipient: 1Click refunds to the owner's account and
+ * delivers only to the recipient the plan checks. Recorded beside the intent like any quote.
+ */
+export async function executableQuote(
+  deps: ExecutionDeps,
+  intent: IntentRow,
+  account: string,
+  recipient: Destination,
+): Promise<{ row: QuoteRow; deposit: Deposit }> {
+  if (!deps.executor) throw new AppError('EXECUTION_DISABLED', 'Execution is turned off on this server.');
+  let quote: DepositQuote;
+  try {
+    quote = await deps.executor.executableQuote({
+      network: intent.network,
+      sell: assetOf(deps, intent.sell_asset),
+      buy: assetOf(deps, intent.buy_asset),
+      amountIn: rawFromText(intent.sell_amount_raw),
+      slippageBps: SLIPPAGE_BPS,
+      refundTo: account,
+      recipient: recipient.address,
+    });
+  } catch (error) {
+    if (error instanceof VenueRefusal) throw new AppError('UNAVAILABLE', error.message);
+    logFailure('executable_quote', error);
+    throw new AppError('UNAVAILABLE', 'NEAR Intents could not prepare this swap right now. Try again shortly.');
+  }
+  const observed = deps.now();
+  const row: QuoteRow = {
+    id: crypto.randomUUID(),
+    intent_id: intent.id,
+    venue: deps.executor.id,
+    slippage_bps: SLIPPAGE_BPS,
+    amount_in_raw: rawToText(quote.amountIn),
+    amount_out_raw: rawToText(quote.amountOut),
+    min_out_raw: rawToText(quote.minAmountOut),
+    price_impact_bps: quote.priceImpactBps,
+    protocols: JSON.stringify(quote.protocols),
+    provider_quote: JSON.stringify(quote.raw, (_key, value) => (typeof value === 'bigint' ? value.toString() : value)),
+    observed_at_ms: observed,
+    expires_at_ms: Math.min(observed + EXECUTABLE_REVIEW_MS, quote.deposit.deadlineMs - DEADLINE_MARGIN_MS),
+  };
+  await insertQuote(deps, row);
+  return { row, deposit: quote.deposit };
 }
 
 interface SwapPlanFacts {
@@ -193,7 +246,7 @@ export async function swapPlanPolicy(
   quote: QuoteRow,
   accountId: string,
   now: number,
-  destination: { recipient: Destination | null; own: readonly Destination[] },
+  destination: { recipient: Destination | null; own: readonly Destination[]; deposit: Deposit | null },
 ): Promise<{ decision: Decision; digest: string }> {
   const decision = evaluate(SWAP_RULES, {
     nowMs: now,
@@ -220,6 +273,11 @@ export async function swapPlanPolicy(
       slippageBps: quote.slippage_bps,
       recipient: destination.recipient?.address ?? '',
       recipientChain: destination.recipient?.chain ?? '',
+      refundTo: accountId,
+      depositAddress: destination.deposit?.address ?? '',
+      depositMemo: destination.deposit?.memo ?? '',
+      quoteHash: destination.deposit?.quoteHash ?? '',
+      depositDeadlineMs: destination.deposit?.deadlineMs ?? 0,
     }),
   );
   return { decision, digest };
@@ -280,7 +338,25 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
     ...basePlanView(row),
     kind: 'swap' as const,
     quote: swapQuoteView(deps, quote, intent),
+    signing: signingRequest(row, intent, quote),
   };
+}
+
+/**
+ * The one transaction the owner's wallet signs for an approved plan, built here from Harbor's own
+ * records so what the wallet shows is exactly what the deposit check later accepts.
+ */
+function signingRequest(row: PlanRow, intent: IntentRow, quote: QuoteRow) {
+  const tokenContract = tokenContractOf(intent.sell_asset);
+  if (row.status !== 'awaiting_signature' || row.tx_hash !== null || !row.deposit_address || !tokenContract) {
+    return null;
+  }
+  return depositTransaction({
+    signer: row.account_id,
+    tokenContract,
+    depositAddress: row.deposit_address,
+    amountRaw: quote.amount_in_raw,
+  });
 }
 
 function resolve(deps: ExecutionDeps, symbol: string): AssetRef {

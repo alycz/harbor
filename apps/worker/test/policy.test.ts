@@ -6,6 +6,7 @@ import { assetRegistry } from '../src/execution/assets.ts';
 import { approvePlan, compareIntent, createPlan } from '../src/execution/lifecycle.ts';
 import type { ExecutionDeps } from '../src/execution/store.ts';
 import { createSwapIntent } from '../src/execution/swap.ts';
+import { fakeWorld } from './execution-fakes.ts';
 import { sessionCookie } from './session.ts';
 import { chainSays, createWallet, FULL_ACCESS, FUNCTION_CALL } from './wallet.ts';
 
@@ -66,10 +67,14 @@ async function signedPolicy(account: string, draft: unknown = DRAFT) {
 
 function fixture(): { deps: ExecutionDeps; clock: { now: number } } {
   const clock = { now: Date.now() };
+  const fakes = fakeWorld(clock, 3_000_000n);
   return {
     clock,
     deps: {
       db: env.DB,
+      executor: fakes.executor,
+      chain: fakes.chain,
+      evm: fakes.evm,
       config: {
         network: 'mainnet',
         executionEnabled: true,

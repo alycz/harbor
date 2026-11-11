@@ -1,6 +1,7 @@
 import { isNearAccountId, isOnNetwork } from '@harbor/domain/account';
 import { rawFromText } from '@harbor/domain/amount';
 import { AppError } from '@harbor/domain/errors';
+import { ChainReadFailed, tokenContractOf } from '@harbor/near/chain';
 import { checkAction } from '@harbor/policy/check';
 import { ownAddresses } from '@harbor/policy/policy';
 
@@ -19,7 +20,16 @@ import {
   type QuoteRow,
   transitionOrReload,
 } from './store.ts';
-import { assetOf, compareSwap, swapIntentView, swapPlanPolicy, swapPlanView, swapRecipient } from './swap.ts';
+import {
+  assetOf,
+  compareSwap,
+  type Deposit,
+  executableQuote,
+  swapIntentView,
+  swapPlanPolicy,
+  swapPlanView,
+  swapRecipient,
+} from './swap.ts';
 
 const ACTIVITY_LIMIT = 30;
 /** How long an approval stays usable before the plan must be reviewed again. */
@@ -57,14 +67,25 @@ export async function createPlan(
   if (existing) return planView(deps, existing);
 
   const intent = await loadIntent(deps, input.intentId);
-  const quote = await loadQuote(deps, input.quoteId);
+  let quote = await loadQuote(deps, input.quoteId);
   if (quote.intent_id !== intent.id) throw new AppError('INVALID_REQUEST', 'That quote belongs to another request.');
-  const now = deps.now();
+  let now = deps.now();
   const source = input.source ?? 'user';
   const signed = await loadSignedPolicy(deps.db, deps.config.network, input.accountId);
   const own = ownAddresses(signed?.body ?? null, input.accountId);
   const recipient = swapRecipient(deps, intent, input.accountId, own);
-  const { decision, digest } = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own });
+  let deposit: Deposit | null = null;
+  let checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own, deposit });
+  // With execution on, the owner reviews the executable quote itself: its deposit address, made out to
+  // their own recipient and refund address. A plan its own checks block never gets one.
+  if (checked.decision.verdict !== 'block' && deps.executor && recipient) {
+    const executable = await executableQuote(deps, intent, input.accountId, recipient);
+    quote = executable.row;
+    deposit = executable.deposit;
+    now = deps.now();
+    checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own, deposit });
+  }
+  const { decision, digest } = checked;
   const spent = await spentOf(
     deps.db,
     deps.config.network,
@@ -98,6 +119,7 @@ export async function createPlan(
     policyId: signed?.id ?? null,
     source,
     recipient,
+    deposit,
     errorCode: firstBlock(decision),
     now,
   });
@@ -153,7 +175,8 @@ export async function readPlan(deps: ExecutionDeps, planId: string, account: str
 
 /**
  * Records the account owner's review of exactly this plan. Approval binds the digest the user saw and
- * needs execution enabled on this server; it never signs or submits anything.
+ * needs execution enabled on this server; it never signs or submits anything. The recipient's balance
+ * is read now, so the delivery can later be measured on chain rather than taken on the provider's word.
  */
 export async function approvePlan(deps: ExecutionDeps, planId: string, account: string, input: { digest: string }) {
   const plan = await loadOwnPlan(deps, planId, account);
@@ -165,6 +188,9 @@ export async function approvePlan(deps: ExecutionDeps, planId: string, account: 
   if (!deps.config.executionEnabled || !deps.config.writeAdapters.has(quote.venue)) {
     throw new AppError('EXECUTION_DISABLED', 'Execution is turned off on this server. This plan is review-only.');
   }
+  if (!plan.deposit_address) {
+    throw new AppError('CONFLICT', 'This plan was reviewed while execution was off. Get a fresh quote.');
+  }
   const now = deps.now();
   if (now >= quote.expires_at_ms) {
     return planView(
@@ -172,15 +198,39 @@ export async function approvePlan(deps: ExecutionDeps, planId: string, account: 
       await transitionOrReload(deps, plan, 'expired', { error_code: 'QUOTE_EXPIRED' }, 'system', 'Quote expired'),
     );
   }
+  const baseline = await recipientBaseline(deps, plan);
   const approved = await transitionOrReload(
     deps,
     plan,
     'awaiting_signature',
-    { approved_at_ms: now, valid_until_ms: now + APPROVAL_WINDOW_MS },
+    {
+      approved_at_ms: now,
+      valid_until_ms: Math.min(now + APPROVAL_WINDOW_MS, quote.expires_at_ms),
+      result: JSON.stringify({ recipientBalanceBeforeRaw: baseline }),
+    },
     'user',
     'Reviewed and approved',
   );
   return planView(deps, approved);
+}
+
+/** The NEAR recipient's balance of the bought token before anything moves; null for other chains. */
+async function recipientBaseline(deps: ExecutionDeps, plan: PlanRow): Promise<string | null> {
+  if (plan.recipient_chain !== 'near' || !plan.recipient) return null;
+  const intent = await loadIntent(deps, plan.intent_id);
+  const token = tokenContractOf(intent.buy_asset);
+  if (!token) return null;
+  try {
+    return (await deps.chain.ftBalance(token, plan.recipient)).toString();
+  } catch (error) {
+    if (error instanceof ChainReadFailed) {
+      throw new AppError(
+        'UNAVAILABLE',
+        'NEAR could not be read right now, so Harbor cannot measure the delivery. Try again.',
+      );
+    }
+    throw error;
+  }
 }
 
 async function planView(deps: ExecutionDeps, row: PlanRow) {

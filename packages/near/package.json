@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./approval": "./src/approval.ts",
+    "./chain": "./src/chain.ts",
     "./sign-in": "./src/sign-in.ts"
   },
   "scripts": {

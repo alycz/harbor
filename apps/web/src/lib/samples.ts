@@ -32,6 +32,7 @@ export const SAMPLE_PLAN: Plan = {
   policyCheck: null,
   source: 'user',
   recipient: { chain: 'near', address: SAMPLE_ACCOUNT },
+  signing: null,
   validUntil: null,
   approvedAt: '2026-11-04T18:06:00.000Z',
   depositAddress: null,
