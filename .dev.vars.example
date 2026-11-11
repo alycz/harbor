@@ -1,6 +1,10 @@
 # Server-only local settings. Copy to apps/worker/.dev.vars (or .dev.vars.testnet).
 # Every value is optional: without one, the feature that needs it reports itself unavailable.
 # Agent: without a key, chat answers from a scripted model.
+# Private inference in TEEs on NEAR AI Cloud: set PI_PROVIDER=nearai, a PI_MODEL_ID from
+# NEAR_AI_TEE_MODELS in apps/worker/src/agent/models.ts (such as Qwen/Qwen3.8-27B), and the key.
+NEAR_AI_API_KEY=
+# Or a free OpenRouter model, the default provider.
 OPENROUTER_API_KEY=
 # 1Click partner JWT; quotes work without one and carry the default protocol fee.
 ONE_CLICK_JWT=
