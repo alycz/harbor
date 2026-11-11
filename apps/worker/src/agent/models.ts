@@ -23,7 +23,7 @@ const NEAR_AI_BASE_URL = 'https://cloud-api.near.ai/v1';
  * TEE fleet, checked against the live catalog on 2026-11-11. Third-party and "abliterated" models are left
  * out. Anything else is a configuration error, never a fallback.
  */
-export const NEAR_AI_TEE_MODELS = [
+const NEAR_AI_TEE_MODELS = [
   'Qwen/Qwen3.8-27B',
   'Qwen/Qwen3.6-35B-A3B-FP8',
   'deepseek-ai/DeepSeek-V4.1-Flash-1017',
