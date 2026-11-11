@@ -47,6 +47,11 @@ type PlanStatus =
   | 'expired'
   | 'outcome_unknown';
 
+interface Decision {
+  verdict: 'allow' | 'warn' | 'block';
+  reasons: { pass: boolean; code: string; detail: string; severity: 'block' | 'warn'; rule: string }[];
+}
+
 export interface Plan {
   id: string;
   kind: 'swap';
@@ -54,10 +59,12 @@ export interface Plan {
   network: 'mainnet' | 'testnet';
   account: string;
   digest: string;
-  policy: {
-    verdict: 'allow' | 'warn' | 'block';
-    reasons: { pass: boolean; code: string; detail: string; severity: 'block' | 'warn' }[];
-  };
+  /** The plan's own checks: a block here stops it for everyone. */
+  policy: Decision;
+  /** The owner's signed policy applied to this plan: a block means only the owner can approve it. */
+  policyCheck: Decision | null;
+  source: 'user' | 'autopilot';
+  recipient: { chain: string; address: string } | null;
   validUntil: string | null;
   approvedAt: string | null;
   depositAddress: string | null;
@@ -139,6 +146,12 @@ export function planProblem(plan: Pick<Plan, 'errorCode'>): string | null {
       return 'The quoted minimum was not valid, so Harbor stopped this.';
     case 'HARBOR_FEE_NOT_ZERO':
       return 'The route carried a Harbor fee, which Harbor never charges, so it stopped this.';
+    case 'DESTINATION_NOT_OWN':
+      return 'This would deliver to an address that is not yours, so Harbor blocked it. Funds only go to addresses you signed.';
+    case 'RECIPIENT_MISSING':
+      return 'Add your own address on that chain to your policy, then try again.';
+    case 'ORIGIN_NOT_NEAR':
+      return 'Harbor sends only from your NEAR account. Choose an asset held on NEAR to sell.';
     default:
       return `Harbor stopped this (${plan.errorCode}).`;
   }

@@ -19,6 +19,7 @@ import { Skeleton } from 'skullet/react';
 
 import { ActivityShowcase } from '../components/activity-showcase.tsx';
 import { AssetIcon } from '../components/asset-icon.tsx';
+import { SignedPolicyCheck } from '../components/swap-proposal.tsx';
 import { StatusTag, WalletActivity } from '../components/trade-live.tsx';
 import { AccountDot, EmptyState, FactRow, PageHeader, Panel, Stat } from '../components/workspace.tsx';
 import { execution, type Plan, planProblem } from '../lib/execution.ts';
@@ -238,6 +239,11 @@ function PlanView({ plan }: { plan: Plan }) {
               {problem ? <p className="text-[13px] text-destructive">{problem}</p> : null}
             </div>
           ) : null}
+          {plan.policyCheck ? (
+            <div className="border-t border-border px-5 py-4 @xl/workspace:px-6">
+              <SignedPolicyCheck plan={plan} />
+            </div>
+          ) : null}
         </section>
         <Panel label="Lifecycle" icon={<Clock3 />} labelId="plan-lifecycle">
           <Lifecycle plan={plan} />
@@ -247,6 +253,14 @@ function PlanView({ plan }: { plan: Plan }) {
         <dl>
           <FactRow label="Plan" value={shortAddress(plan.id)} title={plan.id} />
           <FactRow label="Account" value={shortAddress(plan.account)} title={plan.account} />
+          {plan.recipient ? (
+            <FactRow
+              label="Delivered to"
+              value={`${shortAddress(plan.recipient.address)} (${plan.recipient.chain})`}
+              title={plan.recipient.address}
+            />
+          ) : null}
+          <FactRow label="Proposed by" value={plan.source === 'autopilot' ? 'The agent, under your policy' : 'You'} />
           <FactRow label="Approved" value={plan.approvedAt ? formatUtc(plan.approvedAt) : 'Not yet'} />
           <FactRow
             label="Transaction"

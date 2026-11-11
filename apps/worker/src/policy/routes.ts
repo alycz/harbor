@@ -22,7 +22,7 @@ const SignSchema = z.strictObject({
   signature: z.string().min(1).max(256),
 });
 
-export function policyDeps(env: Env): PolicyDeps {
+function policyDeps(env: Env): PolicyDeps {
   const config = decodeExecutionConfig(env);
   return {
     db: env.DB,

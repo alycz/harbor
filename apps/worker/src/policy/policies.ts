@@ -294,7 +294,7 @@ export async function spentOf(
   return { lastDay, sinceSigned };
 }
 
-export function addressIsValid(chain: string, address: string): boolean {
+function addressIsValid(chain: string, address: string): boolean {
   return ADDRESS_FORMATS[chain]?.(address) ?? false;
 }
 

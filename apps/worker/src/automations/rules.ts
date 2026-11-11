@@ -253,7 +253,7 @@ export async function loadOwnRule(deps: AutomationDeps, id: string, owner: strin
   return row;
 }
 
-export async function loadRule(deps: AutomationDeps, id: string): Promise<RuleRow> {
+async function loadRule(deps: AutomationDeps, id: string): Promise<RuleRow> {
   const row = await deps.db
     .prepare(`SELECT * FROM automation_rules WHERE id = ? AND network = ? AND status != 'deleted'`)
     .bind(id, deps.network)

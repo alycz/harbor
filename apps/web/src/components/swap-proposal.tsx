@@ -167,13 +167,20 @@ export function SwapProposalCard({
             />
             <FactRow label="Harbor fee" value="None" />
             {plan ? <FactRow label="From" value={shortAddress(plan.account)} title={plan.account} /> : null}
+            {plan?.recipient ? (
+              <FactRow
+                label="Delivered to"
+                value={`${shortAddress(plan.recipient.address)}${plan.recipient.chain === 'near' ? '' : ` on ${plan.recipient.chain}`}`}
+                title={plan.recipient.address}
+              />
+            ) : null}
           </dl>
         ) : null}
 
         {plan && (phase === 'review' || phase === 'approving' || phase === 'approved') ? (
           <div className="space-y-2 rounded-lg border border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] px-3.5 py-3">
             <p className="flex items-center gap-2 text-[13px] font-medium text-[var(--ws-accent-ink)]">
-              <ShieldCheck className="size-4" aria-hidden="true" /> Policy check:{' '}
+              <ShieldCheck className="size-4" aria-hidden="true" /> Plan checks:{' '}
               <span className="capitalize">{plan.policy.verdict}</span>
             </p>
             {warnings.map((reason) => (
@@ -181,11 +188,13 @@ export function SwapProposalCard({
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /> {reason.detail}
               </p>
             ))}
+            <SignedPolicyCheck plan={plan} />
             <p className="break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
               Approval digest {plan.digest}
             </p>
           </div>
         ) : null}
+        {plan && phase === 'stopped' ? <SignedPolicyCheck plan={plan} /> : null}
 
         {phase === 'approved' ? (
           <p className="flex items-start gap-2.5 rounded-lg border border-success/20 bg-success/6 px-3.5 py-3 text-[13px]">
@@ -252,6 +261,40 @@ export function SwapProposalCard({
         {wallet.error ? <p className="text-[12.5px] text-destructive">{wallet.error}</p> : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * What the owner's signed policy says about this plan. Inside it, the agent could act alone; outside it,
+ * only the owner's own approval moves it forward.
+ */
+export function SignedPolicyCheck({ plan }: { plan: Pick<Plan, 'policyCheck'> }) {
+  const check = plan.policyCheck;
+  if (!check) return null;
+  const failed = check.reasons.filter((reason) => !reason.pass);
+  if (check.verdict !== 'block') {
+    return (
+      <p className="flex items-center gap-2 text-[12.5px] text-success">
+        <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" /> Within your signed policy.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1 text-[12.5px]">
+      <p className="flex items-center gap-2 font-medium text-warning">
+        <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+        {failed.some((reason) => reason.code === 'NO_POLICY')
+          ? 'No signed policy: you approve every action yourself.'
+          : 'Outside your signed policy: only you can approve this.'}
+      </p>
+      {failed
+        .filter((reason) => reason.code !== 'NO_POLICY')
+        .map((reason) => (
+          <p key={reason.code} className="pl-5.5 text-muted-foreground">
+            {reason.detail}
+          </p>
+        ))}
+    </div>
   );
 }
 
