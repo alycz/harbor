@@ -108,7 +108,7 @@ export function SwapProposalCard({
       const created = await execution.plan({ intentId, quoteId: quote.id });
       setPlan(created);
       // With execution on, the plan carries the executable quote: review exactly those terms.
-      setQuote(created.quote);
+      setQuote({ ...created.quote, references: quote.references ?? [] });
       setPhase(created.status === 'awaiting_review' ? 'review' : 'stopped');
     } catch (caught) {
       if (caught instanceof ExecutionRequestError && caught.code === 'SETUP_REQUIRED') {
@@ -239,6 +239,14 @@ export function SwapProposalCard({
               value={quote.priceImpactBps === null ? 'Not reported' : `${quote.priceImpactBps / 100}%`}
             />
             <FactRow label="Harbor fee" value="None" />
+            {quote.references?.map((reference) => (
+              <FactRow
+                key={reference.venue}
+                label={`${reference.name}, for comparison`}
+                value={`${formatTokenAmount(reference.expectedOut.amount)} ${reference.expectedOut.symbol}`}
+                title="Harbor compares this venue's price but does not execute on it."
+              />
+            ))}
             {plan ? <FactRow label="From" value={shortAddress(plan.account)} title={plan.account} /> : null}
             {plan?.recipient ? (
               <FactRow

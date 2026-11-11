@@ -35,6 +35,8 @@ export interface Quote {
   protocols: string[];
   harborFeeBps: number;
   expiresAt: string;
+  /** Prices from venues Harbor only compares against, such as Rhea; never executable here. */
+  references?: { venue: string; name: string; expectedOut: AssetAmount; hops: number }[];
 }
 
 type PlanStatus =
@@ -129,8 +131,14 @@ export const execution = {
     call<Intent>('/api/intents', { method: 'POST', body: { kind: 'swap', ...input } }),
   /** The signed-in account's activity; the server reads the account from the session. */
   activity: () => call<{ network: 'mainnet' | 'testnet'; items: ActivityItem[] }>('/api/plans'),
-  quote: async (intentId: string) =>
-    (await call<{ quotes: Quote[] }>(`/api/intents/${intentId}/compare`, { method: 'POST' })).quotes[0],
+  quote: async (intentId: string) => {
+    const compared = await call<{ quotes: Quote[]; references?: Quote['references'] }>(
+      `/api/intents/${intentId}/compare`,
+      { method: 'POST' },
+    );
+    const quote = compared.quotes[0];
+    return quote ? { ...quote, references: compared.references ?? [] } : undefined;
+  },
   plan: (input: { intentId: string; quoteId: string }) =>
     call<Plan>('/api/plans', { method: 'POST', body: input, headers: { 'idempotency-key': crypto.randomUUID() } }),
   approve: (plan: Plan) =>

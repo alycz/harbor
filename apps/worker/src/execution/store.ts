@@ -1,5 +1,6 @@
 import { createOneClickClient } from '@harbor/adapters/oneclick/client';
 import { oneClickExecutor, oneClickVenue } from '@harbor/adapters/oneclick/venue';
+import { createRheaRouter, type RheaRouter } from '@harbor/adapters/rhea/router';
 import type { SwapExecutor, SwapVenue } from '@harbor/adapters/venue';
 import { formatRawAmount, rawFromText } from '@harbor/domain/amount';
 import type { AssetRef } from '@harbor/domain/asset';
@@ -28,6 +29,8 @@ export interface ExecutionDeps {
   chain: NearChain;
   /** Reads from EVM chains, for checking deliveries there. */
   evm: EvmReader;
+  /** A venue Harbor only compares prices against, never executes on. Left out where not needed. */
+  reference?: RheaRouter;
   /** The assets this network can swap, resolved from a verified registry, never from a ticker alone. */
   assets: AssetRegistry;
   now(): number;
@@ -49,6 +52,7 @@ export function executionDeps(env: Env): ExecutionDeps {
     executor: executes ? oneClickExecutor(client) : null,
     chain: createNearChain(config.rpcUrl),
     evm: createEvmReader(),
+    reference: createRheaRouter(),
     assets: assetRegistry(config.network),
     now: Date.now,
   };

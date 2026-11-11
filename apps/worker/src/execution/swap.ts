@@ -101,7 +101,30 @@ export async function compareSwap(deps: ExecutionDeps, intent: IntentRow) {
   };
   await insertQuote(deps, row);
   const view = swapQuoteView(deps, row, intent);
-  return { quotes: [view], selectedQuoteId: view.id };
+  return { quotes: [view], selectedQuoteId: view.id, references: await referenceQuotes(deps, intent) };
+}
+
+/**
+ * Prices from venues Harbor compares against but never executes on, such as Rhea for pairs on NEAR.
+ * Best effort: a reference that cannot be had is left out, and never blocks a quote.
+ */
+async function referenceQuotes(deps: ExecutionDeps, intent: IntentRow) {
+  const sell = assetOf(deps, intent.sell_asset);
+  const buy = assetOf(deps, intent.buy_asset);
+  const tokenIn = tokenContractOf(sell.canonicalId);
+  const tokenOut = tokenContractOf(buy.canonicalId);
+  if (!deps.reference || sell.chain !== 'near' || buy.chain !== 'near' || !tokenIn || !tokenOut) return [];
+  const rhea = await deps.reference.quote({ tokenIn, tokenOut, amountIn: rawFromText(intent.sell_amount_raw) });
+  if (!rhea) return [];
+  return [
+    {
+      venue: rhea.venue,
+      name: 'Rhea',
+      expectedOut: rawAmount(buy, rawToText(rhea.amountOut)),
+      hops: rhea.hops,
+      executable: false,
+    },
+  ];
 }
 
 /**

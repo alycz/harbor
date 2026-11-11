@@ -129,6 +129,24 @@ describe('quotes', () => {
     });
   });
 
+  it('adds a Rhea price for comparison only, and never lets it block the quote', async () => {
+    const h = createFixture();
+    const intent = await createSwapIntent(h.deps, { sell: 'NEAR', buy: 'USDC', amount: '1', source: 'form' });
+    const rhea = { quote: async () => ({ venue: 'rhea' as const, amountOut: 3_650_000n, hops: 1 }) };
+    const compared = await compareIntent({ ...h.deps, reference: rhea }, intent.id);
+    expect(compared.references).toEqual([
+      expect.objectContaining({
+        venue: 'rhea',
+        executable: false,
+        expectedOut: expect.objectContaining({ symbol: 'USDC', amount: '3.65' }),
+      }),
+    ]);
+    const unreachable = { quote: async () => null };
+    const without = await compareIntent({ ...h.deps, reference: unreachable }, intent.id);
+    expect(without.references).toEqual([]);
+    expect(without.quotes).toHaveLength(1);
+  });
+
   it('reports a venue refusal and a missing venue as unavailable', async () => {
     const h = createFixture();
     const intent = await createSwapIntent(h.deps, { sell: 'USDC', buy: 'NEAR', amount: '1', source: 'form' });
