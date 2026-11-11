@@ -7,7 +7,10 @@ const KEY = 'test-placeholder';
 describe('createModelSource', () => {
   it('accepts free OpenRouter models', () => {
     for (const modelId of ['thinkingmachines/inkling:free', 'openrouter/free']) {
-      expect(createModelSource({ provider: 'openrouter', modelId, apiKey: KEY }).model.id).toBe(modelId);
+      const source = createModelSource({ provider: 'openrouter', modelId, apiKey: KEY });
+      expect(source.model.id).toBe(modelId);
+      // Some free models refuse a request with reasoning off.
+      expect(source.thinkingLevel).toBe('low');
     }
   });
 

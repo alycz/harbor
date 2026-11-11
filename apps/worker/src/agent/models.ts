@@ -34,6 +34,11 @@ export interface ModelSource {
   model: Model<Api>;
   streamFn: StreamFn;
   getApiKey?: (provider: string) => string | undefined;
+  /**
+   * Reasoning to request. OpenRouter's free router picks among free models, and some refuse a request
+   * that turns reasoning off ("Reasoning is mandatory"), so OpenRouter asks for a little.
+   */
+  thinkingLevel: 'off' | 'low';
 }
 
 export function createModelSource(config: AgentConfig): ModelSource {
@@ -42,7 +47,7 @@ export function createModelSource(config: AgentConfig): ModelSource {
     const faux = fauxProvider({ tokensPerSecond: 1_000_000 });
     models.setProvider(faux.provider);
     faux.setResponses(config.script.map(toFauxMessage));
-    return { model: faux.getModel(), streamFn: models.streamSimple.bind(models) };
+    return { model: faux.getModel(), streamFn: models.streamSimple.bind(models), thinkingLevel: 'off' };
   }
   const { apiKey } = config;
   if (config.provider === 'nearai') {
@@ -54,6 +59,7 @@ export function createModelSource(config: AgentConfig): ModelSource {
       model,
       streamFn: models.streamSimple.bind(models),
       getApiKey: (provider) => (provider === 'nearai' ? apiKey : undefined),
+      thinkingLevel: 'off',
     };
   }
   models.setProvider(openrouterProvider());
@@ -64,6 +70,7 @@ export function createModelSource(config: AgentConfig): ModelSource {
     model,
     streamFn: models.streamSimple.bind(models),
     getApiKey: (provider) => (provider === 'openrouter' ? apiKey : undefined),
+    thinkingLevel: 'low',
   };
 }
 

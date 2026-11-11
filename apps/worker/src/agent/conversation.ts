@@ -196,6 +196,7 @@ export class ConversationAgent extends DurableObject<Env> {
         messages: [...this.#messages],
         limits: DEFAULT_TURN_LIMITS,
         sessionId: this.ctx.id.toString(),
+        thinkingLevel: source.thinkingLevel,
       });
       agent.subscribe((event) => {
         if (event.type === 'message_end') this.#messages.push(event.message);
