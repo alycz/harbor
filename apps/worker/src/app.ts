@@ -29,7 +29,8 @@ const STATUS_BY_CODE: Record<ErrorCode, ContentfulStatusCode> = {
 
 export interface AppEnv {
   Bindings: Env;
-  Variables: { requestId: string };
+  /** `account` is set only on routes behind `requireSession`: the signed-in NEAR account. */
+  Variables: { requestId: string; account: string };
 }
 
 type AppContext = Context<AppEnv>;

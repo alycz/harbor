@@ -308,6 +308,13 @@ export async function loadPlan(deps: ExecutionDeps, id: string): Promise<PlanRow
   return row;
 }
 
+/** A plan of `account`'s. Another account's plan reads as missing, so plan IDs cannot be probed. */
+export async function loadOwnPlan(deps: ExecutionDeps, id: string, account: string): Promise<PlanRow> {
+  const row = await loadPlan(deps, id);
+  if (row.account_id !== account) throw new AppError('NOT_FOUND', 'No such plan.');
+  return row;
+}
+
 /** A raw amount with its asset, formatted in that asset's decimals. */
 export function rawAmount(asset: AssetRef, raw: string) {
   return {

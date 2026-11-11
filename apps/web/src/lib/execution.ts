@@ -115,13 +115,11 @@ export const execution = {
   intent: (id: string) => call<Intent>(`/api/intents/${id}`),
   createSwap: (input: { sellAsset: string; buyAsset: string; sellAmount: string }) =>
     call<Intent>('/api/intents', { method: 'POST', body: { kind: 'swap', ...input } }),
-  activity: (account: string) =>
-    call<{ network: 'mainnet' | 'testnet'; items: ActivityItem[] }>(
-      `/api/plans?account=${encodeURIComponent(account)}`,
-    ),
+  /** The signed-in account's activity; the server reads the account from the session. */
+  activity: () => call<{ network: 'mainnet' | 'testnet'; items: ActivityItem[] }>('/api/plans'),
   quote: async (intentId: string) =>
     (await call<{ quotes: Quote[] }>(`/api/intents/${intentId}/compare`, { method: 'POST' })).quotes[0],
-  plan: (input: { intentId: string; quoteId: string; accountId: string }) =>
+  plan: (input: { intentId: string; quoteId: string }) =>
     call<Plan>('/api/plans', { method: 'POST', body: input, headers: { 'idempotency-key': crypto.randomUUID() } }),
   approve: (plan: Plan) =>
     call<Plan>(`/api/plans/${plan.id}/approve`, { method: 'POST', body: { digest: plan.digest } }),

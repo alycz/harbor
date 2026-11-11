@@ -77,7 +77,7 @@ export function SwapProposalCard({
     setError(null);
     setPhase('planning');
     try {
-      const created = await execution.plan({ intentId, quoteId: quote.id, accountId: wallet.address });
+      const created = await execution.plan({ intentId, quoteId: quote.id });
       setPlan(created);
       setPhase(created.status === 'awaiting_review' ? 'review' : 'stopped');
     } catch (caught) {

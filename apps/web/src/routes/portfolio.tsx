@@ -143,7 +143,14 @@ function ConnectShowcase() {
 
 /** One plan as Harbor recorded it: the reviewed quote, the policy decision and where it stands. */
 export function PlanStatusPage({ planId }: { planId: string }) {
-  const plan = useQuery({ queryKey: ['plan', planId], queryFn: () => execution.read(planId), refetchInterval: 10_000 });
+  const wallet = useWallet();
+  const plan = useQuery({
+    queryKey: ['plan', planId, wallet.address],
+    queryFn: () => execution.read(planId),
+    enabled: Boolean(wallet.address),
+    refetchInterval: 10_000,
+  });
+  const signedOut = !wallet.address && !wallet.restoring;
   return (
     <div className="ws-stagger flex flex-col gap-7">
       <PageHeader
@@ -154,7 +161,19 @@ export function PlanStatusPage({ planId }: { planId: string }) {
           </Button>
         }
       />
-      {plan.isError ? (
+      {signedOut ? (
+        <Panel>
+          <EmptyState
+            icon={<Wallet />}
+            title="Connect the wallet this plan belongs to"
+            description="A plan is only visible to the account it was made for."
+          >
+            <Button className="h-10 gap-2 px-4" onClick={wallet.connect} disabled={wallet.connecting}>
+              <Wallet /> {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
+            </Button>
+          </EmptyState>
+        </Panel>
+      ) : plan.isError ? (
         <Panel>
           <EmptyState icon={<FileSearch />} title="This plan could not be loaded" description={plan.error.message} />
         </Panel>

@@ -7,7 +7,7 @@ import {
   type IntentRow,
   insertPlan,
   loadIntent,
-  loadPlan,
+  loadOwnPlan,
   loadQuote,
   newPlanRow,
   type PlanRow,
@@ -91,16 +91,16 @@ export async function listActivity(deps: ExecutionDeps, account: string) {
   };
 }
 
-export async function readPlan(deps: ExecutionDeps, planId: string) {
-  return planView(deps, await loadPlan(deps, planId));
+export async function readPlan(deps: ExecutionDeps, planId: string, account: string) {
+  return planView(deps, await loadOwnPlan(deps, planId, account));
 }
 
 /**
- * Records the user's review of exactly this plan. Approval binds the digest the user saw and needs
- * execution enabled on this server; it never signs or submits anything.
+ * Records the account owner's review of exactly this plan. Approval binds the digest the user saw and
+ * needs execution enabled on this server; it never signs or submits anything.
  */
-export async function approvePlan(deps: ExecutionDeps, planId: string, input: { digest: string }) {
-  const plan = await loadPlan(deps, planId);
+export async function approvePlan(deps: ExecutionDeps, planId: string, account: string, input: { digest: string }) {
+  const plan = await loadOwnPlan(deps, planId, account);
   if (plan.status !== 'awaiting_review') throw new AppError('CONFLICT', 'This plan is not waiting for review.');
   if (input.digest !== plan.digest) {
     throw new AppError('CONFLICT', 'The plan changed since you reviewed it. Review it again.');

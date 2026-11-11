@@ -4,9 +4,9 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { z } from 'zod';
 
 import type { AppEnv } from '../app.ts';
+import { SESSION_COOKIE } from './guard.ts';
 import { authDeps, completeSignIn, endSession, issueChallenge, readSession } from './session.ts';
 
-const SESSION_COOKIE = 'harbor_session';
 const CHALLENGE_COOKIE = 'harbor_sign_in';
 const AUTH_PATH = '/api/auth';
 const ACCOUNT = z.string().min(2).max(64);
