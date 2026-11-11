@@ -294,6 +294,56 @@ export const policyEvents = sqliteTable(
   (table) => [index('policy_events_policy_idx').on(table.policyId)],
 );
 
+export const STRATEGY_STATUSES = ['active', 'paused', 'deleted'] as const;
+const STRATEGY_STATUS_CHECK = sql.raw(`status IN (${STRATEGY_STATUSES.map((status) => `'${status}'`).join(', ')})`);
+
+/**
+ * What the owner asked the agent to do on its own, such as a recurring buy. It only ever runs under the
+ * owner's active signed policy, and every action it queues still passes that policy's checks.
+ */
+export const strategies = sqliteTable(
+  'strategies',
+  {
+    id: text('id').primaryKey(),
+    network: text('network', { enum: NETWORKS }).notNull(),
+    ownerAccount: text('owner_account').notNull(),
+    kind: text('kind', { enum: ['dca'] }).notNull(),
+    sellAsset: text('sell_asset').notNull(),
+    buyAsset: text('buy_asset').notNull(),
+    amountRaw: text('amount_raw').notNull(),
+    everySeconds: integer('every_seconds').notNull(),
+    status: text('status', { enum: STRATEGY_STATUSES }).notNull(),
+    nextRunAtMs: integer('next_run_at_ms'),
+    lastRunAtMs: integer('last_run_at_ms'),
+    createdAtMs: integer('created_at_ms').notNull(),
+    updatedAtMs: integer('updated_at_ms').notNull(),
+  },
+  (table) => [
+    index('strategies_due_idx').on(table.network, table.status, table.nextRunAtMs),
+    index('strategies_owner_idx').on(table.network, table.ownerAccount),
+    check('strategies_network_ck', NETWORK_CHECK),
+    check('strategies_status_ck', STRATEGY_STATUS_CHECK),
+  ],
+);
+
+/** One time a strategy came due: the action it queued for the owner, or why it was skipped. */
+export const autopilotRuns = sqliteTable(
+  'autopilot_runs',
+  {
+    id: text('id').primaryKey(),
+    strategyId: text('strategy_id')
+      .notNull()
+      .references(() => strategies.id),
+    ownerAccount: text('owner_account').notNull(),
+    intentId: text('intent_id'),
+    status: text('status', { enum: ['queued', 'done', 'dismissed', 'skipped'] }).notNull(),
+    reason: text('reason').notNull(),
+    createdAtMs: integer('created_at_ms').notNull(),
+    updatedAtMs: integer('updated_at_ms').notNull(),
+  },
+  (table) => [index('autopilot_runs_owner_idx').on(table.ownerAccount, table.status, table.createdAtMs)],
+);
+
 export const AUTOMATION_KINDS = ['price_alert'] as const;
 export const AUTOMATION_STATUSES = ['draft', 'active', 'paused', 'completed', 'deleted'] as const;
 export const EVALUATION_RESULTS = ['true', 'false', 'unknown'] as const;

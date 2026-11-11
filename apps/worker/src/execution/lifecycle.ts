@@ -71,7 +71,7 @@ export async function createPlan(
   let quote = await loadQuote(deps, input.quoteId);
   if (quote.intent_id !== intent.id) throw new AppError('INVALID_REQUEST', 'That quote belongs to another request.');
   let now = deps.now();
-  const source = input.source ?? 'user';
+  const source = input.source ?? (intent.source === 'autopilot' ? 'autopilot' : 'user');
   const signed = await loadSignedPolicy(deps.db, deps.config.network, input.accountId);
   const own = ownAddresses(signed?.body ?? null, input.accountId);
   const recipient = swapRecipient(deps, intent, input.accountId, own);

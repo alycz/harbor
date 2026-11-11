@@ -9,6 +9,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAgentRoutes } from './agent/routes.ts';
 import { createAuthRoutes } from './auth/routes.ts';
 import { createAutomationRoutes } from './automations/routes.ts';
+import { createAutopilotRoutes } from './autopilot/routes.ts';
 import { ConfigError, decodeConfig } from './config.ts';
 import { createExecutionRoutes } from './execution/routes.ts';
 import { createMarketRoutes } from './markets/routes.ts';
@@ -70,6 +71,7 @@ export function createApp() {
   app.route('/markets', createMarketRoutes());
   app.route('/automations', createAutomationRoutes());
   app.route('/policies', createPolicyRoutes());
+  app.route('/autopilot', createAutopilotRoutes());
   app.route('/agent', createAgentRoutes());
   app.route('/', createExecutionRoutes());
 

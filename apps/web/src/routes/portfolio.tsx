@@ -19,6 +19,7 @@ import { Skeleton } from 'skullet/react';
 
 import { ActivityShowcase } from '../components/activity-showcase.tsx';
 import { AssetIcon } from '../components/asset-icon.tsx';
+import { AgentQueue } from '../components/autopilot.tsx';
 import { SignedPolicyCheck } from '../components/swap-proposal.tsx';
 import { StatusTag, WalletActivity } from '../components/trade-live.tsx';
 import { AccountDot, EmptyState, FactRow, PageHeader, Panel, Stat } from '../components/workspace.tsx';
@@ -81,6 +82,7 @@ export function PortfolioPage() {
           </section>
         )}
       </Skeleton>
+      <AgentQueue />
       <Panel label="Activity" icon={<History />} labelId="portfolio-activity" bodyClassName="px-5 pb-1">
         <WalletActivity />
       </Panel>

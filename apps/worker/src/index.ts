@@ -2,6 +2,7 @@ import { AgentAdmission } from './agent/admission.ts';
 import { ConversationAgent } from './agent/conversation.ts';
 import { createApp } from './app.ts';
 import { automationDeps, runAutomations } from './automations/dispatch.ts';
+import { runAutopilot } from './autopilot/strategies.ts';
 import { recoverPendingPlans } from './execution/recovery.ts';
 import { settlePlans } from './execution/settlement.ts';
 import { executionDeps } from './execution/store.ts';
@@ -18,6 +19,7 @@ export default {
     ctx.waitUntil(
       recoverPendingPlans(execution)
         .then(async (recovered) => ({ ...recovered, ...(await settlePlans(execution)) }))
+        .then(async (settled) => ({ ...settled, autopilot: await runAutopilot(execution) }))
         .then(
           (summary) => console.log(JSON.stringify({ recovery: 'tick', ...summary })),
           (error: unknown) =>

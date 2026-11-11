@@ -2,6 +2,7 @@ import { Button } from '@harbor/ui/components/button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, OctagonX, ShieldCheck, Snowflake, Wallet } from 'lucide-react';
 
+import { StrategiesPanel } from '../components/autopilot.tsx';
 import { PolicyEditor } from '../components/policy-editor.tsx';
 import { Chip, EmptyState, FactRow, PageHeader, Panel } from '../components/workspace.tsx';
 import { formatUtc } from '../lib/format.ts';
@@ -45,6 +46,7 @@ export function PolicyPage() {
             </Panel>
           ) : null}
           {live ? <SignedPolicy policy={live} /> : null}
+          {live ? <StrategiesPanel /> : null}
           {wallet.address && current.isSuccess ? (
             <Panel
               label={live ? 'Sign a new revision' : 'Policy draft'}

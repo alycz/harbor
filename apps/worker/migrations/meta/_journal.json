@@ -15,6 +15,13 @@
       "when": 1794369681286,
       "tag": "0001_signed_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794371552684,
+      "tag": "0002_autopilot_strategies",
+      "breakpoints": true
     }
   ]
 }
