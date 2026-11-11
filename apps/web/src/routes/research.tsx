@@ -11,7 +11,7 @@ import { ChainLogo, chainLogoUrl, LogoPair, ProtocolLogo } from '../components/p
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { EmptyState, HeroCard, Panel, SectionTitle, Segment, SegmentedList, Toggle } from '../components/workspace.tsx';
 import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
-import { research } from '../lib/research.ts';
+import { research, snapshotCredit } from '../lib/research.ts';
 import { apyDrift, chainsWithPools, projectLogo, projectName } from '../lib/research-view.ts';
 
 const ALL = 'all';
@@ -26,6 +26,7 @@ export function ResearchPage() {
     <div className="ws-stagger flex flex-col gap-8">
       <HeroCard
         title="Yields and protocols across every chain Harbor can reach."
+        footer={snapshotCredit()}
         stats={
           empty
             ? [{ label: 'Snapshot', value: 'None yet' }]

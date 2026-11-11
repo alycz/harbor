@@ -1,4 +1,10 @@
-import { Agent, type AgentMessage, type AgentTool, type StreamFn } from '@earendil-works/pi-agent-core';
+import {
+  Agent,
+  type AgentMessage,
+  type AgentTool,
+  type StreamFn,
+  type ThinkingLevel,
+} from '@earendil-works/pi-agent-core';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
 export interface TurnLimits {
@@ -19,6 +25,8 @@ export interface HarborAgentOptions {
   messages: AgentMessage[];
   limits: TurnLimits;
   sessionId: string;
+  /** Reasoning to ask for. Some providers refuse a request that turns reasoning off. Defaults to off. */
+  thinkingLevel?: ThinkingLevel;
 }
 
 export type TurnOutcome =
@@ -39,6 +47,7 @@ export function createHarborAgent(options: HarborAgentOptions): Agent {
       model: options.model,
       tools: options.tools,
       messages: options.messages,
+      thinkingLevel: options.thinkingLevel ?? 'off',
     },
     streamFn: (model, context, streamOptions) =>
       options.streamFn(model, context, { ...streamOptions, maxTokens: options.limits.maxOutputTokens }),

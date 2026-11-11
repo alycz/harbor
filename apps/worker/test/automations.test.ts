@@ -14,8 +14,10 @@ import {
   readRule,
   reviseRule,
 } from '../src/automations/rules.ts';
+import { sessionCookie } from './session.ts';
 
 const ORIGIN = 'https://harbor.test';
+const ACCOUNT = 'alice.near';
 const MINUTE = 60_000;
 const CONFIG: PriceAlertConfig = {
   sell: { assetId: 'nep141:wrap.near', symbol: 'NEAR', amount: '10' },
@@ -46,7 +48,7 @@ function createFixture(startMs: number) {
 }
 
 async function activeRule(h: ReturnType<typeof createFixture>, config: PriceAlertConfig = CONFIG) {
-  const draft = await createRule(h.deps, { config });
+  const draft = await createRule(h.deps, { account: ACCOUNT, config });
   return activateRule(h.deps, draft.id, { revision: draft.revision, configHash: draft.configHash });
 }
 
@@ -191,29 +193,53 @@ describe('scheduled checks', () => {
     const state = await readRule(h.deps, rule.id);
     expect(state.evaluations).toHaveLength(1);
     expect(state.alerts).toHaveLength(1);
-    await acknowledgeTrigger(h.deps, state.alerts[0]?.id ?? '');
+    await expect(acknowledgeTrigger(h.deps, state.alerts[0]?.id ?? '', 'bob.near')).rejects.toThrow('No such alert');
+    await acknowledgeTrigger(h.deps, state.alerts[0]?.id ?? '', ACCOUNT);
     expect((await readRule(h.deps, rule.id)).alerts[0]?.acknowledgedAt).not.toBeNull();
     await deleteRule(h.deps, rule.id);
   });
 });
 
 describe('automation routes', () => {
-  it('creates a draft and validates settings over HTTP', async () => {
-    const post = (body: unknown) =>
-      exports.default.fetch(`${ORIGIN}/api/automations`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-    const created = await post({ kind: 'price_alert', config: CONFIG });
+  const request = (path: string, cookie: string, init: { method?: string; body?: unknown } = {}) =>
+    exports.default.fetch(`${ORIGIN}/api/automations${path}`, {
+      method: init.method ?? 'GET',
+      headers: { 'content-type': 'application/json', cookie },
+      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+    });
+
+  it('creates a draft for the signed-in account and validates settings over HTTP', async () => {
+    const alice = await sessionCookie(ACCOUNT);
+    const created = await request('', alice, { method: 'POST', body: { kind: 'price_alert', config: CONFIG } });
     expect(created.status).toBe(201);
-    const rule = (await created.json()) as { id: string; status: string };
-    expect(rule.status).toBe('draft');
-    const listed = (await (await exports.default.fetch(`${ORIGIN}/api/automations`)).json()) as {
-      automations: { id: string }[];
-    };
+    const rule = (await created.json()) as { id: string; status: string; account: string };
+    expect(rule).toMatchObject({ status: 'draft', account: ACCOUNT });
+    const listed = (await (await request('', alice)).json()) as { automations: { id: string }[] };
     expect(listed.automations.map((entry) => entry.id)).toContain(rule.id);
-    expect((await post({ kind: 'price_alert', config: { ...CONFIG, minOutput: '0' } })).status).toBe(400);
+    const invalid = await request('', alice, {
+      method: 'POST',
+      body: { kind: 'price_alert', config: { ...CONFIG, minOutput: '0' } },
+    });
+    expect(invalid.status).toBe(400);
+  });
+
+  it('refuses anonymous callers and hides one account’s rules from another', async () => {
+    expect((await request('', '')).status).toBe(401);
+    expect((await request('', '', { method: 'POST', body: { kind: 'price_alert', config: CONFIG } })).status).toBe(401);
+
+    const alice = await sessionCookie(ACCOUNT);
+    const bob = await sessionCookie('bob.near');
+    const rule = (await (
+      await request('', alice, { method: 'POST', body: { kind: 'price_alert', config: CONFIG } })
+    ).json()) as { id: string; revision: number; configHash: string };
+
+    const listed = (await (await request('', bob)).json()) as { automations: { id: string }[] };
+    expect(listed.automations.map((entry) => entry.id)).not.toContain(rule.id);
+    expect((await request(`/${rule.id}`, bob)).status).toBe(404);
+    const activate = { revision: rule.revision, configHash: rule.configHash };
+    expect((await request(`/${rule.id}/activate`, bob, { method: 'POST', body: activate })).status).toBe(404);
+    expect((await request(`/${rule.id}`, bob, { method: 'DELETE' })).status).toBe(404);
+    expect((await request(`/${rule.id}`, alice)).status).toBe(200);
   });
 });
 

@@ -1,6 +1,6 @@
 # API reference
 
-This is the current internal application API, not a stable public SDK contract. All paths below are relative to `/api`. Do not assume session protection or account-level authorization merely because an endpoint accepts an account ID. Verify route middleware before exposing an integration.
+This is the current internal application API, not a stable public SDK contract. All paths below are relative to `/api`. Routes marked **session** need the wallet session cookie and act only on that account's own records; another account's record reads as not found.
 
 Bodies are JSON, capped at 64 KiB. Errors use `{ ok: false, error: { code, message, requestId } }`; rate and capacity responses may add `retryAfterSeconds` and a `Retry-After` header.
 
@@ -38,12 +38,28 @@ Use the browser wallet flow. Do not sign with a private key in a script or inclu
 | POST | `/intents` | `{ kind: "swap", sellAsset, buyAsset, sellAmount }`; amount is a decimal string |
 | GET | `/intents/:id` | Read intent |
 | POST | `/intents/:id/compare` | Fresh comparison; mainnet uses a verified dry quote |
-| POST | `/plans` | `{ intentId, quoteId, accountId }`; requires `Idempotency-Key` |
-| GET | `/plans?account=...` | Account activity for plans that reached the network |
-| GET | `/plans/:id` | Plan and review data |
-| POST | `/plans/:id/approve` | `{ digest }`; records review only, gated and expiry-checked |
+| GET | `/intents/:id/setup` | **session** Token registrations to sign before a first executable quote |
+| POST | `/plans` | **session** `{ intentId, quoteId }`; requires `Idempotency-Key`; the account is the session's |
+| GET | `/plans` | **session** Your plans that reached the network |
+| GET | `/plans/:id` | **session** Plan, checks, policy check and, once approved, the transaction to sign |
+| POST | `/plans/:id/approve` | **session** `{ digest }`; needs execution enabled |
+| POST | `/plans/:id/deposit` | **session** `{ txHash }`; accepted once NEAR shows exactly the planned transfer |
 
 IDs are UUIDs. An idempotency key is 8–128 characters from letters, digits, dot, underscore, colon, or hyphen. The approval digest is 64 lowercase hexadecimal characters. Do not retry with changed content under the same key.
+
+## Policy and autopilot
+
+| Method | Path | Body / behavior |
+| --- | --- | --- |
+| GET | `/policies/current` | **session** Signed policy with spending so far, or null |
+| POST | `/policies` | **session** Draft; returns the exact message, nonce and recipient to sign |
+| POST | `/policies/:id/sign` | **session** `{ publicKey, signature }`; activates on a full-access NEP-413 signature |
+| POST | `/policies/current/freeze` | **session** Stops the agent at once; no signature needed |
+| POST | `/policies/current/revoke` | **session** Ends the policy |
+| GET, POST | `/autopilot/strategies` | **session** List, or create `{ sell, buy, amount, everyHours }` |
+| POST | `/autopilot/strategies/:id/pause`, `/resume` | **session** |
+| DELETE | `/autopilot/strategies/:id` | **session** |
+| GET | `/autopilot/queue` | **session** Actions the agent queued under your policy |
 
 ## Conversations
 
@@ -65,8 +81,8 @@ Paths are relative to `/api/automations`.
 
 | Method | Path | Body / behavior |
 | --- | --- | --- |
-| GET | `/` | List monitors |
-| POST | `/` | `{ kind: "price_alert", config, name?, account? }` |
+| GET | `/` | **session** List your monitors |
+| POST | `/` | **session** `{ kind: "price_alert", config, name? }` |
 | POST | `/preview` | `{ config }`; evaluate without saving or firing |
 | GET | `/:id` | Read saved monitor |
 | POST | `/:id/revisions` | `{ expectedRevision, config, name? }` |
@@ -80,8 +96,8 @@ See [price alerts](/guides/price-alerts) for configuration semantics. These rout
 
 ## Error handling
 
-`INVALID_REQUEST` → 400; `UNAUTHORIZED` → 401; `FORBIDDEN` → 403; `NOT_FOUND` → 404; `CONFLICT` and `EXECUTION_DISABLED` → 409; `PAYLOAD_TOO_LARGE` → 413; `RATE_LIMITED` → 429; `UNAVAILABLE` → 503; `INTERNAL` → 500.
+`INVALID_REQUEST` → 400; `UNAUTHORIZED` → 401; `FORBIDDEN` → 403; `NOT_FOUND` → 404; `CONFLICT`, `EXECUTION_DISABLED` and `SETUP_REQUIRED` → 409; `PAYLOAD_TOO_LARGE` → 413; `RATE_LIMITED` → 429; `UNAVAILABLE` → 503; `INTERNAL` → 500.
 
 Retain the request ID for debugging. An API failure is not evidence that a future external financial submission did not execute.
 
-Source: [router and error envelope](https://github.com/alycz/harbor/blob/main/apps/worker/src/app.ts), plus the `routes.ts` files under `auth`, `agent`, `execution`, `markets`, and `automations` in that repository.
+Source: [router and error envelope](https://github.com/alycz/harbor/blob/main/apps/worker/src/app.ts), plus the `routes.ts` files under `auth`, `agent`, `execution`, `markets`, `automations`, `policy` and `autopilot` in that repository.

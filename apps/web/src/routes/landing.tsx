@@ -384,7 +384,7 @@ function PolicyFigure() {
               shown: { scaleX: 1, transition: { duration: 0.5, ease: ARRIVE, delay: 0.55 } },
             }}
           />
-          <span className="relative">migrate.near</span>
+          <span className="relative">migrate-harbor.near</span>
         </span>{' '}
         now.”
       </blockquote>
@@ -397,7 +397,7 @@ function PolicyFigure() {
             <Chip tone="danger" className="mt-px">
               <Ban className="size-3" aria-hidden="true" /> Blocked
             </Chip>
-            <span className="text-muted-foreground">migrate.near is not one of your addresses</span>
+            <span className="text-muted-foreground">migrate-harbor.near is not one of your addresses</span>
           </motion.li>
           <motion.li variants={beat(1.25)} className="flex items-start gap-2.5">
             <Chip tone="accent" className="mt-px">

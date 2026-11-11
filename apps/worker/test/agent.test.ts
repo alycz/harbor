@@ -352,6 +352,7 @@ describe('propose_intent', () => {
           intentId: 'intent-1',
           sell: { symbol: 'USDC', amount: '100' },
           buy: { symbol: 'NEAR' },
+          recipient: null,
           quote: {
             expectedOut: '26',
             minimumOut: '25.87',

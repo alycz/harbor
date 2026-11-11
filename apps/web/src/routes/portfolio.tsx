@@ -19,6 +19,8 @@ import { Skeleton } from 'skullet/react';
 
 import { ActivityShowcase } from '../components/activity-showcase.tsx';
 import { AssetIcon } from '../components/asset-icon.tsx';
+import { AgentQueue } from '../components/autopilot.tsx';
+import { SignedPolicyCheck } from '../components/swap-proposal.tsx';
 import { StatusTag, WalletActivity } from '../components/trade-live.tsx';
 import { AccountDot, EmptyState, FactRow, PageHeader, Panel, Stat } from '../components/workspace.tsx';
 import { execution, type Plan, planProblem } from '../lib/execution.ts';
@@ -80,6 +82,7 @@ export function PortfolioPage() {
           </section>
         )}
       </Skeleton>
+      <AgentQueue />
       <Panel label="Activity" icon={<History />} labelId="portfolio-activity" bodyClassName="px-5 pb-1">
         <WalletActivity />
       </Panel>
@@ -143,7 +146,14 @@ function ConnectShowcase() {
 
 /** One plan as Harbor recorded it: the reviewed quote, the policy decision and where it stands. */
 export function PlanStatusPage({ planId }: { planId: string }) {
-  const plan = useQuery({ queryKey: ['plan', planId], queryFn: () => execution.read(planId), refetchInterval: 10_000 });
+  const wallet = useWallet();
+  const plan = useQuery({
+    queryKey: ['plan', planId, wallet.address],
+    queryFn: () => execution.read(planId),
+    enabled: Boolean(wallet.address),
+    refetchInterval: 10_000,
+  });
+  const signedOut = !wallet.address && !wallet.restoring;
   return (
     <div className="ws-stagger flex flex-col gap-7">
       <PageHeader
@@ -154,7 +164,19 @@ export function PlanStatusPage({ planId }: { planId: string }) {
           </Button>
         }
       />
-      {plan.isError ? (
+      {signedOut ? (
+        <Panel>
+          <EmptyState
+            icon={<Wallet />}
+            title="Connect the wallet this plan belongs to"
+            description="A plan is only visible to the account it was made for."
+          >
+            <Button className="h-10 gap-2 px-4" onClick={wallet.connect} disabled={wallet.connecting}>
+              <Wallet /> {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
+            </Button>
+          </EmptyState>
+        </Panel>
+      ) : plan.isError ? (
         <Panel>
           <EmptyState icon={<FileSearch />} title="This plan could not be loaded" description={plan.error.message} />
         </Panel>
@@ -219,6 +241,11 @@ function PlanView({ plan }: { plan: Plan }) {
               {problem ? <p className="text-[13px] text-destructive">{problem}</p> : null}
             </div>
           ) : null}
+          {plan.policyCheck ? (
+            <div className="border-t border-border px-5 py-4 @xl/workspace:px-6">
+              <SignedPolicyCheck plan={plan} />
+            </div>
+          ) : null}
         </section>
         <Panel label="Lifecycle" icon={<Clock3 />} labelId="plan-lifecycle">
           <Lifecycle plan={plan} />
@@ -228,6 +255,14 @@ function PlanView({ plan }: { plan: Plan }) {
         <dl>
           <FactRow label="Plan" value={shortAddress(plan.id)} title={plan.id} />
           <FactRow label="Account" value={shortAddress(plan.account)} title={plan.account} />
+          {plan.recipient ? (
+            <FactRow
+              label="Delivered to"
+              value={`${shortAddress(plan.recipient.address)} (${plan.recipient.chain})`}
+              title={plan.recipient.address}
+            />
+          ) : null}
+          <FactRow label="Proposed by" value={plan.source === 'autopilot' ? 'The agent, under your policy' : 'You'} />
           <FactRow label="Approved" value={plan.approvedAt ? formatUtc(plan.approvedAt) : 'Not yet'} />
           <FactRow
             label="Transaction"

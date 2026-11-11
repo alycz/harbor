@@ -15,10 +15,12 @@ export function useNewConversation() {
 
 /**
  * The chat's history, attached to the navigation it lives under: a new-conversation row, then the
- * conversations in this session. Only the current one exists until conversations are saved.
+ * conversations kept in this browser, newest first. Nothing about them is stored on Harbor's servers.
  */
 export function ConversationList({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const newConversation = useNewConversation();
+  const { chat } = useWorkspaceSession();
+  const current = chat.conversationId;
   return (
     <section aria-label="Conversations" className="flex flex-col">
       <p className="ws-label mb-1.5 px-2.5">Conversations</p>
@@ -32,17 +34,47 @@ export function ConversationList({ onNavigate }: { onNavigate?: (() => void) | u
       >
         <SquarePen className="size-4" strokeWidth={1.75} /> New conversation
       </Button>
-      <Link
-        to="/chat"
-        onClick={onNavigate}
-        className="mt-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 text-[13.5px] transition-colors hover:bg-[var(--ws-nav-hover)]"
-      >
-        <MessageCircle className="size-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden="true" />
-        <span className="min-w-0">
-          <span className="block truncate font-medium">Current conversation</span>
-          <span className="block text-[12px] text-muted-foreground">This session</span>
-        </span>
-      </Link>
+      {chat.saved.length === 0 ? (
+        <Link
+          to="/chat"
+          onClick={onNavigate}
+          className="mt-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 text-[13.5px] transition-colors hover:bg-[var(--ws-nav-hover)]"
+        >
+          <MessageCircle className="size-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="block truncate font-medium">Current conversation</span>
+            <span className="block text-[12px] text-muted-foreground">This session</span>
+          </span>
+        </Link>
+      ) : (
+        <ul className="mt-0.5 flex flex-col">
+          {chat.saved.map((conversation) => (
+            <li key={conversation.id}>
+              <Link
+                to="/chat"
+                onClick={() => {
+                  if (conversation.id !== current) chat.open(conversation.id);
+                  onNavigate?.();
+                }}
+                aria-current={conversation.id === current ? 'page' : undefined}
+                className="flex items-center gap-3 rounded-md px-2.5 py-2 text-[13.5px] transition-colors hover:bg-[var(--ws-nav-hover)] aria-[current=page]:bg-[var(--ws-nav-hover)]"
+              >
+                <MessageCircle
+                  className={`size-4 shrink-0 ${conversation.id === current ? 'text-primary' : 'text-muted-foreground'}`}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{conversation.title}</span>
+                  <span className="block text-[12px] text-muted-foreground">
+                    {new Date(conversation.updatedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

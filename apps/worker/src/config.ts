@@ -22,6 +22,12 @@ const AgentConfigSchema = z.discriminatedUnion('PI_PROVIDER', [
     PI_MODEL_ID: z.string().min(1),
     OPENROUTER_API_KEY: optional(z.string().min(1)),
   }),
+  // NEAR AI Cloud: private inference in TEEs; models.ts allows only attested models on NEAR's own fleet.
+  z.object({
+    PI_PROVIDER: z.literal('nearai'),
+    PI_MODEL_ID: z.string().min(1),
+    NEAR_AI_API_KEY: optional(z.string().min(1)),
+  }),
   // Tests and local demos only: a scripted model that never calls a provider.
   // A Wrangler var may be a JSON value, so the script arrives as text or as an array.
   z.object({
@@ -38,15 +44,13 @@ export interface Config {
 export type FauxStep = z.infer<typeof FauxStepSchema>;
 
 export type AgentConfig =
-  | { provider: 'openrouter'; modelId: string; apiKey: string }
+  | { provider: 'openrouter' | 'nearai'; modelId: string; apiKey: string }
   | { provider: 'faux'; script: FauxStep[] };
 
 /** What the agent says when no model key is configured, so a fresh checkout still answers. */
 export const KEYLESS_FAUX_SCRIPT: FauxStep[] = [
   {
-    text:
-      'Harbor is running without a model key, so this reply is scripted. Add OPENROUTER_API_KEY to ' +
-      'apps/worker/.dev.vars to talk to a real model.',
+    text: "This Harbor server has no model key set, so this reply is scripted. Research, Trade, Earn and your policy all work without one; the server's operator turns chat on with NEAR_AI_API_KEY or OPENROUTER_API_KEY.",
   },
 ];
 
@@ -129,8 +133,9 @@ export function decodeAgentConfig(env: unknown): AgentConfig {
   if (!parsed.success) throw new ConfigError(variablesOf(parsed.error));
   const data = parsed.data;
   if (data.PI_PROVIDER === 'faux') return { provider: 'faux', script: data.PI_FAUX_SCRIPT };
-  if (!data.OPENROUTER_API_KEY) return { provider: 'faux', script: KEYLESS_FAUX_SCRIPT };
-  return { provider: 'openrouter', modelId: data.PI_MODEL_ID, apiKey: data.OPENROUTER_API_KEY };
+  const apiKey = data.PI_PROVIDER === 'nearai' ? data.NEAR_AI_API_KEY : data.OPENROUTER_API_KEY;
+  if (!apiKey) return { provider: 'faux', script: KEYLESS_FAUX_SCRIPT };
+  return { provider: data.PI_PROVIDER, modelId: data.PI_MODEL_ID, apiKey };
 }
 
 function variablesOf(error: z.ZodError): string[] {

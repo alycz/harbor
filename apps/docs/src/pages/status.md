@@ -1,26 +1,24 @@
 # Current capabilities
 
-These docs were checked against Harbor's source, not just the README's product description. Features listed as planned are not promises of availability.
+These docs were checked against Harbor's source, not just its product description. "Tested" means automated tests in workerd with recorded or simulated provider and chain answers; "live" means checked against the real service.
 
 | Area | Implemented behavior | Limit |
 | --- | --- | --- |
-| Wallet sign-in | NEP-413 challenge, verification, full-access public-key check, cookie session | Recorded-RPC tests are not proof of a real-wallet end-to-end test |
-| Chat | Durable Object conversation, streamed events, research and swap-proposal tools | Scripted fallback without a model key; tools cannot submit funds |
-| Research and Earn | Dated snapshot, filters, provenance | Not live rates, executable yield deposits, or guaranteed returns |
-| Mainnet swaps | 1Click dry-quote venue is wired into `executionDeps` | No 1Click testnet venue; no deposit submission |
-| Plans | Intent, quote, fail-closed checks, digest, idempotent plan creation, review | Default configuration stops at review; approval only records review |
-| Price alerts | Draft/revise/activate/pause rules, scheduled checks, alerts | Read-only monitoring, not recurring trades |
-| Policy schema | Versioned budgets, asset and destination limits, schedule and expiry | Policy signing and autonomous enforcement are not implemented |
-| Settlement | State and recovery scaffolding | Verified delivery and settlement receipt flow are not implemented |
+| Wallet sign-in | NEP-413 challenge, verification, full-access key check, cookie session | Not yet run end to end with a real wallet |
+| Account isolation | Plans, alerts, policies and strategies belong to the signed-in account; another account's record reads as not found | — |
+| Signed policy | Per-asset spend limits (per action, per day, total), allowed assets, own destinations, slippage, quote age, agent schedule and expiry, signed with NEP-413 and a full-access key; freeze and revoke at once | Signing needs a real wallet; tested with an independent NEP-413 signer |
+| Plan checks | Origin on NEAR, recipient known and owned, quote fresh, minimum output, zero Harbor fee; then the signed policy check | A failed signed-policy check leaves the plan for the owner's own approval |
+| Mainnet swaps | Executable 1Click quote made out to the owner's recipient and refund account; one wallet transaction (register, wrap, transfer); deposit accepted only after decoding to exactly the planned transfer | Executable quotes checked live; a real signed deposit has not been made yet |
+| Settlement | Verified 1Click status; `confirmed` only after the delivery is measured on the destination chain (NEAR balance, or EVM transfer receipt); refunds stay refunds; unknown stays unknown | Solana deliveries cannot be verified and stay unconfirmed |
+| Autonomy | Recurring buys queued by the agent only under an active policy, each still checked against it, signed by the owner in one tap | The leash contract (`contracts/leash`) is built and tested but not deployed, and the Worker does not call it yet |
+| Chat | Durable Object conversation; research, sample-feed and swap-proposal tools; outside text is wrapped as untrusted data; earlier chats kept in the browser | Scripted fallback without a model key |
+| Models | OpenRouter free models, or NEAR AI Cloud with an allowlist of attested models on NEAR AI's own TEE fleet | Per-response signature verification is not shown yet |
+| Research and Earn | Dated snapshot with source and capture time shown; Earn deposits into two 1Click Earn vaults as a swap into their receipt token | Not live rates; vault deposits start at about 50 USDC and withdraw on the vault's own chain |
+| Venue comparison | Rhea route price beside 1Click for pairs on NEAR | For comparison only; Harbor does not execute on Rhea |
+| Price alerts | Set, pause and delete on Trade; scheduled checks against a dry venue quote; alerts | Monitoring only; never trades |
 
-:::note[Source takes precedence]
-The README currently says 1Click is not wired as the swap venue. The current `executionDeps` source does wire `oneClickVenue` on mainnet. These docs follow the code and explicitly retain the execution limitations.
-:::
+## The poisoned-post demo
 
-## Planned, not shipped
+The sample feed holds a post telling agents to send funds to `migrate-harbor.near`. A test runs the real agent loop with a model scripted to obey it: the proposal it creates is blocked when the owner reviews it (`DESTINATION_NOT_OWN`, and `DESTINATION_NOT_SIGNED` against the policy), and no executable quote, deposit address or deposit notice is ever created.
 
-The vision includes signed strategy policies, bounded agent signing, deposit verification, independent delivery checks, and a freeze control for autonomous execution. Do not treat a suggested policy, a stored status field, or a future safety requirement as a completed user flow.
-
-The poisoned-post demonstration describes the intended defense: outside text must never override user limits. Untrusted text is treated as data today; destination enforcement needs the future signed-policy enforcement path.
-
-Sources: [README status](https://github.com/alycz/harbor/blob/main/README.md), [venue wiring](https://github.com/alycz/harbor/blob/main/apps/worker/src/execution/store.ts), [approval implementation](https://github.com/alycz/harbor/blob/main/apps/worker/src/execution/lifecycle.ts), [policy schema](https://github.com/alycz/harbor/blob/main/packages/policy/src/policy.ts).
+Sources: [plan checks](https://github.com/alycz/harbor/blob/main/apps/worker/src/execution/swap.ts), [policy rules](https://github.com/alycz/harbor/blob/main/packages/policy/src/check.ts), [settlement](https://github.com/alycz/harbor/blob/main/apps/worker/src/execution/settlement.ts), [poisoned-post test](https://github.com/alycz/harbor/blob/main/apps/worker/test/poisoned.test.ts).

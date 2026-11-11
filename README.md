@@ -9,22 +9,26 @@ A cross-chain DeFi agent that acts on its own, but only inside limits you signed
 
 ## The demo
 
-A poisoned post tells the agent to send all funds to another account. The agent reads it, but outside text is data, never an instruction. The destination isn't one you signed, so the policy returns `block`, Harbor asks you for approval, and nothing is submitted.
+A poisoned post tells the agent to send all funds to another account. The agent reads it, but outside text is data, never an instruction. Even a model that obeys it gets nowhere: the destination isn't one you signed, so the plan is blocked (`DESTINATION_NOT_OWN`), your policy check says `block`, and nothing reaches 1Click. See [docs/demo.md](docs/demo.md).
 
 ## Status
 
-Harbor is being built for the NEAR hackathon. This is what runs today.
+Harbor is being built for the NEAR hackathon. This is what runs today. "Tested" means automated tests in workerd; "live" means checked against the real service.
 
 | Area | State |
 |---|---|
-| Wallet sign-in (NEP-413 through NEAR Connect, full-access key check) | Built and tested against recorded RPC responses. Not yet tried with a real wallet. |
-| Fail-closed policy engine and signed `Policy` schema | Engine runs on every plan. The schema exists; signing and enforcing a policy does not yet. |
-| 1Click client with quote-signature verification | Built, checked against a live signed quote. Not yet wired in as the swap venue. |
-| Plans: intent, quote, policy check, approval digest, audit trail | Built. Execution is off by default, so plans stop at review. |
-| Agent chat with research and swap proposal tools | Built. Scripted replies until you add a model key. |
-| Research and Earn pages | Built. The committed snapshot is empty until a collector fills it. |
-| Deposits, settlement receipts and autonomous execution | Not built yet. |
-| Poisoned-post block | The agent treats outside text as data today. The destination block arrives with policy enforcement. |
+| Wallet sign-in (NEP-413 through NEAR Connect, full-access key check) | Built and tested. Not yet run with a real wallet. |
+| Accounts own their data | Plans, alerts, policies and strategies are scoped to the signed-in account. |
+| Signed policy: per-asset spend limits, assets, own destinations, slippage, schedule, expiry; freeze and revoke | Built and tested with an independent NEP-413 signer. Signing needs a real wallet. |
+| Real swaps: executable 1Click quote for your own addresses, one wallet transaction, on-chain deposit check | Built and tested; executable quotes checked live. A real signed deposit has not been made yet. |
+| Settlement: verified 1Click status, delivery measured on the destination chain, refunds and unknowns kept apart | Built and tested with recorded-shape status answers. |
+| Agent acting on its own: recurring buys queued under the signed policy, signed by you in one tap | Built and tested. |
+| Leash contract: the agent spends a vault only on 1Click-signed deposits to your own addresses, within caps (`contracts/leash`) | Built, 18 contract tests. Not deployed, and the Worker does not call it yet. |
+| Poisoned-post block | Built and tested through the real agent loop with a model scripted to obey the post. |
+| Models: free OpenRouter models (NEAR AI Cloud attested TEE models also supported) | Built. Needs a key; without one, chat is scripted. Earlier chats are kept in your browser and reopen from the sidebar. |
+| Research and Earn | Built, on a dated snapshot that shows its source and capture time. Earn deposits into Gauntlet USDC Prime (Base) and Taler USDC (Ethereum) through 1Click Earn, from about 50 USDC, with the same checks as any swap. |
+| Venue comparison | Rhea's route price is shown next to 1Click's for pairs on NEAR, for comparison only. |
+| Price alerts | Built, quoting the venue; set and managed on Trade. |
 
 ## Quick start
 
@@ -39,6 +43,8 @@ pnpm dev
 Use `pnpm run setup`, not `pnpm setup`: the bare form is pnpm's own command for configuring your shell, and it won't set up Harbor.
 
 Open the URL Vite prints. With no keys, the app runs on NEAR mainnet settings with execution off, and chat answers from a scripted model. To use a real model or your own endpoints, copy `.dev.vars.example` to `apps/worker/.dev.vars` and fill in what you need. Every value is optional.
+
+Execution moves real funds on mainnet. It stays off unless you set `EXECUTION_ENABLED=true` and `ENABLED_WRITE_ADAPTERS=oneclick` in that ignored local file, and even then every deposit is signed in your own wallet.
 
 ## Commands
 

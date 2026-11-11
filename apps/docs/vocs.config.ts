@@ -2,6 +2,8 @@ import { defineConfig } from 'vocs/config';
 
 export default defineConfig({
   title: 'Harbor',
+  renderStrategy: 'full-static',
+  ogImageUrl: '/harbor-mark.svg',
   iconUrl: '/harbor-mark.svg',
   description: 'Source-grounded documentation for Harbor, the NEAR Intents cross-chain DeFi agent.',
   accentColor: 'light-dark(#005fb0, #83dcff)',

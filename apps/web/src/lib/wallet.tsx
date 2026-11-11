@@ -15,9 +15,25 @@ interface WalletState {
   error: string | null;
 }
 
+/** A transaction for the wallet to sign and send: one receiver, NEAR Connect's plain action shapes. */
+export interface WalletTransaction {
+  receiverId: string;
+  actions: {
+    type: 'FunctionCall';
+    params: { methodName: string; args: Record<string, unknown>; gas: string; deposit: string };
+  }[];
+}
+
 interface Wallet extends WalletState {
   connect(): Promise<void>;
   disconnect(): void;
+  /** Asks the signed-in account's wallet to sign a NEP-413 message the server prepared. */
+  signMessage(input: { message: string; recipient: string; nonce: string }): Promise<{
+    publicKey: string;
+    signature: string;
+  }>;
+  /** Asks the signed-in account's wallet to sign and send one transaction; resolves to its hash. */
+  sendTransaction(transaction: WalletTransaction): Promise<string>;
 }
 
 interface Session {
@@ -109,7 +125,57 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     void connector.current?.then((loaded) => loaded.disconnect()).catch(() => undefined);
   }, []);
 
-  const value = useMemo(() => ({ ...state, connect, disconnect }), [state, connect, disconnect]);
+  /** The wallet for the signed-in account, reconnecting after a reload; refuses a different account. */
+  const sessionWallet = useCallback(async () => {
+    const account = state.address;
+    if (!account || !network) throw new WalletProblem('Connect your wallet first.');
+    const loaded = await loadConnector(network);
+    const wallet = await loaded.wallet().catch(() => loaded.connect());
+    const accounts = await wallet.getAccounts();
+    if (!accounts.some((entry) => entry.accountId === account)) {
+      throw new WalletProblem(`Switch your wallet to ${account}, the account you signed in with.`);
+    }
+    return { wallet, account };
+  }, [state.address, network, loadConnector]);
+
+  const signMessage = useCallback(
+    async (input: { message: string; recipient: string; nonce: string }) => {
+      const { wallet, account } = await sessionWallet();
+      const signed = await wallet.signMessage({
+        message: input.message,
+        recipient: input.recipient,
+        nonce: Uint8Array.from(atob(input.nonce), (character) => character.charCodeAt(0)),
+        network: network ?? 'mainnet',
+        signerId: account,
+      });
+      if (signed.accountId !== account) throw new WalletProblem('The wallet signed for a different account.');
+      return { publicKey: signed.publicKey, signature: signed.signature };
+    },
+    [sessionWallet, network],
+  );
+
+  const sendTransaction = useCallback(
+    async (transaction: WalletTransaction) => {
+      const { wallet, account } = await sessionWallet();
+      const outcome = await wallet.signAndSendTransaction({
+        network: network ?? 'mainnet',
+        signerId: account,
+        receiverId: transaction.receiverId,
+        actions: transaction.actions,
+      });
+      const hash = outcome?.transaction?.hash ?? outcome?.transaction_outcome?.id;
+      if (typeof hash !== 'string' || hash.length === 0) {
+        throw new WalletProblem('The wallet did not return a transaction hash. Check your wallet activity.');
+      }
+      return hash;
+    },
+    [sessionWallet, network],
+  );
+
+  const value = useMemo(
+    () => ({ ...state, connect, disconnect, signMessage, sendTransaction }),
+    [state, connect, disconnect, signMessage, sendTransaction],
+  );
   return <WalletContext value={value}>{children}</WalletContext>;
 }
 
@@ -131,6 +197,18 @@ async function createConnector(network: Network): Promise<NearConnector> {
     network,
     features: { signMessage: true, ...(network === 'testnet' ? { testnet: true } : {}) },
   });
+}
+
+/** A wallet problem the user can act on; its message is safe to show as is. */
+class WalletProblem extends Error {
+  override name = 'WalletProblem';
+}
+
+/** What to show for a failed wallet step, or null when the user simply closed the wallet. */
+export function walletProblem(caught: unknown): string | null {
+  if (caught instanceof WalletProblem || caught instanceof ExecutionRequestError) return caught.message;
+  if (caught instanceof Error && /reject|cancel|closed/i.test(caught.message)) return null;
+  return 'The wallet did not complete this. Please try again.';
 }
 
 function signInProblem(caught: unknown): string | null {

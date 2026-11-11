@@ -18,6 +18,8 @@ import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@harb
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import {
   ArrowLeftRight,
+  ArrowUpRight,
+  BookOpen,
   Check,
   ChevronDown,
   Copy,
@@ -54,6 +56,33 @@ const ROUTES = [
 ] as const;
 
 const SETTINGS = [{ to: '/settings/policy', label: 'Policy', icon: ShieldCheck }] as const;
+
+const DOCS_URL = 'https://harbor-docs.tanishbaansal.workers.dev';
+
+/** Pinned to the bottom of the sidebar: a card that opens the Harbor docs in a new tab. */
+function DocsBanner() {
+  return (
+    <a
+      href={DOCS_URL}
+      target="_blank"
+      rel="noreferrer"
+      className="group mt-auto flex items-center gap-3 rounded-xl border border-border bg-primary/5 p-3 pt-3 transition-colors hover:bg-primary/10"
+    >
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+        <BookOpen className="size-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">Harbor docs</span>
+        <span className="block truncate text-xs text-muted-foreground">Guides, safety and API</span>
+      </span>
+      <ArrowUpRight
+        className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+        aria-hidden="true"
+      />
+      <span className="sr-only">(opens in a new tab)</span>
+    </a>
+  );
+}
 
 type NavItem = (typeof ROUTES)[number] | (typeof SETTINGS)[number];
 
@@ -119,6 +148,7 @@ function WorkspaceShell({ children }: { children: ReactNode }) {
           <div className="mt-6 border-t border-border pt-5">
             <ConversationList />
           </div>
+          <DocsBanner />
         </div>
       </aside>
 
@@ -306,6 +336,7 @@ function MobileNav({ pathname }: { pathname: string }) {
           <div className="mt-6 border-t border-border pt-5">
             <ConversationList onNavigate={() => setOpen(false)} />
           </div>
+          <DocsBanner />
         </div>
         <SheetClose className="sr-only">Close navigation</SheetClose>
       </SheetContent>

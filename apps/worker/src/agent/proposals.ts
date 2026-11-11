@@ -17,6 +17,7 @@ export function createProposalService(env: Env): ProposalService {
           intentId: intent.id,
           sell: { symbol: intent.sell.symbol, amount: intent.sell.amount },
           buy: { symbol: intent.buy.symbol },
+          recipient: intent.recipient,
           quote: {
             expectedOut: quote.expectedOut.amount,
             minimumOut: quote.minimumOut.amount,
@@ -30,6 +31,7 @@ export function createProposalService(env: Env): ProposalService {
           intentId: intent.id,
           sell: { symbol: intent.sell.symbol, amount: intent.sell.amount },
           buy: { symbol: intent.buy.symbol },
+          recipient: intent.recipient,
           quote: { unavailable: error instanceof Error ? error.message : 'quote failed' },
         };
       }

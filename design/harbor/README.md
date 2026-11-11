@@ -35,7 +35,7 @@ Harbor follows the NEAR hackathon's visual language: warm cream paper, ink text,
 
 ## Workspace
 
-Every page, the landing included, uses the app look, taken from Pilot (`alycz/pilot`), which follows Royco: warm paper, off-white cards with 12px corners and 6px controls, hairline warm-grey rules, Inter for reading and figures, Newsreader for display, and one cobalt accent. The landing keeps only its black-hole hero background from the NEAR look above.
+Every page, the landing included, uses the app look, which follows Royco: warm paper, off-white cards with 12px corners and 6px controls, hairline warm-grey rules, Inter for reading and figures, Newsreader for display, and one cobalt accent. The landing keeps only its black-hole hero background from the NEAR look above.
 
 - `apps/web/src/styles/workspace.css`: the workspace tokens. The shell and the landing set `data-surface="workspace"` on `<html>` (`useAppSurface`), so the tokens also reach popovers, dialogs and sheets that portal to `<body>`. Page layouts respond to the workspace's own width with container queries (`@3xl/workspace:` and the like), so they hold up when Ask Harbor is open beside them. Inside the workspace, a filled button is solid cobalt, without the rainbow edge.
 - `apps/web/src/components/workspace.tsx`: the building blocks.

@@ -1,7 +1,14 @@
 import { formatRawAmount } from '@harbor/domain/amount';
 import type { AssetRef } from '@harbor/domain/asset';
 
-import { type SwapVenue, type VenueQuote, VenueRefusal } from '../venue.ts';
+import {
+  type DepositQuote,
+  type SettlementReport,
+  type SwapExecutor,
+  type SwapVenue,
+  type VenueQuote,
+  VenueRefusal,
+} from '../venue.ts';
 import { type OneClickClient, OneClickClientError, type VerifiedOneClickQuote } from './client.ts';
 
 /**
@@ -64,6 +71,90 @@ export function oneClickVenue(client: Pick<OneClickClient, 'quote'>, now: () => 
         platform: 'NEAR Intents',
         protocols: ['NEAR Intents'],
         raw: { quoteHash: verified.quoteHash, response: verified.response },
+      };
+    },
+  };
+}
+
+/** How long an executable quote's deposit address takes deposits before 1Click refunds instead. */
+const EXECUTABLE_DEADLINE_MS = 10 * 60 * 1000;
+
+/**
+ * 1Click as an executor: executable quotes that deliver to the owner's own recipient and refund to
+ * their own account, deposit notice, and signed status reports. It never signs or sends anything.
+ */
+export function oneClickExecutor(
+  client: Pick<OneClickClient, 'quote' | 'status' | 'submitDeposit'>,
+  now: () => number = Date.now,
+): SwapExecutor {
+  return {
+    id: 'oneclick',
+    async executableQuote(request): Promise<DepositQuote> {
+      let verified: VerifiedOneClickQuote;
+      try {
+        verified = await client.quote({
+          dry: false,
+          swapType: 'EXACT_INPUT',
+          slippageTolerance: request.slippageBps,
+          originAsset: request.sell.canonicalId,
+          depositType: 'ORIGIN_CHAIN',
+          destinationAsset: request.buy.canonicalId,
+          amount: request.amountIn.toString(),
+          refundTo: request.refundTo,
+          refundType: 'ORIGIN_CHAIN',
+          recipient: request.recipient,
+          recipientType: 'DESTINATION_CHAIN',
+          deadline: new Date(now() + EXECUTABLE_DEADLINE_MS).toISOString(),
+        });
+      } catch (error) {
+        if (error instanceof OneClickClientError && error.code === 'HTTP_ERROR' && /HTTP 4\d\d/.test(error.message)) {
+          throw new VenueRefusal('NO_ROUTE', refusalText(error.providerMessage, request.sell));
+        }
+        throw error;
+      }
+      const { quote, correlationId } = verified.response;
+      if (!quote.depositAddress || !quote.deadline) {
+        throw new OneClickClientError('INVALID_RESPONSE', 'The executable quote has no deposit address');
+      }
+      return {
+        amountIn: BigInt(quote.amountIn),
+        amountOut: BigInt(quote.amountOut),
+        minAmountOut: BigInt(quote.minAmountOut),
+        priceImpactBps: null,
+        platform: 'NEAR Intents',
+        protocols: ['NEAR Intents'],
+        raw: { quoteHash: verified.quoteHash, response: verified.response },
+        deposit: {
+          address: quote.depositAddress,
+          memo: quote.depositMemo ?? null,
+          deadlineMs: Date.parse(quote.deadline),
+          quoteHash: verified.quoteHash,
+          correlationId,
+        },
+      };
+    },
+    async submitDeposit(input) {
+      await client.submitDeposit({
+        txHash: input.txHash,
+        depositAddress: input.depositAddress,
+        nearSenderAccount: input.sender,
+        ...(input.memo ? { memo: input.memo } : {}),
+      });
+    },
+    async status(input): Promise<SettlementReport> {
+      const report = await client.status({
+        depositAddress: input.depositAddress,
+        ...(input.memo ? { depositMemo: input.memo } : {}),
+        expectedQuoteHash: input.quoteHash,
+      });
+      const details = report.swapDetails;
+      return {
+        status: report.status,
+        amountOut: details.amountOut ? BigInt(details.amountOut) : null,
+        refundedAmount: details.refundedAmount ? BigInt(details.refundedAmount) : null,
+        refundReason: details.refundReason ?? null,
+        deliveryTxHashes: details.destinationChainTxHashes.map((entry) => entry.hash),
+        updatedAt: report.updatedAt,
       };
     },
   };

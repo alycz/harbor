@@ -183,20 +183,22 @@ export async function deleteRule(deps: AutomationDeps, id: string) {
   await setStatus(deps, id, 'deleted', ['draft', 'active', 'paused', 'completed']);
 }
 
-export async function listRules(deps: AutomationDeps) {
+export async function listRules(deps: AutomationDeps, owner: string) {
   const { results } = await deps.db
     .prepare(
-      `SELECT * FROM automation_rules WHERE network = ? AND status != 'deleted' ORDER BY created_at_ms DESC LIMIT 50`,
+      `SELECT * FROM automation_rules WHERE network = ? AND owner_account = ? AND status != 'deleted'
+       ORDER BY created_at_ms DESC LIMIT 50`,
     )
-    .bind(deps.network)
+    .bind(deps.network, owner)
     .all<RuleRow>();
   const unacknowledged = await deps.db
     .prepare(
       `SELECT rule_id, COUNT(*) AS count FROM automation_triggers
-       WHERE acknowledged_at_ms IS NULL AND rule_id IN (SELECT id FROM automation_rules WHERE network = ?)
+       WHERE acknowledged_at_ms IS NULL
+         AND rule_id IN (SELECT id FROM automation_rules WHERE network = ? AND owner_account = ?)
        GROUP BY rule_id`,
     )
-    .bind(deps.network)
+    .bind(deps.network, owner)
     .all<{ rule_id: string; count: number }>();
   const counts = new Map(unacknowledged.results.map((row) => [row.rule_id, row.count]));
   return results.map((row) => ({ ...ruleView(row), unacknowledgedAlerts: counts.get(row.id) ?? 0 }));
@@ -233,18 +235,25 @@ export async function readRule(deps: AutomationDeps, id: string) {
   };
 }
 
-export async function acknowledgeTrigger(deps: AutomationDeps, triggerId: string) {
+export async function acknowledgeTrigger(deps: AutomationDeps, triggerId: string, owner: string) {
   const result = await deps.db
     .prepare(
       `UPDATE automation_triggers SET acknowledged_at_ms = COALESCE(acknowledged_at_ms, ?)
-       WHERE id = ? AND rule_id IN (SELECT id FROM automation_rules WHERE network = ?)`,
+       WHERE id = ? AND rule_id IN (SELECT id FROM automation_rules WHERE network = ? AND owner_account = ?)`,
     )
-    .bind(deps.now(), triggerId, deps.network)
+    .bind(deps.now(), triggerId, deps.network, owner)
     .run();
   if (result.meta.changes !== 1) throw new AppError('NOT_FOUND', 'No such alert.');
 }
 
-export async function loadRule(deps: AutomationDeps, id: string): Promise<RuleRow> {
+/** A rule of `owner`'s. Another account's rule reads as missing. */
+export async function loadOwnRule(deps: AutomationDeps, id: string, owner: string): Promise<RuleRow> {
+  const row = await loadRule(deps, id);
+  if (row.owner_account !== owner) throw new AppError('NOT_FOUND', 'No such automation.');
+  return row;
+}
+
+async function loadRule(deps: AutomationDeps, id: string): Promise<RuleRow> {
   const row = await deps.db
     .prepare(`SELECT * FROM automation_rules WHERE id = ? AND network = ? AND status != 'deleted'`)
     .bind(id, deps.network)

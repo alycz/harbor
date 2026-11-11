@@ -1,15 +1,11 @@
 {
   "schema_version": "harbor.research.history.v1",
-  "captured_at": "2026-11-04T18:06:41.354Z",
+  "captured_at": "2026-11-11T04:41:02.307Z",
   "source": "defillama-chains",
   "series": [
     {
       "chain": "NEAR",
       "points": [
-        {
-          "timestamp_unix": 1762300800,
-          "tvl_usd": 138435007
-        },
         {
           "timestamp_unix": 1762905600,
           "tvl_usd": 116703989
@@ -216,7 +212,11 @@
         },
         {
           "timestamp_unix": 1793750400,
-          "tvl_usd": 193258626
+          "tvl_usd": 180105702
+        },
+        {
+          "timestamp_unix": 1794355200,
+          "tvl_usd": 173591785
         }
       ]
     },
@@ -224,12 +224,8 @@
       "chain": "Ethereum",
       "points": [
         {
-          "timestamp_unix": 1762300800,
-          "tvl_usd": 71387842795
-        },
-        {
           "timestamp_unix": 1762905600,
-          "tvl_usd": 72003175114
+          "tvl_usd": 72003175115
         },
         {
           "timestamp_unix": 1763510400,
@@ -241,23 +237,23 @@
         },
         {
           "timestamp_unix": 1764720000,
-          "tvl_usd": 65248891859
+          "tvl_usd": 65248891860
         },
         {
           "timestamp_unix": 1765324800,
-          "tvl_usd": 69491653092
+          "tvl_usd": 69491653091
         },
         {
           "timestamp_unix": 1765929600,
-          "tvl_usd": 66595217698
+          "tvl_usd": 66595217699
         },
         {
           "timestamp_unix": 1766534400,
-          "tvl_usd": 66227119731
+          "tvl_usd": 66227119732
         },
         {
           "timestamp_unix": 1767139200,
-          "tvl_usd": 65025587456
+          "tvl_usd": 65025587455
         },
         {
           "timestamp_unix": 1767744000,
@@ -269,7 +265,7 @@
         },
         {
           "timestamp_unix": 1768953600,
-          "tvl_usd": 66171460166
+          "tvl_usd": 66171460167
         },
         {
           "timestamp_unix": 1769558400,
@@ -301,149 +297,149 @@
         },
         {
           "timestamp_unix": 1773792000,
-          "tvl_usd": 57139063662
+          "tvl_usd": 57138395932
         },
         {
           "timestamp_unix": 1774396800,
-          "tvl_usd": 53017055198
+          "tvl_usd": 53015748151
         },
         {
           "timestamp_unix": 1775001600,
-          "tvl_usd": 51434927519
+          "tvl_usd": 51433572675
         },
         {
           "timestamp_unix": 1775606400,
-          "tvl_usd": 52549559124
+          "tvl_usd": 52548096055
         },
         {
           "timestamp_unix": 1776211200,
-          "tvl_usd": 54133601980
+          "tvl_usd": 54132084458
         },
         {
           "timestamp_unix": 1776816000,
-          "tvl_usd": 44359100295
+          "tvl_usd": 44357990592
         },
         {
           "timestamp_unix": 1777420800,
-          "tvl_usd": 42962427371
+          "tvl_usd": 42961168717
         },
         {
           "timestamp_unix": 1778025600,
-          "tvl_usd": 44015878484
+          "tvl_usd": 44014172453
         },
         {
           "timestamp_unix": 1778630400,
-          "tvl_usd": 43215588322
+          "tvl_usd": 43213853419
         },
         {
           "timestamp_unix": 1779235200,
-          "tvl_usd": 40907718233
+          "tvl_usd": 40906096441
         },
         {
           "timestamp_unix": 1779840000,
-          "tvl_usd": 40466944411
+          "tvl_usd": 40465273724
         },
         {
           "timestamp_unix": 1780444800,
-          "tvl_usd": 37554570322
+          "tvl_usd": 37553154811
         },
         {
           "timestamp_unix": 1781049600,
-          "tvl_usd": 35106295528
+          "tvl_usd": 35105078481
         },
         {
           "timestamp_unix": 1781654400,
-          "tvl_usd": 37742663109
+          "tvl_usd": 37741331520
         },
         {
           "timestamp_unix": 1782259200,
-          "tvl_usd": 36190818105
+          "tvl_usd": 36189570582
         },
         {
           "timestamp_unix": 1782864000,
-          "tvl_usd": 34205737917
+          "tvl_usd": 34205128337
         },
         {
           "timestamp_unix": 1783468800,
-          "tvl_usd": 37196439062
+          "tvl_usd": 37195777658
         },
         {
           "timestamp_unix": 1784073600,
-          "tvl_usd": 38829609844
+          "tvl_usd": 38828931531
         },
         {
           "timestamp_unix": 1784678400,
-          "tvl_usd": 39978247343
+          "tvl_usd": 39977561529
         },
         {
           "timestamp_unix": 1785283200,
-          "tvl_usd": 39363945381
+          "tvl_usd": 39363264924
         },
         {
           "timestamp_unix": 1785888000,
-          "tvl_usd": 38917616582
+          "tvl_usd": 38916754706
         },
         {
           "timestamp_unix": 1786492800,
-          "tvl_usd": 38831621094
+          "tvl_usd": 38830796944
         },
         {
           "timestamp_unix": 1787097600,
-          "tvl_usd": 39549573214
+          "tvl_usd": 39548812610
         },
         {
           "timestamp_unix": 1787702400,
-          "tvl_usd": 45816333696
+          "tvl_usd": 45815528744
         },
         {
           "timestamp_unix": 1788307200,
-          "tvl_usd": 45257128901
+          "tvl_usd": 45256344334
         },
         {
           "timestamp_unix": 1788912000,
-          "tvl_usd": 46733657614
+          "tvl_usd": 46732998813
         },
         {
           "timestamp_unix": 1789516800,
-          "tvl_usd": 45672966167
+          "tvl_usd": 45672355969
         },
         {
           "timestamp_unix": 1790121600,
-          "tvl_usd": 51118116787
+          "tvl_usd": 51117465451
         },
         {
           "timestamp_unix": 1790726400,
-          "tvl_usd": 50170891017
+          "tvl_usd": 50170222802
         },
         {
           "timestamp_unix": 1791331200,
-          "tvl_usd": 50898898300
+          "tvl_usd": 50898214277
         },
         {
           "timestamp_unix": 1791936000,
-          "tvl_usd": 48025192331
+          "tvl_usd": 48024526963
         },
         {
           "timestamp_unix": 1792540800,
-          "tvl_usd": 47506912508
+          "tvl_usd": 47506438123
         },
         {
           "timestamp_unix": 1793145600,
-          "tvl_usd": 45766462402
+          "tvl_usd": 45766368546
         },
         {
           "timestamp_unix": 1793750400,
-          "tvl_usd": 45920917380
+          "tvl_usd": 43757119886
+        },
+        {
+          "timestamp_unix": 1794355200,
+          "tvl_usd": 40804863134
         }
       ]
     },
     {
       "chain": "Solana",
       "points": [
-        {
-          "timestamp_unix": 1762300800,
-          "tvl_usd": 9929334457
-        },
         {
           "timestamp_unix": 1762905600,
           "tvl_usd": 9910580275
@@ -650,7 +646,11 @@
         },
         {
           "timestamp_unix": 1793750400,
-          "tvl_usd": 5543861720
+          "tvl_usd": 5386729096
+        },
+        {
+          "timestamp_unix": 1794355200,
+          "tvl_usd": 5034003479
         }
       ]
     },
@@ -658,216 +658,216 @@
       "chain": "Base",
       "points": [
         {
-          "timestamp_unix": 1762300800,
-          "tvl_usd": 4576454581
-        },
-        {
           "timestamp_unix": 1762905600,
-          "tvl_usd": 4783212090
+          "tvl_usd": 4778241676
         },
         {
           "timestamp_unix": 1763510400,
-          "tvl_usd": 4346499762
+          "tvl_usd": 4341529066
         },
         {
           "timestamp_unix": 1764115200,
-          "tvl_usd": 4181361152
+          "tvl_usd": 4176281246
         },
         {
           "timestamp_unix": 1764720000,
-          "tvl_usd": 4414781194
+          "tvl_usd": 4409659829
         },
         {
           "timestamp_unix": 1765324800,
-          "tvl_usd": 4593642517
+          "tvl_usd": 4588656089
         },
         {
           "timestamp_unix": 1765929600,
-          "tvl_usd": 4330188795
+          "tvl_usd": 4324920258
         },
         {
           "timestamp_unix": 1766534400,
-          "tvl_usd": 4374339535
+          "tvl_usd": 4366973801
         },
         {
           "timestamp_unix": 1767139200,
-          "tvl_usd": 4504605010
+          "tvl_usd": 4497074189
         },
         {
           "timestamp_unix": 1767744000,
-          "tvl_usd": 4849171421
+          "tvl_usd": 4840818193
         },
         {
           "timestamp_unix": 1768348800,
-          "tvl_usd": 5200662454
+          "tvl_usd": 5192552235
         },
         {
           "timestamp_unix": 1768953600,
-          "tvl_usd": 4850362133
+          "tvl_usd": 4842292085
         },
         {
           "timestamp_unix": 1769558400,
-          "tvl_usd": 4848260593
+          "tvl_usd": 4840338138
         },
         {
           "timestamp_unix": 1770163200,
-          "tvl_usd": 4203703149
+          "tvl_usd": 4197213232
         },
         {
           "timestamp_unix": 1770768000,
-          "tvl_usd": 3988437438
+          "tvl_usd": 3983019475
         },
         {
           "timestamp_unix": 1771372800,
-          "tvl_usd": 3857756844
+          "tvl_usd": 3852275586
         },
         {
           "timestamp_unix": 1771977600,
-          "tvl_usd": 3727872066
+          "tvl_usd": 3722540695
         },
         {
           "timestamp_unix": 1772582400,
-          "tvl_usd": 3920127214
+          "tvl_usd": 3915001387
         },
         {
           "timestamp_unix": 1773187200,
-          "tvl_usd": 4083336891
+          "tvl_usd": 4078053622
         },
         {
           "timestamp_unix": 1773792000,
-          "tvl_usd": 4323697793
+          "tvl_usd": 4318047927
         },
         {
           "timestamp_unix": 1774396800,
-          "tvl_usd": 4154009181
+          "tvl_usd": 4148501508
         },
         {
           "timestamp_unix": 1775001600,
-          "tvl_usd": 4053361052
+          "tvl_usd": 4047758594
         },
         {
           "timestamp_unix": 1775606400,
-          "tvl_usd": 4271545700
+          "tvl_usd": 4265875339
         },
         {
           "timestamp_unix": 1776211200,
-          "tvl_usd": 4473964186
+          "tvl_usd": 4468124279
         },
         {
           "timestamp_unix": 1776816000,
-          "tvl_usd": 4290095882
+          "tvl_usd": 4287246851
         },
         {
           "timestamp_unix": 1777420800,
-          "tvl_usd": 4346820646
+          "tvl_usd": 4343571497
         },
         {
           "timestamp_unix": 1778025600,
-          "tvl_usd": 4638635751
+          "tvl_usd": 4635353231
         },
         {
           "timestamp_unix": 1778630400,
-          "tvl_usd": 4957959950
+          "tvl_usd": 4954608311
         },
         {
           "timestamp_unix": 1779235200,
-          "tvl_usd": 4446755679
+          "tvl_usd": 4443551524
         },
         {
           "timestamp_unix": 1779840000,
-          "tvl_usd": 4463359589
+          "tvl_usd": 4460558355
         },
         {
           "timestamp_unix": 1780444800,
-          "tvl_usd": 4104065068
+          "tvl_usd": 4101450434
         },
         {
           "timestamp_unix": 1781049600,
-          "tvl_usd": 3857673882
+          "tvl_usd": 3855216948
         },
         {
           "timestamp_unix": 1781654400,
-          "tvl_usd": 4298330085
+          "tvl_usd": 4295493638
         },
         {
           "timestamp_unix": 1782259200,
-          "tvl_usd": 4205187538
+          "tvl_usd": 4202311862
         },
         {
           "timestamp_unix": 1782864000,
-          "tvl_usd": 4114037422
+          "tvl_usd": 4109280139
         },
         {
           "timestamp_unix": 1783468800,
-          "tvl_usd": 4415821821
+          "tvl_usd": 4410110171
         },
         {
           "timestamp_unix": 1784073600,
-          "tvl_usd": 4578054887
+          "tvl_usd": 4572267126
         },
         {
           "timestamp_unix": 1784678400,
-          "tvl_usd": 4693860395
+          "tvl_usd": 4688221538
         },
         {
           "timestamp_unix": 1785283200,
-          "tvl_usd": 4570571180
+          "tvl_usd": 4564850742
         },
         {
           "timestamp_unix": 1785888000,
-          "tvl_usd": 4594835877
+          "tvl_usd": 4588164003
         },
         {
           "timestamp_unix": 1786492800,
-          "tvl_usd": 4613029298
+          "tvl_usd": 4605349547
         },
         {
           "timestamp_unix": 1787097600,
-          "tvl_usd": 4750172632
+          "tvl_usd": 4742260976
         },
         {
           "timestamp_unix": 1787702400,
-          "tvl_usd": 5474319430
+          "tvl_usd": 5465669711
         },
         {
           "timestamp_unix": 1788307200,
-          "tvl_usd": 5471159274
+          "tvl_usd": 5462578390
         },
         {
           "timestamp_unix": 1788912000,
-          "tvl_usd": 5657178562
+          "tvl_usd": 5648416411
         },
         {
           "timestamp_unix": 1789516800,
-          "tvl_usd": 5491251811
+          "tvl_usd": 5482257214
         },
         {
           "timestamp_unix": 1790121600,
-          "tvl_usd": 6262539869
+          "tvl_usd": 6253211501
         },
         {
           "timestamp_unix": 1790726400,
-          "tvl_usd": 6273261234
+          "tvl_usd": 6264025679
         },
         {
           "timestamp_unix": 1791331200,
-          "tvl_usd": 6415389860
+          "tvl_usd": 6406626030
         },
         {
           "timestamp_unix": 1791936000,
-          "tvl_usd": 6210957161
+          "tvl_usd": 6202109367
         },
         {
           "timestamp_unix": 1792540800,
-          "tvl_usd": 6264275474
+          "tvl_usd": 6255305521
         },
         {
           "timestamp_unix": 1793145600,
-          "tvl_usd": 6156315191
+          "tvl_usd": 6147649742
         },
         {
           "timestamp_unix": 1793750400,
-          "tvl_usd": 6168299327
+          "tvl_usd": 5929426567
+        },
+        {
+          "timestamp_unix": 1794355200,
+          "tvl_usd": 5763774706
         }
       ]
     },
@@ -875,216 +875,216 @@
       "chain": "Arbitrum",
       "points": [
         {
-          "timestamp_unix": 1762300800,
-          "tvl_usd": 2994283181
-        },
-        {
           "timestamp_unix": 1762905600,
-          "tvl_usd": 3006410580
+          "tvl_usd": 3004447643
         },
         {
           "timestamp_unix": 1763510400,
-          "tvl_usd": 2824192117
+          "tvl_usd": 2822565872
         },
         {
           "timestamp_unix": 1764115200,
-          "tvl_usd": 2691873590
+          "tvl_usd": 2690156815
         },
         {
           "timestamp_unix": 1764720000,
-          "tvl_usd": 2910008492
+          "tvl_usd": 2908166262
         },
         {
           "timestamp_unix": 1765324800,
-          "tvl_usd": 3048873053
+          "tvl_usd": 3047071488
         },
         {
           "timestamp_unix": 1765929600,
-          "tvl_usd": 2847133796
+          "tvl_usd": 2845542535
         },
         {
           "timestamp_unix": 1766534400,
-          "tvl_usd": 2841843304
+          "tvl_usd": 2840332013
         },
         {
           "timestamp_unix": 1767139200,
-          "tvl_usd": 2885473995
+          "tvl_usd": 2884308920
         },
         {
           "timestamp_unix": 1767744000,
-          "tvl_usd": 3089612962
+          "tvl_usd": 3089028792
         },
         {
           "timestamp_unix": 1768348800,
-          "tvl_usd": 3155230831
+          "tvl_usd": 3154648518
         },
         {
           "timestamp_unix": 1768953600,
-          "tvl_usd": 2890433263
+          "tvl_usd": 2889385994
         },
         {
           "timestamp_unix": 1769558400,
-          "tvl_usd": 2881194378
+          "tvl_usd": 2880213960
         },
         {
           "timestamp_unix": 1770163200,
-          "tvl_usd": 2403310227
+          "tvl_usd": 2402544830
         },
         {
           "timestamp_unix": 1770768000,
-          "tvl_usd": 2155837319
+          "tvl_usd": 2154877395
         },
         {
           "timestamp_unix": 1771372800,
-          "tvl_usd": 2078469037
+          "tvl_usd": 2077463817
         },
         {
           "timestamp_unix": 1771977600,
-          "tvl_usd": 1936273325
+          "tvl_usd": 1935296545
         },
         {
           "timestamp_unix": 1772582400,
-          "tvl_usd": 2002230389
+          "tvl_usd": 2001302861
         },
         {
           "timestamp_unix": 1773187200,
-          "tvl_usd": 2015783422
+          "tvl_usd": 2014876767
         },
         {
           "timestamp_unix": 1773792000,
-          "tvl_usd": 2096071819
+          "tvl_usd": 2095417334
         },
         {
           "timestamp_unix": 1774396800,
-          "tvl_usd": 1995233511
+          "tvl_usd": 1994755147
         },
         {
           "timestamp_unix": 1775001600,
-          "tvl_usd": 1926306215
+          "tvl_usd": 1925795984
         },
         {
           "timestamp_unix": 1775606400,
-          "tvl_usd": 1962646301
+          "tvl_usd": 1962061684
         },
         {
           "timestamp_unix": 1776211200,
-          "tvl_usd": 1958361352
+          "tvl_usd": 1957784153
         },
         {
           "timestamp_unix": 1776816000,
-          "tvl_usd": 1697708252
+          "tvl_usd": 1697539098
         },
         {
           "timestamp_unix": 1777420800,
-          "tvl_usd": 1654446559
+          "tvl_usd": 1653687114
         },
         {
           "timestamp_unix": 1778025600,
-          "tvl_usd": 1711085951
+          "tvl_usd": 1710285757
         },
         {
           "timestamp_unix": 1778630400,
-          "tvl_usd": 1614480426
+          "tvl_usd": 1613592480
         },
         {
           "timestamp_unix": 1779235200,
-          "tvl_usd": 1456712330
+          "tvl_usd": 1455818334
         },
         {
           "timestamp_unix": 1779840000,
-          "tvl_usd": 1510327095
+          "tvl_usd": 1509164002
         },
         {
           "timestamp_unix": 1780444800,
-          "tvl_usd": 1357683219
+          "tvl_usd": 1356704295
         },
         {
           "timestamp_unix": 1781049600,
-          "tvl_usd": 1241425165
+          "tvl_usd": 1240329122
         },
         {
           "timestamp_unix": 1781654400,
-          "tvl_usd": 1281324426
+          "tvl_usd": 1280337803
         },
         {
           "timestamp_unix": 1782259200,
-          "tvl_usd": 1251530611
+          "tvl_usd": 1250738549
         },
         {
           "timestamp_unix": 1782864000,
-          "tvl_usd": 1161466904
+          "tvl_usd": 1160700521
         },
         {
           "timestamp_unix": 1783468800,
-          "tvl_usd": 1230350987
+          "tvl_usd": 1229750377
         },
         {
           "timestamp_unix": 1784073600,
-          "tvl_usd": 1266874082
+          "tvl_usd": 1266219279
         },
         {
           "timestamp_unix": 1784678400,
-          "tvl_usd": 1254743948
+          "tvl_usd": 1254115928
         },
         {
           "timestamp_unix": 1785283200,
-          "tvl_usd": 1208102827
+          "tvl_usd": 1207371645
         },
         {
           "timestamp_unix": 1785888000,
-          "tvl_usd": 1239057709
+          "tvl_usd": 1238380678
         },
         {
           "timestamp_unix": 1786492800,
-          "tvl_usd": 1238186745
+          "tvl_usd": 1237502014
         },
         {
           "timestamp_unix": 1787097600,
-          "tvl_usd": 1241398065
+          "tvl_usd": 1240740940
         },
         {
           "timestamp_unix": 1787702400,
-          "tvl_usd": 1416855797
+          "tvl_usd": 1416275147
         },
         {
           "timestamp_unix": 1788307200,
-          "tvl_usd": 1386904500
+          "tvl_usd": 1386331045
         },
         {
           "timestamp_unix": 1788912000,
-          "tvl_usd": 1396440834
+          "tvl_usd": 1395959010
         },
         {
           "timestamp_unix": 1789516800,
-          "tvl_usd": 1367115204
+          "tvl_usd": 1366650917
         },
         {
           "timestamp_unix": 1790121600,
-          "tvl_usd": 1480823233
+          "tvl_usd": 1480301260
         },
         {
           "timestamp_unix": 1790726400,
-          "tvl_usd": 1431085400
+          "tvl_usd": 1430556479
         },
         {
           "timestamp_unix": 1791331200,
-          "tvl_usd": 1436435165
+          "tvl_usd": 1435872617
         },
         {
           "timestamp_unix": 1791936000,
-          "tvl_usd": 1396319577
+          "tvl_usd": 1395783020
         },
         {
           "timestamp_unix": 1792540800,
-          "tvl_usd": 1447446749
+          "tvl_usd": 1446898703
         },
         {
           "timestamp_unix": 1793145600,
-          "tvl_usd": 1513255866
+          "tvl_usd": 1512715541
         },
         {
           "timestamp_unix": 1793750400,
-          "tvl_usd": 1488822723
+          "tvl_usd": 1450405227
+        },
+        {
+          "timestamp_unix": 1794355200,
+          "tvl_usd": 1384546828
         }
       ]
     }

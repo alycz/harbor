@@ -9,9 +9,11 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAgentRoutes } from './agent/routes.ts';
 import { createAuthRoutes } from './auth/routes.ts';
 import { createAutomationRoutes } from './automations/routes.ts';
+import { createAutopilotRoutes } from './autopilot/routes.ts';
 import { ConfigError, decodeConfig } from './config.ts';
 import { createExecutionRoutes } from './execution/routes.ts';
 import { createMarketRoutes } from './markets/routes.ts';
+import { createPolicyRoutes } from './policy/routes.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const STATUS_BY_CODE: Record<ErrorCode, ContentfulStatusCode> = {
@@ -23,13 +25,15 @@ const STATUS_BY_CODE: Record<ErrorCode, ContentfulStatusCode> = {
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   EXECUTION_DISABLED: 409,
+  SETUP_REQUIRED: 409,
   UNAVAILABLE: 503,
   INTERNAL: 500,
 };
 
 export interface AppEnv {
   Bindings: Env;
-  Variables: { requestId: string };
+  /** `account` is set only on routes behind `requireSession`: the signed-in NEAR account. */
+  Variables: { requestId: string; account: string };
 }
 
 type AppContext = Context<AppEnv>;
@@ -66,6 +70,8 @@ export function createApp() {
   app.route('/auth', createAuthRoutes());
   app.route('/markets', createMarketRoutes());
   app.route('/automations', createAutomationRoutes());
+  app.route('/policies', createPolicyRoutes());
+  app.route('/autopilot', createAutopilotRoutes());
   app.route('/agent', createAgentRoutes());
   app.route('/', createExecutionRoutes());
 

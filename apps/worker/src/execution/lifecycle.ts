@@ -1,5 +1,11 @@
 import { isNearAccountId, isOnNetwork } from '@harbor/domain/account';
+import { rawFromText } from '@harbor/domain/amount';
 import { AppError } from '@harbor/domain/errors';
+import { ChainReadFailed, tokenContractOf } from '@harbor/near/chain';
+import { checkAction } from '@harbor/policy/check';
+import { ownAddresses } from '@harbor/policy/policy';
+
+import { loadSignedPolicy, spentOf } from '../policy/policies.ts';
 import {
   type ExecutionDeps,
   existingPlan,
@@ -7,14 +13,24 @@ import {
   type IntentRow,
   insertPlan,
   loadIntent,
-  loadPlan,
+  loadOwnPlan,
   loadQuote,
   newPlanRow,
   type PlanRow,
   type QuoteRow,
   transitionOrReload,
 } from './store.ts';
-import { compareSwap, swapIntentView, swapPlanPolicy, swapPlanView } from './swap.ts';
+import {
+  assetOf,
+  compareSwap,
+  type Deposit,
+  executableQuote,
+  missingRegistrations,
+  swapIntentView,
+  swapPlanPolicy,
+  swapPlanView,
+  swapRecipient,
+} from './swap.ts';
 
 const ACTIVITY_LIMIT = 30;
 /** How long an approval stays usable before the plan must be reviewed again. */
@@ -29,10 +45,20 @@ export async function compareIntent(deps: ExecutionDeps, intentId: string) {
   return compareSwap(deps, await loadIntent(deps, intentId));
 }
 
-/** Runs the policy over an exact quote and records the plan, blocked or ready for review. */
+/**
+ * Runs the plan's own checks and the owner's signed policy over an exact quote, and records the plan.
+ * A failed plan check blocks it. A failed policy check leaves it for the owner to approve by hand:
+ * the agent can never act on it.
+ */
 export async function createPlan(
   deps: ExecutionDeps,
-  input: { intentId: string; quoteId: string; accountId: string; idempotencyKey: string },
+  input: {
+    intentId: string;
+    quoteId: string;
+    accountId: string;
+    idempotencyKey: string;
+    source?: PlanRow['source'];
+  },
 ) {
   if (!isNearAccountId(input.accountId)) throw new AppError('INVALID_REQUEST', 'Connect a wallet to review this.');
   if (!isOnNetwork(input.accountId, deps.config.network)) {
@@ -42,10 +68,52 @@ export async function createPlan(
   if (existing) return planView(deps, existing);
 
   const intent = await loadIntent(deps, input.intentId);
-  const quote = await loadQuote(deps, input.quoteId);
+  let quote = await loadQuote(deps, input.quoteId);
   if (quote.intent_id !== intent.id) throw new AppError('INVALID_REQUEST', 'That quote belongs to another request.');
-  const now = deps.now();
-  const { decision, digest } = await swapPlanPolicy(intent, quote, input.accountId, now);
+  let now = deps.now();
+  const source = input.source ?? (intent.source === 'autopilot' ? 'autopilot' : 'user');
+  const signed = await loadSignedPolicy(deps.db, deps.config.network, input.accountId);
+  const own = ownAddresses(signed?.body ?? null, input.accountId);
+  const recipient = swapRecipient(deps, intent, input.accountId, own);
+  let deposit: Deposit | null = null;
+  let checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own, deposit });
+  // With execution on, the owner reviews the executable quote itself: its deposit address, made out to
+  // their own recipient and refund address. A plan its own checks block never gets one.
+  if (checked.decision.verdict !== 'block' && deps.executor && recipient) {
+    if ((await missingRegistrations(deps, intent, input.accountId, recipient)).length > 0) {
+      throw new AppError(
+        'SETUP_REQUIRED',
+        'Your account needs to be set up for these tokens first: a small, refundable storage deposit.',
+      );
+    }
+    const executable = await executableQuote(deps, intent, input.accountId, recipient);
+    quote = executable.row;
+    deposit = executable.deposit;
+    now = deps.now();
+    checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own, deposit });
+  }
+  const { decision, digest } = checked;
+  const spent = await spentOf(
+    deps.db,
+    deps.config.network,
+    input.accountId,
+    intent.sell_asset,
+    signed?.signedAtMs ?? now,
+    now,
+  );
+  const policyCheck = checkAction(signed, {
+    nowMs: now,
+    byAgent: source === 'autopilot',
+    sellAsset: intent.sell_asset,
+    buyAsset: intent.buy_asset,
+    amountInRaw: rawFromText(quote.amount_in_raw),
+    recipient: recipient ?? { chain: assetOf(deps, intent.buy_asset).chain, address: '(none)' },
+    slippageBps: quote.slippage_bps,
+    quoteObservedAtMs: quote.observed_at_ms,
+    spentLastDayRaw: spent.lastDay,
+    spentSinceSignedRaw: spent.sinceSigned,
+    lastAgentActionMs: signed ? await lastAgentAction(deps, input.accountId, signed.signedAtMs) : null,
+  });
   const row = newPlanRow({
     intent,
     quoteId: quote.id,
@@ -54,11 +122,28 @@ export async function createPlan(
     status: decision.verdict === 'block' ? 'blocked' : 'awaiting_review',
     digest,
     policy: JSON.stringify(decision),
+    policyCheck: JSON.stringify(policyCheck),
+    policyId: signed?.id ?? null,
+    source,
+    recipient,
+    deposit,
     errorCode: firstBlock(decision),
     now,
   });
   await insertPlan(deps, row);
   return planView(deps, row);
+}
+
+/** When the agent last had a plan approved for this owner since the policy was signed. */
+async function lastAgentAction(deps: ExecutionDeps, account: string, sinceMs: number): Promise<number | null> {
+  const row = await deps.db
+    .prepare(
+      `SELECT MAX(approved_at_ms) AS at FROM plans
+       WHERE network = ? AND account_id = ? AND source = 'autopilot' AND approved_at_ms >= ?`,
+    )
+    .bind(deps.config.network, account, sinceMs)
+    .first<{ at: number | null }>();
+  return row?.at ?? null;
 }
 
 /** The account's plans that reached the network, newest first. */
@@ -91,16 +176,25 @@ export async function listActivity(deps: ExecutionDeps, account: string) {
   };
 }
 
-export async function readPlan(deps: ExecutionDeps, planId: string) {
-  return planView(deps, await loadPlan(deps, planId));
+/** The registrations the signed-in owner must sign before this intent can be quoted for execution. */
+export async function intentSetup(deps: ExecutionDeps, intentId: string, account: string) {
+  const intent = await loadIntent(deps, intentId);
+  const signed = await loadSignedPolicy(deps.db, deps.config.network, account);
+  const recipient = swapRecipient(deps, intent, account, ownAddresses(signed?.body ?? null, account));
+  return { transactions: await missingRegistrations(deps, intent, account, recipient) };
+}
+
+export async function readPlan(deps: ExecutionDeps, planId: string, account: string) {
+  return planView(deps, await loadOwnPlan(deps, planId, account));
 }
 
 /**
- * Records the user's review of exactly this plan. Approval binds the digest the user saw and needs
- * execution enabled on this server; it never signs or submits anything.
+ * Records the account owner's review of exactly this plan. Approval binds the digest the user saw and
+ * needs execution enabled on this server; it never signs or submits anything. The recipient's balance
+ * is read now, so the delivery can later be measured on chain rather than taken on the provider's word.
  */
-export async function approvePlan(deps: ExecutionDeps, planId: string, input: { digest: string }) {
-  const plan = await loadPlan(deps, planId);
+export async function approvePlan(deps: ExecutionDeps, planId: string, account: string, input: { digest: string }) {
+  const plan = await loadOwnPlan(deps, planId, account);
   if (plan.status !== 'awaiting_review') throw new AppError('CONFLICT', 'This plan is not waiting for review.');
   if (input.digest !== plan.digest) {
     throw new AppError('CONFLICT', 'The plan changed since you reviewed it. Review it again.');
@@ -109,6 +203,9 @@ export async function approvePlan(deps: ExecutionDeps, planId: string, input: { 
   if (!deps.config.executionEnabled || !deps.config.writeAdapters.has(quote.venue)) {
     throw new AppError('EXECUTION_DISABLED', 'Execution is turned off on this server. This plan is review-only.');
   }
+  if (!plan.deposit_address) {
+    throw new AppError('CONFLICT', 'This plan was reviewed while execution was off. Get a fresh quote.');
+  }
   const now = deps.now();
   if (now >= quote.expires_at_ms) {
     return planView(
@@ -116,15 +213,39 @@ export async function approvePlan(deps: ExecutionDeps, planId: string, input: { 
       await transitionOrReload(deps, plan, 'expired', { error_code: 'QUOTE_EXPIRED' }, 'system', 'Quote expired'),
     );
   }
+  const baseline = await recipientBaseline(deps, plan);
   const approved = await transitionOrReload(
     deps,
     plan,
     'awaiting_signature',
-    { approved_at_ms: now, valid_until_ms: now + APPROVAL_WINDOW_MS },
+    {
+      approved_at_ms: now,
+      valid_until_ms: Math.min(now + APPROVAL_WINDOW_MS, quote.expires_at_ms),
+      result: JSON.stringify({ recipientBalanceBeforeRaw: baseline }),
+    },
     'user',
     'Reviewed and approved',
   );
   return planView(deps, approved);
+}
+
+/** The NEAR recipient's balance of the bought token before anything moves; null for other chains. */
+async function recipientBaseline(deps: ExecutionDeps, plan: PlanRow): Promise<string | null> {
+  if (plan.recipient_chain !== 'near' || !plan.recipient) return null;
+  const intent = await loadIntent(deps, plan.intent_id);
+  const token = tokenContractOf(intent.buy_asset);
+  if (!token) return null;
+  try {
+    return (await deps.chain.ftBalance(token, plan.recipient)).toString();
+  } catch (error) {
+    if (error instanceof ChainReadFailed) {
+      throw new AppError(
+        'UNAVAILABLE',
+        'NEAR could not be read right now, so Harbor cannot measure the delivery. Try again.',
+      );
+    }
+    throw error;
+  }
 }
 
 async function planView(deps: ExecutionDeps, row: PlanRow) {

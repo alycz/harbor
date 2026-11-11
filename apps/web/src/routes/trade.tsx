@@ -8,6 +8,7 @@ import { Skeleton } from 'skullet/react';
 import { AssetIcon } from '../components/asset-icon.tsx';
 import { AssetPicker, type PickerAsset } from '../components/asset-picker.tsx';
 import { RollingNumber, RollText } from '../components/motion.tsx';
+import { PriceAlerts } from '../components/price-alerts.tsx';
 import { QuoteSkeleton } from '../components/skeletons.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
 import { useSwapDraft, WalletActivity } from '../components/trade-live.tsx';
@@ -177,6 +178,8 @@ export function TradePage() {
       >
         <WalletActivity />
       </Panel>
+
+      <PriceAlerts />
 
       {/* The ticket: Royco's deposit panel. */}
       <section

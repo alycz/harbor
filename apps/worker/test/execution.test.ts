@@ -9,6 +9,8 @@ import { approvePlan, compareIntent, createPlan, listActivity, readPlan } from '
 import { recoverPendingPlans } from '../src/execution/recovery.ts';
 import type { ExecutionDeps } from '../src/execution/store.ts';
 import { createSwapIntent } from '../src/execution/swap.ts';
+import { fakeWorld } from './execution-fakes.ts';
+import { sessionCookie } from './session.ts';
 
 const ORIGIN = 'https://harbor.test';
 const START_MS = 1_800_000_000_000;
@@ -36,16 +38,22 @@ interface Fixture {
 function createFixture(overrides: Partial<ExecutionConfig> = {}): Fixture {
   const clock = { now: START_MS };
   const venue = { refuse: false, minOut: MIN_OUT };
+  const config: ExecutionConfig = {
+    network: 'mainnet',
+    executionEnabled: true,
+    writeAdapters: new Set(['oneclick']),
+    oneClickJwt: null,
+    rpcUrl: 'https://rpc.test',
+    ...overrides,
+  };
+  const fakes = fakeWorld(clock, AMOUNT_OUT);
+  fakes.world.minOut = MIN_OUT;
   const deps: ExecutionDeps = {
     db: env.DB,
-    config: {
-      network: 'mainnet',
-      executionEnabled: true,
-      writeAdapters: new Set(['oneclick']),
-      oneClickJwt: null,
-      rpcUrl: 'https://rpc.test',
-      ...overrides,
-    },
+    config,
+    executor: config.executionEnabled && config.writeAdapters.has('oneclick') ? fakes.executor : null,
+    chain: fakes.chain,
+    evm: fakes.evm,
     venue: {
       id: 'oneclick',
       quote: async (request) => {
@@ -121,6 +129,24 @@ describe('quotes', () => {
     });
   });
 
+  it('adds a Rhea price for comparison only, and never lets it block the quote', async () => {
+    const h = createFixture();
+    const intent = await createSwapIntent(h.deps, { sell: 'NEAR', buy: 'USDC', amount: '1', source: 'form' });
+    const rhea = { quote: async () => ({ venue: 'rhea' as const, amountOut: 3_650_000n, hops: 1 }) };
+    const compared = await compareIntent({ ...h.deps, reference: rhea }, intent.id);
+    expect(compared.references).toEqual([
+      expect.objectContaining({
+        venue: 'rhea',
+        executable: false,
+        expectedOut: expect.objectContaining({ symbol: 'USDC', amount: '3.65' }),
+      }),
+    ]);
+    const unreachable = { quote: async () => null };
+    const without = await compareIntent({ ...h.deps, reference: unreachable }, intent.id);
+    expect(without.references).toEqual([]);
+    expect(without.quotes).toHaveLength(1);
+  });
+
   it('reports a venue refusal and a missing venue as unavailable', async () => {
     const h = createFixture();
     const intent = await createSwapIntent(h.deps, { sell: 'USDC', buy: 'NEAR', amount: '1', source: 'form' });
@@ -136,9 +162,11 @@ describe('plans', () => {
     const { plan } = await quotedPlan(h);
     expect(plan).toMatchObject({ status: 'awaiting_review', account: ACCOUNT, errorCode: null });
     expect(plan.digest).toMatch(/^[0-9a-f]{64}$/);
-    expect(plan.policy.verdict).toBe('allow');
+    expect(plan.policy.verdict).not.toBe('block');
+    expect(plan.depositAddress).toMatch(/^[0-9a-f]{64}$/);
+    expect(plan.recipient).toEqual({ chain: 'near', address: ACCOUNT });
 
-    const approved = await approvePlan(h.deps, plan.id, { digest: plan.digest });
+    const approved = await approvePlan(h.deps, plan.id, ACCOUNT, { digest: plan.digest });
     expect(approved).toMatchObject({ status: 'awaiting_signature' });
     expect(approved.validUntil).not.toBeNull();
     expect(await eventsOf(plan.id)).toEqual(['∅→awaiting_review:user', 'awaiting_review→awaiting_signature:user']);
@@ -149,7 +177,9 @@ describe('plans', () => {
     h.venue.minOut = AMOUNT_OUT + 1n;
     const { plan } = await quotedPlan(h);
     expect(plan).toMatchObject({ status: 'blocked', errorCode: 'MIN_OUTPUT_INVALID' });
-    await expect(approvePlan(h.deps, plan.id, { digest: plan.digest })).rejects.toThrow('not waiting for review');
+    await expect(approvePlan(h.deps, plan.id, ACCOUNT, { digest: plan.digest })).rejects.toThrow(
+      'not waiting for review',
+    );
   });
 
   it('reuses a plan for a repeated idempotency key and refuses the key for another plan', async () => {
@@ -178,11 +208,11 @@ describe('plans', () => {
   it('refuses approval of a different digest, and expires a stale quote instead of approving it', async () => {
     const h = createFixture();
     const { plan } = await quotedPlan(h);
-    await expect(approvePlan(h.deps, plan.id, { digest: '0'.repeat(64) })).rejects.toThrow(
+    await expect(approvePlan(h.deps, plan.id, ACCOUNT, { digest: '0'.repeat(64) })).rejects.toThrow(
       'changed since you reviewed',
     );
-    h.clock.now += 31_000;
-    const expired = await approvePlan(h.deps, plan.id, { digest: plan.digest });
+    h.clock.now += 6 * 60_000;
+    const expired = await approvePlan(h.deps, plan.id, ACCOUNT, { digest: plan.digest });
     expect(expired).toMatchObject({ status: 'expired', errorCode: 'QUOTE_EXPIRED' });
   });
 
@@ -190,11 +220,21 @@ describe('plans', () => {
     for (const overrides of [{ executionEnabled: false }, { writeAdapters: new Set<string>() }]) {
       const h = createFixture(overrides);
       const { plan } = await quotedPlan(h);
-      await expect(approvePlan(h.deps, plan.id, { digest: plan.digest })).rejects.toMatchObject({
+      await expect(approvePlan(h.deps, plan.id, ACCOUNT, { digest: plan.digest })).rejects.toMatchObject({
         code: 'EXECUTION_DISABLED',
       });
-      expect((await readPlan(h.deps, plan.id)).status).toBe('awaiting_review');
+      expect((await readPlan(h.deps, plan.id, ACCOUNT)).status).toBe('awaiting_review');
     }
+  });
+
+  it('lets only the plan’s own account read or approve it', async () => {
+    const h = createFixture();
+    const { plan } = await quotedPlan(h);
+    await expect(readPlan(h.deps, plan.id, 'bob.near')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(approvePlan(h.deps, plan.id, 'bob.near', { digest: plan.digest })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect((await readPlan(h.deps, plan.id, ACCOUNT)).status).toBe('awaiting_review');
   });
 
   it('refuses a plan for something that is not an account ID', async () => {
@@ -209,11 +249,11 @@ describe('recovery', () => {
     const h = createFixture();
     const { plan: waiting } = await quotedPlan(h);
     const { plan: approved } = await quotedPlan(h);
-    await approvePlan(h.deps, approved.id, { digest: approved.digest });
+    await approvePlan(h.deps, approved.id, ACCOUNT, { digest: approved.digest });
     h.clock.now += 6 * 60_000;
     expect((await recoverPendingPlans(h.deps)).expired).toBeGreaterThanOrEqual(1);
-    expect((await readPlan(h.deps, approved.id)).status).toBe('expired');
-    expect((await readPlan(h.deps, waiting.id)).status).toBe('awaiting_review');
+    expect((await readPlan(h.deps, approved.id, ACCOUNT)).status).toBe('expired');
+    expect((await readPlan(h.deps, waiting.id, ACCOUNT)).status).toBe('awaiting_review');
   });
 });
 
@@ -234,17 +274,35 @@ describe('activity', () => {
 });
 
 describe('execution routes', () => {
+  const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
+    exports.default.fetch(`${ORIGIN}/api${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    });
+
   it('validate input before touching the database', async () => {
-    const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
-      exports.default.fetch(`${ORIGIN}/api${path}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...headers },
-        body: JSON.stringify(body),
-      });
+    const cookie = await sessionCookie(ACCOUNT);
     expect((await post('/intents', { kind: 'supply' })).status).toBe(400);
-    expect((await post('/plans', { intentId: crypto.randomUUID() })).status).toBe(400);
-    expect((await post(`/plans/${crypto.randomUUID()}/approve`, { digest: 'x' })).status).toBe(400);
-    expect((await exports.default.fetch(`${ORIGIN}/api/plans/not-a-uuid`)).status).toBe(404);
+    expect((await post('/plans', { intentId: crypto.randomUUID() }, { cookie })).status).toBe(400);
+    expect((await post(`/plans/${crypto.randomUUID()}/approve`, { digest: 'x' }, { cookie })).status).toBe(400);
+    expect((await exports.default.fetch(`${ORIGIN}/api/plans/not-a-uuid`, { headers: { cookie } })).status).toBe(404);
+  });
+
+  it('refuse plans to anonymous callers, and take the account from the session, never the body', async () => {
+    const plan = { intentId: crypto.randomUUID(), quoteId: crypto.randomUUID() };
+    const key = { 'idempotency-key': crypto.randomUUID() };
+    expect((await post('/plans', plan, key)).status).toBe(401);
+    expect((await exports.default.fetch(`${ORIGIN}/api/plans`)).status).toBe(401);
+    expect((await exports.default.fetch(`${ORIGIN}/api/plans/${crypto.randomUUID()}`)).status).toBe(401);
+    expect((await post(`/plans/${crypto.randomUUID()}/approve`, { digest: '0'.repeat(64) })).status).toBe(401);
+
+    // Not ACCOUNT: earlier tests leave it plans on a test-only asset the real registry does not know.
+    const cookie = await sessionCookie('carol.near');
+    const named = await post('/plans', { ...plan, accountId: 'bob.near' }, { ...key, cookie });
+    expect(named.status).toBe(400);
+    const listed = await exports.default.fetch(`${ORIGIN}/api/plans`, { headers: { cookie } });
+    expect(listed.status).toBe(200);
   });
 
   it('list the assets this network can swap', async () => {

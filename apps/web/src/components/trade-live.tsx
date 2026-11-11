@@ -70,7 +70,7 @@ export function WalletActivity() {
   const wallet = useWallet();
   const activity = useQuery({
     queryKey: ['activity', wallet.address],
-    queryFn: () => execution.activity(wallet.address ?? ''),
+    queryFn: () => execution.activity(),
     enabled: Boolean(wallet.address),
     refetchInterval: 20_000,
   });

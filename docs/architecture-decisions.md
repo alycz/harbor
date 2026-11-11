@@ -38,10 +38,16 @@ The approved tool list is checked at startup in both directions, so a tool canno
 
 A fresh checkout needs no accounts. Without a model key the agent answers from a scripted model. Without `NEAR_RPC_URL` reads use a public endpoint. Without `ONE_CLICK_JWT` 1Click quotes still work and carry the default protocol fee. No secret is declared required.
 
-## Open: how the agent is held to the policy
+## A policy is a signed message, and the agent queues, the owner signs
 
-Harbor runs `@harbor/policy` on the server in every case. To add enforcement outside our server, one of these gets chosen by a time-boxed spike:
+The owner signs their policy with NEP-413, like sign-in: no transaction, no gas, and the Worker checks the signature and that the key is a full-access key on the account. Caps are per asset in raw units, so no price feed decides whether a limit holds. Freezing needs no signature, because it only narrows what the agent may do; only signing a new revision undoes it.
 
-- **Intents Agent API**, if it is live on mainnet and really rejects an out-of-policy action.
-- **A small `leash` contract**: each strategy gets a sub-account holding only its budget, the agent gets a function-call key restricted to the contract's `execute` method, and the contract enforces allowed assets, caps, expiry and freeze.
-- **Fallback**: the policy is enforced on our server, and the user taps to approve queued plans.
+Every plan runs two checks. The plan's own checks (the recipient is the owner's, the quote is valid, the fee is zero) block it for everyone. The signed policy decides whether the agent could have acted on its own; outside it, only the owner can approve. The destination check sits in the first group on purpose: no approval sends funds to an address the owner did not sign.
+
+The agent acts on its own by queuing: a due strategy creates an action only under an active, unfrozen, unexpired policy, and the owner signs it in one tap. The spike in [docs/spikes/autonomy.md](spikes/autonomy.md) found no live Intents agent API, and designs a `leash` contract that would let the agent sign within limits enforced on chain. Until one is deployed, nothing signs for the owner. Everything autonomous lives under `apps/worker/src/autopilot/`.
+
+## A deposit is checked on chain, and so is the delivery
+
+The wallet signs one transaction Harbor builds from its own records: register the deposit address on the token, wrap NEAR when NEAR is sold, transfer exactly the planned amount. Harbor accepts it only after NEAR shows exactly that transaction, signed by the owner. 1Click quotes only for accounts registered on the tokens involved, so a first swap may ask for that refundable storage deposit first.
+
+`confirmed` needs the delivery measured on the destination chain: the NEAR recipient's balance rose by at least the minimum since approval, or an EVM receipt carries a transfer of at least the minimum to the recipient. A deposit hash is stored before it is checked, so a deposit is never lost while an RPC is down; one that lands after its approval window still counts.

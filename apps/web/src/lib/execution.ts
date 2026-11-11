@@ -1,4 +1,5 @@
 /** Typed calls to Harbor's intent → quote → plan → approve endpoints. */
+import type { WalletTransaction } from './wallet.tsx';
 
 interface AssetAmount {
   symbol: string;
@@ -18,7 +19,9 @@ export interface Intent {
   id: string;
   network: 'mainnet' | 'testnet';
   sell: AssetAmount;
-  buy: { symbol: string };
+  buy: { symbol: string; chain: string };
+  /** An address the request asked to deliver to; null means the signed-in account. */
+  recipient: string | null;
 }
 
 export interface Quote {
@@ -32,6 +35,8 @@ export interface Quote {
   protocols: string[];
   harborFeeBps: number;
   expiresAt: string;
+  /** Prices from venues Harbor only compares against, such as Rhea; never executable here. */
+  references?: { venue: string; name: string; expectedOut: AssetAmount; hops: number }[];
 }
 
 type PlanStatus =
@@ -47,6 +52,11 @@ type PlanStatus =
   | 'expired'
   | 'outcome_unknown';
 
+interface Decision {
+  verdict: 'allow' | 'warn' | 'block';
+  reasons: { pass: boolean; code: string; detail: string; severity: 'block' | 'warn'; rule: string }[];
+}
+
 export interface Plan {
   id: string;
   kind: 'swap';
@@ -54,10 +64,14 @@ export interface Plan {
   network: 'mainnet' | 'testnet';
   account: string;
   digest: string;
-  policy: {
-    verdict: 'allow' | 'warn' | 'block';
-    reasons: { pass: boolean; code: string; detail: string; severity: 'block' | 'warn' }[];
-  };
+  /** The plan's own checks: a block here stops it for everyone. */
+  policy: Decision;
+  /** The owner's signed policy applied to this plan: a block means only the owner can approve it. */
+  policyCheck: Decision | null;
+  source: 'user' | 'autopilot';
+  recipient: { chain: string; address: string } | null;
+  /** The one transaction the wallet signs, once the plan is approved and before its deposit is sent. */
+  signing: WalletTransaction | null;
   validUntil: string | null;
   approvedAt: string | null;
   depositAddress: string | null;
@@ -115,16 +129,25 @@ export const execution = {
   intent: (id: string) => call<Intent>(`/api/intents/${id}`),
   createSwap: (input: { sellAsset: string; buyAsset: string; sellAmount: string }) =>
     call<Intent>('/api/intents', { method: 'POST', body: { kind: 'swap', ...input } }),
-  activity: (account: string) =>
-    call<{ network: 'mainnet' | 'testnet'; items: ActivityItem[] }>(
-      `/api/plans?account=${encodeURIComponent(account)}`,
-    ),
-  quote: async (intentId: string) =>
-    (await call<{ quotes: Quote[] }>(`/api/intents/${intentId}/compare`, { method: 'POST' })).quotes[0],
-  plan: (input: { intentId: string; quoteId: string; accountId: string }) =>
+  /** The signed-in account's activity; the server reads the account from the session. */
+  activity: () => call<{ network: 'mainnet' | 'testnet'; items: ActivityItem[] }>('/api/plans'),
+  quote: async (intentId: string) => {
+    const compared = await call<{ quotes: Quote[]; references?: Quote['references'] }>(
+      `/api/intents/${intentId}/compare`,
+      { method: 'POST' },
+    );
+    const quote = compared.quotes[0];
+    return quote ? { ...quote, references: compared.references ?? [] } : undefined;
+  },
+  plan: (input: { intentId: string; quoteId: string }) =>
     call<Plan>('/api/plans', { method: 'POST', body: input, headers: { 'idempotency-key': crypto.randomUUID() } }),
   approve: (plan: Plan) =>
     call<Plan>(`/api/plans/${plan.id}/approve`, { method: 'POST', body: { digest: plan.digest } }),
+  /** Token registrations the account must sign before this swap can be quoted for execution. */
+  setup: (intentId: string) => call<{ transactions: WalletTransaction[] }>(`/api/intents/${intentId}/setup`),
+  /** Reports the deposit the wallet sent; Harbor accepts it once the chain shows the planned transfer. */
+  deposit: (planId: string, txHash: string) =>
+    call<Plan>(`/api/plans/${planId}/deposit`, { method: 'POST', body: { txHash } }),
   read: (planId: string) => call<Plan>(`/api/plans/${planId}`),
 };
 
@@ -141,6 +164,22 @@ export function planProblem(plan: Pick<Plan, 'errorCode'>): string | null {
       return 'The quoted minimum was not valid, so Harbor stopped this.';
     case 'HARBOR_FEE_NOT_ZERO':
       return 'The route carried a Harbor fee, which Harbor never charges, so it stopped this.';
+    case 'DESTINATION_NOT_OWN':
+      return 'This would deliver to an address that is not yours, so Harbor blocked it. Funds only go to addresses you signed.';
+    case 'RECIPIENT_MISSING':
+      return 'Add your own address on that chain to your policy, then try again.';
+    case 'ORIGIN_NOT_NEAR':
+      return 'Harbor sends only from your NEAR account. Choose an asset held on NEAR to sell.';
+    case 'DEPOSIT_FAILED':
+      return 'The deposit transaction failed on NEAR, so nothing moved.';
+    case 'PROVIDER_FAILED':
+      return 'NEAR Intents reports the swap failed. Any refund goes back to your account.';
+    case 'INCOMPLETE_DEPOSIT':
+      return 'NEAR Intents saw less than the planned deposit. Harbor cannot tell yet how it ends.';
+    case 'STATUS_UNAVAILABLE':
+      return 'NEAR Intents stopped answering about this swap. Harbor cannot tell yet how it ended.';
+    case 'DELIVERY_UNVERIFIED':
+      return 'NEAR Intents reports success, but Harbor could not see the delivery on chain.';
     default:
       return `Harbor stopped this (${plan.errorCode}).`;
   }
