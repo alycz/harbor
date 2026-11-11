@@ -7,7 +7,7 @@ import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
 import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
-import { research } from '../lib/research.ts';
+import { research, snapshotCredit } from '../lib/research.ts';
 import { apyDrift, HOME_CHAIN, projectLogo, projectName } from '../lib/research-view.ts';
 
 /** Pools below this size are left out: their rates move too much to plan around. */
@@ -25,6 +25,7 @@ export function EarnPage() {
     <div className="ws-stagger flex flex-col gap-8">
       <HeroCard
         title="The best stablecoin rate on each chain, side by side."
+        footer={snapshotCredit()}
         stats={[
           { label: 'Best rate', value: top ? formatApy(top.totalApyPct) : '—' },
           { label: 'On NEAR', value: home ? formatApy(home.totalApyPct) : '—' },
