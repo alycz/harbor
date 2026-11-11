@@ -2,7 +2,7 @@ import { TabsIndicator, TabsList, TabsTrigger } from '@harbor/ui/components/tabs
 import type { ReactNode } from 'react';
 
 /*
- * The workspace's building blocks, in Pilot's and Royco's grammar: paper, off-white cards with soft
+ * The workspace's building blocks, in Royco's grammar: paper, off-white cards with soft
  * corners and hairlines, sentence-case labels, one cobalt accent, and the ink hero card for the one
  * place a page spends its emphasis. Tokens live in styles/workspace.css.
  */

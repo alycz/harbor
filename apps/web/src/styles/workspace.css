@@ -1,7 +1,7 @@
 /*
  * The workspace look: every page except the landing.
  *
- * It follows Pilot, which follows Royco: warm paper, off-white cards with soft corners, hairline
+ * It follows Royco: warm paper, off-white cards with soft corners, hairline
  * warm-grey rules, Inter for reading and numbers, Newsreader for display, and one cobalt accent.
  * The shell sets `data-surface="workspace"` on <html>, so these tokens reach popovers, dialogs and
  * sheets that portal to <body>, and the landing page keeps the NEAR look in design/harbor untouched.
