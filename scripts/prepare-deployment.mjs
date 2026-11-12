@@ -4,9 +4,15 @@ import { fileURLToPath } from 'node:url';
 
 const [network, databaseId, ...options] = process.argv.slice(2);
 if (!['mainnet', 'testnet'].includes(network) || !/^[a-f0-9-]{36}$/.test(databaseId ?? '')) {
-  throw new Error('Usage: node scripts/prepare-deployment.mjs mainnet|testnet DATABASE_ID [--enable-execution]');
+  throw new Error(
+    'Usage: node scripts/prepare-deployment.mjs mainnet|testnet DATABASE_ID [--enable-execution] [--domain=HOSTNAME]',
+  );
 }
-if (options.some((option) => option !== '--enable-execution')) throw new Error('Unknown deployment option.');
+const domainOption = options.find((option) => option.startsWith('--domain='));
+const domain = domainOption?.slice('--domain='.length);
+if (domain !== undefined && !/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(domain)) throw new Error('Invalid --domain hostname.');
+if (options.some((option) => option !== '--enable-execution' && option !== domainOption))
+  throw new Error('Unknown deployment option.');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourcePath = path.join(root, 'apps/web/dist/harbor/wrangler.json');
 const source = JSON.parse(await readFile(sourcePath, 'utf8'));
@@ -24,6 +30,7 @@ const config = {
   compatibility_date: source.compatibility_date,
   compatibility_flags: source.compatibility_flags,
   workers_dev: true,
+  ...(domain ? { routes: [{ pattern: domain, custom_domain: true }] } : {}),
   preview_urls: false,
   observability: { enabled: true },
   triggers: source.triggers,
