@@ -4,7 +4,7 @@
 # Private inference in TEEs on NEAR AI Cloud: set PI_PROVIDER=nearai, a PI_MODEL_ID from
 # NEAR_AI_TEE_MODELS in apps/worker/src/agent/models.ts (such as Qwen/Qwen3.8-27B), and the key.
 NEAR_AI_API_KEY=
-# Or a free OpenRouter model, the default provider.
+# Or an OpenRouter model (GLM 5.3 Flash by default; free models also work), the default provider.
 OPENROUTER_API_KEY=
 # 1Click partner JWT; quotes work without one and carry the default protocol fee.
 ONE_CLICK_JWT=
