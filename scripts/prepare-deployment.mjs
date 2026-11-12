@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +19,15 @@ const source = JSON.parse(await readFile(sourcePath, 'utf8'));
 if (typeof source.main !== 'string' || typeof source.assets?.directory !== 'string' || !source.vars) {
   throw new Error('Run the default pnpm build before preparing deployment.');
 }
+// The docs are served from the same origin under /docs: copy the built site (`pnpm docs:build`, base path
+// /docs) into the Worker's static assets.
+const docsBuild = path.join(root, 'apps/docs/dist/public');
+if (!(await stat(path.join(docsBuild, 'index.html')).catch(() => null))) {
+  throw new Error('Run pnpm docs:build before preparing deployment.');
+}
+await cp(docsBuild, path.join(path.resolve(path.dirname(sourcePath), source.assets.directory), 'docs'), {
+  recursive: true,
+});
 const execution = options.includes('--enable-execution');
 // 1Click has no testnet, so execution adapters exist on mainnet only.
 const adapters = network === 'mainnet' ? 'oneclick' : '';

@@ -57,7 +57,7 @@ const ROUTES = [
 
 const SETTINGS = [{ to: '/settings/policy', label: 'Policy', icon: ShieldCheck }] as const;
 
-const DOCS_URL = 'https://harbor-docs.r13n.dev';
+const DOCS_URL = '/docs/';
 
 /** Pinned to the bottom of the sidebar: a card that opens the Harbor docs in a new tab. */
 function DocsBanner() {
