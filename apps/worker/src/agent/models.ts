@@ -16,6 +16,8 @@ import { type AgentConfig, ConfigError, type FauxStep } from '../config.ts';
 
 // OpenRouter's free variants end in ":free"; "openrouter/free" routes among them.
 const FREE_MODEL_ID = /(:free$)|(^openrouter\/free$)/;
+/** Cheap paid OpenRouter models Harbor may run, by explicit choice. Anything else that is not free is refused. */
+const PAID_OPENROUTER_MODELS = ['z-ai/glm-5.3-flash', 'z-ai/glm-5.3'] as const;
 
 const NEAR_AI_BASE_URL = 'https://cloud-api.near.ai/v1';
 /**
@@ -64,8 +66,11 @@ export function createModelSource(config: AgentConfig): ModelSource {
   }
   models.setProvider(openrouterProvider());
   const model = models.getModel('openrouter', config.modelId);
-  // Harbor only runs free OpenRouter models: a paid or unknown model is a configuration error, never a fallback.
-  if (!model || !isFreeModel(model)) throw new ConfigError(['PI_MODEL_ID']);
+  // Harbor runs free OpenRouter models and the short paid list above: anything else is a configuration
+  // error, never a fallback.
+  if (!model || !(isFreeModel(model) || (PAID_OPENROUTER_MODELS as readonly string[]).includes(model.id))) {
+    throw new ConfigError(['PI_MODEL_ID']);
+  }
   return {
     model,
     streamFn: models.streamSimple.bind(models),

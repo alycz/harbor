@@ -7,7 +7,7 @@ interface __BaseEnv_Env {
 	EXECUTION_ENABLED: "false";
 	ENABLED_WRITE_ADAPTERS: "";
 	PI_PROVIDER: "openrouter";
-	PI_MODEL_ID: "openrouter/free";
+	PI_MODEL_ID: "z-ai/glm-5.3-flash";
 	AGENT_GUEST_TURNS_PER_15_MIN: "5";
 	AGENT_MAX_ACTIVE_RUNS: "4";
 	CONVERSATIONS: DurableObjectNamespace<import("./src/index").ConversationAgent>;
@@ -24,7 +24,7 @@ declare namespace Cloudflare {
 		EXECUTION_ENABLED: "false";
 		ENABLED_WRITE_ADAPTERS: "";
 		PI_PROVIDER: "openrouter";
-		PI_MODEL_ID: "openrouter/free";
+		PI_MODEL_ID: "z-ai/glm-5.3-flash";
 		AGENT_GUEST_TURNS_PER_15_MIN: "5";
 		AGENT_MAX_ACTIVE_RUNS: "4";
 		CONVERSATIONS: DurableObjectNamespace<import("./src/index").ConversationAgent>;

@@ -14,7 +14,13 @@ describe('createModelSource', () => {
     }
   });
 
-  it('refuses paid and unknown models instead of falling back', () => {
+  it('accepts the cheap paid GLM models by name', () => {
+    for (const modelId of ['z-ai/glm-5.3-flash', 'z-ai/glm-5.3']) {
+      expect(createModelSource({ provider: 'openrouter', modelId, apiKey: KEY }).model.id).toBe(modelId);
+    }
+  });
+
+  it('refuses other paid and unknown models instead of falling back', () => {
     for (const modelId of ['anthropic/claude-sonnet-5.5', 'thinkingmachines/inkling', 'nope/not-a-model:free']) {
       expect(() => createModelSource({ provider: 'openrouter', modelId, apiKey: KEY })).toThrow(ConfigError);
     }
