@@ -29,7 +29,9 @@ jobs:
           rustup update stable --no-self-update
           rustup target add wasm32-unknown-unknown --toolchain stable
           rustc +stable --version --verbose
-      - name: Build locked release WASM (no transactions or tests)
+      - name: Verify vault rules and callback accounting
+        run: cargo +stable test --locked
+      - name: Build locked release WASM (no transactions)
         env:
           RUSTFLAGS: "-C target-cpu=mvp"
         run: cargo +stable build --locked --release --target wasm32-unknown-unknown
@@ -39,7 +41,7 @@ jobs:
           cp target/wasm32-unknown-unknown/release/harbor_leash.wasm dist/
           cd dist
           sha256sum harbor_leash.wasm > SHA256SUMS
-          printf 'Commit: %s\nBuild only. Not deployed, audited, or integration-tested.\n' "$GITHUB_SHA" > BUILD.txt
+          printf 'Commit: %s\nUnit-tested build. Not deployed, audited, or live-integration-tested.\n' "$GITHUB_SHA" > BUILD.txt
       - uses: actions/upload-artifact@v4
         with:
           name: leash-wasm-${{ github.sha }}
