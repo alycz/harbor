@@ -317,7 +317,7 @@ describe('admission', () => {
 
 describe('list_markets', () => {
   it('sorts yield pools by APY when asked', async () => {
-    const [tool] = createTools({ proposals: noProposals });
+    const tool = createTools({ proposals: noProposals }).find((candidate) => candidate.name === 'list_markets');
     const result = await tool?.execute('call-2', { kind: 'yield_pools', sort: 'apy', limit: 5 }, undefined);
     const text = result?.content[0]?.type === 'text' ? result.content[0].text : '';
     const { rows } = JSON.parse(text.slice(text.indexOf('\n') + 1, text.lastIndexOf('\n')));
@@ -326,7 +326,7 @@ describe('list_markets', () => {
   });
 
   it('returns dated snapshot rows inside an untrusted envelope', async () => {
-    const [tool] = createTools({ proposals: noProposals });
+    const tool = createTools({ proposals: noProposals }).find((candidate) => candidate.name === 'list_markets');
     const result = await tool?.execute('call-1', { kind: 'protocols', category: 'lending', limit: 2 }, undefined);
     const text = result?.content[0]?.type === 'text' ? result.content[0].text : '';
 
