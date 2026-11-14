@@ -74,6 +74,8 @@ export interface Plan {
   funding: {
     chain: string;
     asset: string;
+    sender: string;
+    deadline: string;
     amountRaw: string;
     address: string;
     memo: string | null;
