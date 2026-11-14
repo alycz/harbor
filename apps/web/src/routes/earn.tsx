@@ -2,6 +2,7 @@ import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
+import { RheaSupply } from '../components/rhea-supply.tsx';
 import { EarnVaults } from '../components/earn-vaults.tsx';
 import { IntegrationDemo } from '../components/integration-demo.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
@@ -43,6 +44,7 @@ export function EarnPage() {
         }
       />
       <IntegrationDemo />
+      <RheaSupply />
       {best.length === 0 ? (
         <Panel>
           <EmptyState
