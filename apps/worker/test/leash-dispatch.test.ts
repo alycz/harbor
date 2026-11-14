@@ -11,6 +11,7 @@ describe('Leash dispatch admission', () => {
       ['approve', 'POST'],
       ['executions/abcd1234/submit', 'POST'],
       ['executions/abcd1234', 'GET'],
+      ['executions', 'GET'],
     ] as const) {
       const r = await createApp().request(`https://harbor.test/api/leash/${path}`, { method }, env);
       expect(r.status).toBe(401);
@@ -55,5 +56,45 @@ describe('Leash dispatch admission', () => {
     const r = await createApp().request(`https://harbor.test/api/leash/executions/${id}`, { headers: { cookie } }, env);
     expect(r.status).toBe(404);
     expect(fetch).not.toHaveBeenCalled();
+  });
+  it("lists only the signed-in owner's agent swaps, newest first, with where each one got to", async () => {
+    const swap = (amountIn: string) =>
+      JSON.stringify({
+        args: {
+          quote: JSON.stringify({
+            amountIn,
+            originAsset: 'nep141:wrap.near',
+            destinationAsset: 'nep141:usdc.near',
+            minAmountOut: '297423',
+            recipient: 'lister.near',
+          }),
+        },
+      });
+    const add = (id: string, owner: string, request: string, at: number) =>
+      env.DB.prepare(
+        'INSERT INTO leash_approvals(id,owner,request_json,quote_response,created_at_ms) VALUES(?,?,?,?,?)',
+      )
+        .bind(id, owner, request, '{}', at)
+        .run();
+    await add('old-list', 'lister.near', swap('100'), 1000);
+    await add('new-list', 'lister.near', swap('200'), 2000);
+    await add('bob-list', 'bob-list.near', swap('300'), 3000);
+    await add('broken-list', 'lister.near', 'not json', 4000);
+    await env.DB.prepare(
+      "INSERT INTO leash_executions(id,owner,digest,state,tx_hash,created_at_ms) VALUES('new-list','lister.near','digest-list','submitted','AivY8fwq9E1jbpPbxQdL4oEt8LhMxDYoqDkBHyBuUrcX',2000)",
+    ).run();
+    const cookie = await sessionCookie('lister.near');
+    const r = await createApp().request('https://harbor.test/api/leash/executions', { headers: { cookie } }, env);
+    expect(r.status).toBe(200);
+    const { items } = (await r.json()) as {
+      items: { id: string; state: string; txHash: string | null; amountIn: string }[];
+    };
+    expect(items.map((item) => item.id)).toEqual(['new-list', 'old-list']);
+    expect(items[0]).toMatchObject({
+      state: 'submitted',
+      amountIn: '200',
+      txHash: 'AivY8fwq9E1jbpPbxQdL4oEt8LhMxDYoqDkBHyBuUrcX',
+    });
+    expect(items[1]).toMatchObject({ state: 'approved-not-submitted', txHash: null });
   });
 });

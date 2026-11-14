@@ -1,8 +1,9 @@
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, Bot, Check, CircleAlert, LoaderCircle, LockKeyhole, Snowflake } from 'lucide-react';
 import { type ReactNode, useId, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { call, ExecutionRequestError, execution as executionApi, type SwapAsset } from '../lib/execution.ts';
 import {
@@ -17,6 +18,7 @@ import {
 import { useWallet, type WalletTransaction } from '../lib/wallet.tsx';
 import { AssetIcon } from './asset-icon.tsx';
 import { AssetSelect, chainName } from './asset-select.tsx';
+import { SwapHistory } from './leash-history.tsx';
 import { UnitInput } from './unit-input.tsx';
 import { Chip, Panel } from './workspace.tsx';
 
@@ -190,6 +192,7 @@ function OwnerVault({ owner }: { owner: string }) {
       >
         <AgentSwap owner={owner} vault={data.vault} registry={registry} snapshot={data} />
       </Panel>
+      <SwapHistory owner={owner} registry={registry} executionAvailable={data.executionAvailable} />
     </>
   );
 }
@@ -776,6 +779,7 @@ function AgentSwap({
   snapshot: Snapshot;
 }) {
   const id = useId();
+  const queryClient = useQueryClient();
   const token = registry.find((asset) => asset.canonicalId === `nep141:${vault.limits.token}`);
   const decimals = token?.decimals ?? 0;
   const symbol = token?.symbol ?? '';
@@ -790,15 +794,6 @@ function AgentSwap({
   const [slippagePct, setSlippagePct] = useState(String(Math.min(vault.limits.max_slippage_bps, 50) / 100));
   const [quote, setQuote] = useState<{ response: unknown; signedQuotePayload: string } | null>(null);
   const [pasted, setPasted] = useState('');
-  const [execution, setExecution] = useState<Execution | null>(() => {
-    try {
-      const saved = localStorage.getItem(`harbor-leash:${owner}`);
-      return saved ? { id: saved, state: 'recovery-required' } : null;
-    } catch {
-      return null;
-    }
-  });
-  const [attempted, setAttempted] = useState(Boolean(execution));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const lock = useRef(false);
@@ -840,97 +835,20 @@ function AgentSwap({
         method: 'POST',
         body: { quoteResponse: response },
       });
-      try {
-        localStorage.setItem(`harbor-leash:${owner}`, approved.id);
-      } catch {
-        /* Recovery stays in memory. */
-      }
-      setExecution(approved);
+      // Whatever happens next, the swap is in the history below, which also recovers from a failed send.
+      await queryClient.invalidateQueries({ queryKey: ['leash-executions', owner] });
       if (!canSubmitLeash(snapshot.executionAvailable, false, false, approved.state ?? approved.status)) return;
-      setAttempted(true);
-      setExecution({ ...approved, state: 'submission-requested' });
-      const sent = await call<Execution>(`/api/leash/executions/${encodeURIComponent(approved.id)}/submit`, {
-        method: 'POST',
+      try {
+        await call<Execution>(`/api/leash/executions/${encodeURIComponent(approved.id)}/submit`, { method: 'POST' });
+      } finally {
+        await queryClient.invalidateQueries({ queryKey: ['leash-executions', owner] });
+        void queryClient.invalidateQueries({ queryKey: ['leash-vault', owner] });
+      }
+      setQuote(null);
+      toast.success('Sent', {
+        description: 'The agent is paying from your vault. Follow it under Agent swaps below.',
       });
-      setExecution({ ...sent, id: approved.id });
     });
-
-  const checkStatus = (current: Execution) =>
-    run(async () => {
-      setExecution(await call<Execution>(`/api/leash/executions/${encodeURIComponent(current.id)}`));
-    });
-
-  if (execution) {
-    const state = execution.state ?? execution.status ?? '';
-    return (
-      <section aria-labelledby={`${id}-swap`} className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 id={`${id}-swap`} className="text-[14px] font-medium">
-            The agent's swap
-          </h3>
-          <Chip tone={execution.settled ? 'success' : 'neutral'} dot>
-            {execution.settled ? 'Delivered and checked' : statusLabel(state)}
-          </Chip>
-        </div>
-        {execution.txHash ? (
-          <a
-            href={`https://nearblocks.io/txns/${execution.txHash}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--ws-accent-ink)] hover:underline"
-          >
-            View the payment on NEARBlocks <ArrowUpRight className="size-3.5" aria-hidden="true" />
-          </a>
-        ) : null}
-        <div className="flex flex-wrap gap-2.5">
-          {canSubmitLeash(snapshot.executionAvailable, busy, attempted, state) ? (
-            <Button
-              className="h-10 px-4"
-              onClick={() =>
-                void run(async () => {
-                  setAttempted(true);
-                  const sent = await call<Execution>(
-                    `/api/leash/executions/${encodeURIComponent(execution.id)}/submit`,
-                    { method: 'POST' },
-                  );
-                  setExecution({ ...sent, id: execution.id });
-                })
-              }
-            >
-              Send it
-            </Button>
-          ) : null}
-          <Button variant="outline" className="h-10 px-4" disabled={busy} onClick={() => void checkStatus(execution)}>
-            {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
-            Check status
-          </Button>
-          {execution.settled ? (
-            <Button
-              variant="ghost"
-              className="h-10 px-4"
-              onClick={() => {
-                try {
-                  localStorage.removeItem(`harbor-leash:${owner}`);
-                } catch {
-                  /* optional */
-                }
-                setExecution(null);
-                setQuote(null);
-                setAttempted(false);
-              }}
-            >
-              Make another swap
-            </Button>
-          ) : null}
-        </div>
-        <p className="text-[12px] text-muted-foreground">
-          If the page reloads or times out, check the status instead of sending again. A payment alone does not prove
-          delivery; Harbor checks that too.
-        </p>
-        {error ? <Problem>{error}</Problem> : null}
-      </section>
-    );
-  }
 
   const summary = quoteSummary(quote?.response);
   const swapStep = quote ? 1 : 0;
@@ -1238,17 +1156,6 @@ function quoteSummary(response: unknown): { amountIn: string | null; amountOut: 
     amountOut: text('amountOutFormatted'),
     minOut: text('minAmountOutFormatted'),
   };
-}
-
-function statusLabel(state: string): string {
-  const labels: Record<string, string> = {
-    'approved-not-submitted': 'Approved, not sent',
-    'submission-requested': 'Sending',
-    submitted: 'Sent, checking delivery',
-    'outcome-unknown': 'Outcome unknown, check status',
-    'recovery-required': 'Check status',
-  };
-  return labels[state] ?? (state ? state.replaceAll('-', ' ') : 'Not yet checked');
 }
 
 /**

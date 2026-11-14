@@ -134,6 +134,44 @@ export function createLeashDispatchRoutes() {
       );
       return c.json(result, 202);
     })
+    .get('/executions', async (c) => {
+      // The owner's recent agent swaps, newest first: what was approved, and where each one got to.
+      const { results } = await c.env.DB.prepare(
+        `SELECT a.id, a.request_json, a.created_at_ms, e.state, e.tx_hash
+           FROM leash_approvals a LEFT JOIN leash_executions e ON e.id = a.id
+          WHERE a.owner = ? ORDER BY a.created_at_ms DESC LIMIT 20`,
+      )
+        .bind(c.get('account'))
+        .all<{
+          id: string;
+          request_json: string;
+          created_at_ms: number;
+          state: string | null;
+          tx_hash: string | null;
+        }>();
+      const items = results.flatMap((row) => {
+        try {
+          const request = JSON.parse(row.request_json) as LeashRequest;
+          const quote = JSON.parse(request.args.quote) as Record<string, unknown>;
+          return [
+            {
+              id: row.id,
+              createdAtMs: row.created_at_ms,
+              amountIn: String(quote.amountIn ?? ''),
+              originAsset: String(quote.originAsset ?? ''),
+              destinationAsset: String(quote.destinationAsset ?? ''),
+              minAmountOut: String(quote.minAmountOut ?? ''),
+              recipient: String(quote.recipient ?? ''),
+              state: row.state ?? 'approved-not-submitted',
+              txHash: row.tx_hash,
+            },
+          ];
+        } catch {
+          return [];
+        }
+      });
+      return c.json({ items });
+    })
     .get('/executions/:id', async (c) => {
       const row = await approved(c.env.DB, c.req.param('id'), c.get('account'));
       const request = JSON.parse(row.request_json) as LeashRequest;
