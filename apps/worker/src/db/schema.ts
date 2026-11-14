@@ -344,7 +344,7 @@ export const autopilotRuns = sqliteTable(
   (table) => [index('autopilot_runs_owner_idx').on(table.ownerAccount, table.status, table.createdAtMs)],
 );
 
-export const AUTOMATION_KINDS = ['price_alert'] as const;
+export const AUTOMATION_KINDS = ['price_alert', 'spread_alert'] as const;
 export const AUTOMATION_STATUSES = ['draft', 'active', 'paused', 'completed', 'deleted'] as const;
 export const EVALUATION_RESULTS = ['true', 'false', 'unknown'] as const;
 const AUTOMATION_STATUS_CHECK = sql.raw(`status IN (${AUTOMATION_STATUSES.map((status) => `'${status}'`).join(', ')})`);

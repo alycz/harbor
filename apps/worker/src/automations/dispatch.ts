@@ -1,12 +1,13 @@
 import { formatRawAmount, MAX_U128_RAW, parseDecimalAmount } from '@harbor/domain/amount';
 import { claim, complete, enqueue, fail, failExhausted, type Lease, Superseded } from '@harbor/jobs/jobs';
+import { tokenContractOf } from '@harbor/near/chain';
 import { drizzle } from 'drizzle-orm/d1';
 import { z } from 'zod';
 
 import { decodeExecutionConfig } from '../config.ts';
 import { type ExecutionDeps, executionDeps } from '../execution/store.ts';
-import type { PriceAlertConfig } from './config.ts';
-import { evaluatePriceAlert, type QuoteSource } from './evaluate.ts';
+import type { PriceAlertConfig, SpreadAlertConfig } from './config.ts';
+import { evaluatePriceAlert, evaluateSpreadAlert, type QuoteSource } from './evaluate.ts';
 import type { AutomationDeps, RuleRow } from './rules.ts';
 
 const JOB_KIND = 'automation.evaluate';
@@ -33,6 +34,39 @@ export function automationDeps(env: Env): AutomationDeps {
     network: config.network,
     now: Date.now,
     quotes: venueQuotes(execution),
+    reference: rheaQuotes(execution),
+  };
+}
+
+/** Evaluates a saved rule's config by its kind. */
+export function evaluateRule(deps: AutomationDeps, kind: RuleRow['kind'], config: unknown) {
+  return kind === 'spread_alert'
+    ? evaluateSpreadAlert(config as SpreadAlertConfig, { intents: deps.quotes, rhea: deps.reference })
+    : evaluatePriceAlert(config as PriceAlertConfig, deps.quotes);
+}
+
+/** Reads a swap's price on Rhea's router: a price only, Harbor never executes there. NEAR tokens only. */
+function rheaQuotes(deps: ExecutionDeps): QuoteSource {
+  return {
+    async read(request) {
+      const router = deps.reference;
+      if (!router) throw new Error('No Rhea router is configured.');
+      const sell = deps.assets.byId(request.sellAssetId);
+      const buy = deps.assets.byId(request.buyAssetId);
+      if (!sell || !buy) throw new Error('This monitor names an asset Harbor does not support.');
+      const tokenIn = tokenContractOf(sell.canonicalId);
+      const tokenOut = tokenContractOf(buy.canonicalId);
+      if (sell.chain !== 'near' || buy.chain !== 'near' || !tokenIn || !tokenOut) {
+        throw new Error('Rhea prices NEAR tokens only.');
+      }
+      const quote = await router.quote({
+        tokenIn,
+        tokenOut,
+        amountIn: parseDecimalAmount(request.amount, sell.decimals, MAX_U128_RAW),
+      });
+      if (!quote) throw new Error('Rhea has no route for this pair and size right now.');
+      return { amountOut: formatRawAmount(quote.amountOut, buy.decimals), venue: 'rhea', observedAtMs: deps.now() };
+    },
   };
 }
 
@@ -136,7 +170,7 @@ async function runCheck(deps: AutomationDeps, lease: Lease): Promise<boolean> {
     return false;
   }
 
-  const evaluation = await evaluatePriceAlert(JSON.parse(rule.config) as PriceAlertConfig, deps.quotes);
+  const evaluation = await evaluateRule(deps, rule.kind, JSON.parse(rule.config));
   const now = deps.now();
   const cooled = rule.last_triggered_at_ms === null || now - rule.last_triggered_at_ms >= rule.cooldown_ms;
   const fire = evaluation.result === 'true' && rule.armed === 1 && cooled;
