@@ -32,7 +32,8 @@
     "ENABLED_WRITE_ADAPTERS": "oneclick,rhea-lending,templar",
     "PI_PROVIDER": "openrouter",
     "PI_MODEL_ID": "z-ai/glm-5.3-flash",
-    "AGENT_GUEST_TURNS_PER_15_MIN": "5",
+    "AGENT_GUEST_TURNS_PER_15_MIN": "30",
+    "AGENT_ACCOUNT_TURNS_PER_15_MIN": "100",
     "AGENT_MAX_ACTIVE_RUNS": "4"
   },
   // Every secret (OPENROUTER_API_KEY, ONE_CLICK_JWT) is optional: without one, the feature that
@@ -65,7 +66,8 @@
         "ENABLED_WRITE_ADAPTERS": "",
         "PI_PROVIDER": "openrouter",
         "PI_MODEL_ID": "z-ai/glm-5.3-flash",
-        "AGENT_GUEST_TURNS_PER_15_MIN": "5",
+        "AGENT_GUEST_TURNS_PER_15_MIN": "30",
+        "AGENT_ACCOUNT_TURNS_PER_15_MIN": "100",
         "AGENT_MAX_ACTIVE_RUNS": "4"
       },
       "durable_objects": {

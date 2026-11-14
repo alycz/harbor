@@ -1,8 +1,11 @@
 import { AppError } from '@harbor/domain/errors';
 import { Hono } from 'hono';
+import { getCookie } from 'hono/cookie';
 import { z } from 'zod';
 
 import type { AppEnv } from '../app.ts';
+import { SESSION_COOKIE } from '../auth/guard.ts';
+import { authDeps, readSession } from '../auth/session.ts';
 import { decodeAdmissionLimits } from '../config.ts';
 
 const MAX_MESSAGE_CHARS = 4_000;
@@ -42,18 +45,27 @@ export function createAgentRoutes() {
         'That message looks like it contains a secret key. Harbor never needs one; it was not sent.',
       );
     }
+    // A signed-in wallet is counted by its account, so a shared IP (an office, a demo room) never
+    // throttles it; anyone else is counted by IP under the stricter guest limit.
+    const session = await readSession(authDeps(c.env), getCookie(c, SESSION_COOKIE)).catch(() => null);
     const result = await conversation(c.env, c.req.param('id')).admit({
       ...parsed.data,
-      subject: await subjectOf(c.req.header('cf-connecting-ip')),
-      limits: decodeAdmissionLimits(c.env),
+      subject: await subjectOf(
+        session ? `account:${session.accountId}` : `ip:${c.req.header('cf-connecting-ip') ?? 'local'}`,
+      ),
+      limits: decodeAdmissionLimits(c.env, session !== null),
     });
     switch (result.status) {
       case 'busy':
         throw new AppError('CONFLICT', 'This conversation is already answering a message.');
       case 'rate_limited':
-        throw new AppError('RATE_LIMITED', 'You have reached the guest message limit for now.', {
-          retryAfterSeconds: Math.ceil(result.retryAfterMs / 1000),
-        });
+        throw new AppError(
+          'RATE_LIMITED',
+          session
+            ? 'You have reached the message limit for now.'
+            : 'You have reached the guest message limit for now. Connect your wallet for a higher limit.',
+          { retryAfterSeconds: Math.ceil(result.retryAfterMs / 1000) },
+        );
       case 'at_capacity':
         throw new AppError('UNAVAILABLE', 'Harbor is answering other questions. Try again in a few seconds.', {
           retryAfterSeconds: Math.ceil(result.retryAfterMs / 1000),
@@ -96,7 +108,8 @@ function runIdOf(id: string): string {
 }
 
 /** Guests are counted by a hash of their IP address; the address itself is never stored. */
-async function subjectOf(ip: string | undefined): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`harbor-guest:${ip ?? 'local'}`));
+/** A one-way key for whoever is sending: their account or their IP, never stored in the clear. */
+async function subjectOf(sender: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`harbor-guest:${sender}`));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
