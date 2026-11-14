@@ -1,8 +1,9 @@
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Bell, Check, ChevronDown, LoaderCircle, Pause, Play, Radar, Trash2 } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { ArrowUpRight, Bell, Check, ChevronDown, LoaderCircle, Pause, Play, Radar, Trash2 } from 'lucide-react';
+import { type ReactNode, useEffect, useId, useState } from 'react';
 import {
   type Automation,
   type AutomationAlert,
@@ -14,6 +15,7 @@ import {
   type RoundTrip,
   routeVenues,
   SPREAD_PAIRS,
+  type SpreadCheck,
   type SpreadConfig,
   type SpreadEvidence,
 } from '../lib/automations.ts';
@@ -21,7 +23,7 @@ import { ExecutionRequestError, execution } from '../lib/execution.ts';
 import { formatTokenAmount, formatUtc } from '../lib/format.ts';
 import { useWallet } from '../lib/wallet.tsx';
 import { SwapProposalCard } from './swap-proposal.tsx';
-import { Chip, type ChipTone, EmptyState, Panel } from './workspace.tsx';
+import { Chip, EmptyState, Panel } from './workspace.tsx';
 
 const SELECT =
   'h-10 w-full rounded-md border border-input bg-background px-3 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40';
@@ -36,7 +38,7 @@ const LIST_REFRESH_MS = 30_000;
 export function SpreadMonitors() {
   return (
     <>
-      <NewSpreadMonitor />
+      <ConfigureMonitor />
       <MonitorList />
     </>
   );
@@ -50,14 +52,31 @@ interface Draft {
   mode: 'once' | 'repeat';
 }
 
-function NewSpreadMonitor() {
+/** One labelled field with a short hint under it, the way every setting on this card reads. */
+function Field({ id, label, hint, children }: { id: string; label: string; hint: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-[13px] font-medium">
+        {label}
+      </label>
+      {children}
+      <p className="text-[12px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+/**
+ * Configure a spread monitor: the settings on the left of the reading, and the market right now under
+ * them, so what you set is always measured against what the venues quote.
+ */
+function ConfigureMonitor() {
   const id = useId();
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const assets = useQuery({ queryKey: ['assets'], queryFn: execution.assets, staleTime: 5 * 60_000 });
   const [draft, setDraft] = useState<Draft>({ pair: 0, size: '100', threshold: '0.5', cooldown: '15', mode: 'repeat' });
   const config = spreadConfig(draft, assets.data?.assets ?? []);
-  // Typing should not fire a quote per keystroke: preview the settings once they rest.
+  // Typing should not fire a quote per keystroke: read the market once the settings rest.
   const configKey = JSON.stringify(config);
   const [settledKey, setSettledKey] = useState(configKey);
   useEffect(() => {
@@ -65,7 +84,7 @@ function NewSpreadMonitor() {
     return () => clearTimeout(timer);
   }, [configKey]);
   const settled = JSON.parse(settledKey) as SpreadConfig | null;
-  const preview = useQuery({
+  const live = useQuery({
     queryKey: ['spread-preview', settledKey],
     queryFn: () => automations.previewSpread(settled as SpreadConfig),
     enabled: settled !== null,
@@ -87,16 +106,18 @@ function NewSpreadMonitor() {
   };
 
   return (
-    <div className="grid items-start gap-5 @4xl/workspace:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <Panel label="New spread monitor" icon={<Radar />} labelId={`${id}-title`} bodyClassName="p-5">
-        <p className="mb-5 text-[13px] leading-relaxed text-muted-foreground">
-          Every minute, Harbor prices a round trip on both venues with real quotes: buy on NEAR Intents and sell on
-          Rhea, and the reverse. When the better one clears your threshold, it alerts you and can queue the NEAR Intents
-          leg for you to sign.
+    <section aria-labelledby={`${id}-title`} className="ws-card overflow-hidden">
+      <header className="border-b border-border px-5 py-4 @xl/workspace:px-6">
+        <h2 id={`${id}-title`} className="font-display text-[24px] leading-tight">
+          Configure your monitor
+        </h2>
+        <p className="mt-1 text-[13.5px] text-muted-foreground">
+          Harbor quotes a round trip on NEAR Intents and Rhea every minute and alerts you when the gap pays.
         </p>
-        <div className="grid gap-4 @xl/workspace:grid-cols-2">
-          <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-pair`}>
-            Pair
+      </header>
+      <div className="space-y-5 px-5 py-5 @xl/workspace:px-6">
+        <div className="grid gap-x-5 gap-y-4 @2xl/workspace:grid-cols-2">
+          <Field id={`${id}-pair`} label="Pair" hint={`Priced on NEAR Intents and on Rhea, both on NEAR.`}>
             <select
               id={`${id}-pair`}
               className={SELECT}
@@ -109,9 +130,8 @@ function NewSpreadMonitor() {
                 </option>
               ))}
             </select>
-          </label>
-          <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-size`}>
-            Trade size ({pair.quote})
+          </Field>
+          <Field id={`${id}-size`} label={`Trade size (${pair.quote})`} hint="The round trip the gap is measured on.">
             <Input
               id={`${id}-size`}
               className="h-10"
@@ -119,9 +139,12 @@ function NewSpreadMonitor() {
               value={draft.size}
               onChange={(event) => set({ size: event.target.value.trim() })}
             />
-          </label>
-          <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-threshold`}>
-            Alert at a round-trip gain of (%)
+          </Field>
+          <Field
+            id={`${id}-threshold`}
+            label="Alert at profit of (%)"
+            hint="After both venues’ fees and price impact. Below zero alerts when the round trip costs less than that."
+          >
             <Input
               id={`${id}-threshold`}
               className="h-10"
@@ -129,9 +152,8 @@ function NewSpreadMonitor() {
               value={draft.threshold}
               onChange={(event) => set({ threshold: event.target.value.trim() })}
             />
-          </label>
-          <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-cooldown`}>
-            Quiet time after an alert (minutes)
+          </Field>
+          <Field id={`${id}-cooldown`} label="Cooldown (minutes)" hint="Minimum time between alerts.">
             <Input
               id={`${id}-cooldown`}
               className="h-10"
@@ -139,10 +161,10 @@ function NewSpreadMonitor() {
               value={draft.cooldown}
               onChange={(event) => set({ cooldown: event.target.value.trim() })}
             />
-          </label>
+          </Field>
         </div>
-        <fieldset className="mt-4">
-          <legend className="mb-1.5 text-[12.5px] text-muted-foreground">Repeat</legend>
+        <fieldset>
+          <legend className="mb-1.5 text-[13px] font-medium">Repeat</legend>
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -150,123 +172,184 @@ function NewSpreadMonitor() {
                 ['once', 'Once, then stop'],
               ] as const
             ).map(([value, label]) => (
-              <Button
+              <button
                 key={value}
                 type="button"
-                variant={draft.mode === value ? 'secondary' : 'ghost'}
                 aria-pressed={draft.mode === value}
-                className="h-9 px-3 text-[13px]"
                 onClick={() => set({ mode: value })}
+                className={`h-9 rounded-md border px-3.5 text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+                  draft.mode === value
+                    ? 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] text-[var(--ws-accent-ink)]'
+                    : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                }`}
               >
                 {label}
-              </Button>
+              </button>
             ))}
           </div>
         </fieldset>
         {config === null ? (
-          <p className="mt-4 text-[12.5px] text-destructive">
-            Enter a size above zero, a threshold from 0% to 50%, and a quiet time of 1 to 1,440 minutes.
+          <p role="alert" className="text-[12.5px] text-destructive">
+            Enter a size above zero, a profit from −5% to 50%, and a cooldown of 1 to 1,440 minutes.
           </p>
         ) : null}
-        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
-          {wallet.address ? (
-            <Button
-              className="h-10 gap-2 px-4"
-              disabled={config === null || start.isPending}
-              onClick={() => start.mutate()}
-            >
-              {start.isPending ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <Play />}
-              Start monitoring
-            </Button>
-          ) : (
-            <Button className="h-10 px-4" onClick={wallet.connect} disabled={wallet.connecting}>
-              Connect wallet to start
-            </Button>
-          )}
-          {start.isSuccess ? (
-            <span className="inline-flex items-center gap-1.5 text-[13px] text-success">
-              <Check className="size-4" aria-hidden="true" /> Monitoring. The first check runs within a minute.
-            </span>
-          ) : null}
-          {start.error ? <span className="text-[13px] text-destructive">{errorText(start.error)}</span> : null}
-        </div>
-      </Panel>
-      <Panel
-        label="Live check"
-        labelId={`${id}-live`}
-        aside={preview.data ? `Checked ${formatUtc(preview.data.evaluatedAt)}` : null}
-        bodyClassName="p-5"
-      >
-        {settled === null ? (
-          <p className="text-[13px] text-muted-foreground">Fix the settings to see a live check.</p>
-        ) : preview.isPending ? (
-          <p role="status" className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-            Quoting both venues…
-          </p>
-        ) : preview.error ? (
-          <p className="text-[13px] text-destructive">{errorText(preview.error)}</p>
-        ) : preview.data ? (
-          <SpreadReading evidence={preview.data.evidence} result={preview.data.result} />
+        <LiveNow
+          config={settled}
+          pending={live.isPending && settled !== null}
+          error={live.error}
+          reading={live.data ?? null}
+        />
+      </div>
+      <footer className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-4 @xl/workspace:px-6">
+        {wallet.address ? (
+          <Button
+            className="h-10 gap-2 px-4"
+            disabled={config === null || start.isPending}
+            onClick={() => start.mutate()}
+          >
+            {start.isPending ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
+            Start monitoring
+          </Button>
+        ) : (
+          <Button className="h-10 px-4" onClick={wallet.connect} disabled={wallet.connecting}>
+            Connect wallet to start
+          </Button>
+        )}
+        {start.isSuccess ? (
+          <span className="inline-flex items-center gap-1.5 text-[13px] text-success">
+            <Check className="size-4" aria-hidden="true" /> Monitoring. The first check runs within a minute.
+          </span>
         ) : null}
-      </Panel>
-    </div>
+        {start.error ? <span className="text-[13px] text-destructive">{errorText(start.error)}</span> : null}
+        <Link
+          to="/chat"
+          search={{
+            ask: `Explain the ${pair.base}/${pair.quote} price gap between NEAR Intents and Rhea right now, and whether a ${draft.size} ${pair.quote} round trip is worth it.`,
+          }}
+          className="ml-auto inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--ws-accent-ink)] hover:underline"
+        >
+          Ask Harbor <ArrowUpRight className="size-3.5" aria-hidden="true" />
+        </Link>
+      </footer>
+    </section>
   );
 }
 
-/** Both round trips of one check, the better one marked, against the threshold. */
-function SpreadReading({ evidence, result }: { evidence: SpreadEvidence; result: CheckResult }) {
+/** What each venue quotes right now for the configured size, the gap between them and the better route. */
+function LiveNow({
+  config,
+  pending,
+  error,
+  reading,
+}: {
+  config: SpreadConfig | null;
+  pending: boolean;
+  error: unknown;
+  reading: SpreadCheck | null;
+}) {
+  const box = 'rounded-xl border border-border bg-secondary/35 p-4 @xl/workspace:p-5';
+  if (config === null)
+    return <div className={`${box} text-[13px] text-muted-foreground`}>Fix the settings to read the market.</div>;
+  if (pending) {
+    return (
+      <div role="status" className={`${box} flex items-center gap-2 text-[13px] text-muted-foreground`}>
+        <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        Quoting NEAR Intents and Rhea…
+      </div>
+    );
+  }
+  if (error || !reading) return <div className={`${box} text-[13px] text-destructive`}>{errorText(error)}</div>;
+  const { evidence } = reading;
+  const prices = venuePrices(evidence);
+  const best = evidence.trips.find((trip) => trip.route === evidence.best) ?? null;
+  const returned = best?.returned ?? null;
+  const delta = returned === null ? null : Number(returned) - Number(evidence.size.amount);
+  const [buyOn, sellOn] = best ? routeVenues(best.route) : ['', ''];
+  const status =
+    reading.result === 'true'
+      ? 'Above threshold'
+      : reading.result === 'unknown'
+        ? 'Could not price'
+        : 'Below threshold';
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Chip tone={result === 'true' ? 'success' : result === 'unknown' ? 'warning' : 'neutral'} dot>
-          {result === 'true' ? 'Would alert now' : result === 'unknown' ? 'Could not price' : 'Below threshold'}
-        </Chip>
-        <span className="text-[12.5px] text-muted-foreground">
-          Alerts at {formatEdge(evidence.thresholdPct)} on {formatTokenAmount(evidence.size.amount)}{' '}
-          {evidence.size.symbol}
+    <section aria-live="polite" aria-label="Live market" className={box}>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[12.5px] text-muted-foreground">
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-success motion-safe:animate-pulse" />
+          Live now, {formatClock(reading.evaluatedAt)}
         </span>
+        <Chip tone={reading.result === 'true' ? 'success' : reading.result === 'unknown' ? 'warning' : 'neutral'}>
+          {status}
+        </Chip>
       </div>
-      <ul className="space-y-3">
-        {evidence.trips.map((trip) => (
-          <TripRow key={trip.route} trip={trip} best={trip.route === evidence.best} />
+      <div className="mt-4 grid gap-4 @xl/workspace:grid-cols-2">
+        {prices.map((venue) => (
+          <div key={venue.name}>
+            <p className="text-[13px] text-muted-foreground">{venue.name}</p>
+            <p className="ws-num mt-1 text-[26px] leading-none font-medium tracking-[-0.02em]">
+              {venue.price === null ? '—' : formatPrice(venue.price)}
+            </p>
+            <p className="mt-1.5 text-[12px] text-muted-foreground">
+              {config.quote.symbol} per {config.base.symbol}, buying with {formatTokenAmount(config.size)}{' '}
+              {config.quote.symbol}, fees included
+            </p>
+          </div>
         ))}
-      </ul>
-      <p className="text-[12px] leading-relaxed text-muted-foreground">
-        Real quotes from both venues, each leg feeding the next. Venue fees and price impact are included; network gas
-        is not. Rhea is a price reference: Harbor executes only the NEAR Intents leg.
+      </div>
+      <dl className="mt-5 space-y-2 border-t border-border pt-4 text-[13.5px]">
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-muted-foreground">Price gap</dt>
+          <dd className="ws-num">{priceGap(prices)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-muted-foreground">
+            Round trip on {formatTokenAmount(config.size)} {config.quote.symbol}
+          </dt>
+          <dd className={`ws-num ${delta !== null && delta >= 0 ? 'text-success' : ''}`}>
+            {best
+              ? `${formatEdge(best.edgePct)} (${delta !== null && delta >= 0 ? '+' : '−'}${Math.abs(delta ?? 0).toFixed(2)} ${config.quote.symbol})`
+              : '—'}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-muted-foreground">Route</dt>
+          <dd className="text-right">{best ? `Buy on ${buyOn}, sell on ${sellOn}` : '—'}</dd>
+        </div>
+      </dl>
+      <p className="mt-4 text-[12.5px] leading-relaxed text-muted-foreground">{reading.reason}</p>
+      <p className="mt-1.5 text-[12px] text-muted-foreground">
+        Venue fees and price impact are included; network fees are not. Harbor executes the NEAR Intents leg; Rhea is
+        priced for comparison.
       </p>
-    </div>
+    </section>
   );
 }
 
-function TripRow({ trip, best }: { trip: RoundTrip; best: boolean }) {
-  const [buyOn, sellOn] = routeVenues(trip.route);
-  const tone: ChipTone = trip.edgePct === null ? 'warning' : trip.edgePct >= 0 ? 'success' : 'neutral';
-  return (
-    <li className={`rounded-lg border p-3.5 ${best ? 'border-border-strong bg-secondary/40' : 'border-border'}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[13.5px] font-medium">
-          Buy on {buyOn}, sell on {sellOn}
-          {best ? <span className="ml-2 text-[12px] font-normal text-muted-foreground">better route</span> : null}
-        </p>
-        <Chip tone={tone}>{formatEdge(trip.edgePct)}</Chip>
-      </div>
-      <ol className="mt-2.5 space-y-1 text-[12.5px] text-muted-foreground">
-        {trip.legs.map((leg) => (
-          <li key={`${leg.venue}-${leg.sell.symbol}`} className="ws-num flex flex-wrap items-center gap-x-1.5">
-            {formatTokenAmount(leg.sell.amount)} {leg.sell.symbol}
-            <ArrowRight className="size-3" aria-hidden="true" />
-            <span className="text-foreground">
-              {formatTokenAmount(leg.buy.amount)} {leg.buy.symbol}
-            </span>
-            <span>on {leg.venue}</span>
-          </li>
-        ))}
-      </ol>
-      {trip.error ? <p className="mt-2 text-[12.5px] text-warning">{trip.error}</p> : null}
-    </li>
-  );
+/** Each venue's effective price for buying the base with the configured size: size ÷ base received. */
+function venuePrices(evidence: SpreadEvidence): Array<{ name: string; price: number | null }> {
+  const firstLegPrice = (route: RoundTrip['route']) => {
+    const leg = evidence.trips.find((trip) => trip.route === route)?.legs[0];
+    const received = leg ? Number(leg.buy.amount) : 0;
+    return received > 0 ? Number(evidence.size.amount) / received : null;
+  };
+  return [
+    { name: 'NEAR Intents', price: firstLegPrice('intents_then_rhea') },
+    { name: 'Rhea', price: firstLegPrice('rhea_then_intents') },
+  ];
+}
+
+function priceGap(prices: Array<{ price: number | null }>): string {
+  const [a, b] = prices.map((entry) => entry.price);
+  if (!a || !b) return '—';
+  return `${((Math.abs(a - b) / Math.min(a, b)) * 100).toFixed(2)}%`;
+}
+
+function formatPrice(price: number): string {
+  return price >= 1 ? price.toFixed(4) : price.toPrecision(4);
+}
+
+function formatClock(iso: string): string {
+  return `${new Date(iso).toISOString().slice(11, 19)} UTC`;
 }
 
 function MonitorList() {
@@ -327,9 +410,8 @@ function MonitorList() {
                   <span className="min-w-0">
                     <span className="block truncate text-[14px] font-medium">{rule.name}</span>
                     <span className="block text-[12.5px] text-muted-foreground">
-                      {rule.kind === 'spread_alert' ? 'Spread monitor' : 'Price alert'} ·{' '}
-                      {rule.lastEvaluatedAt ? `last check ${formatUtc(rule.lastEvaluatedAt)}` : 'not checked yet'}
-                      {rule.lastAlertAt ? ` · last alert ${formatUtc(rule.lastAlertAt)}` : ''}
+                      {rule.lastEvaluatedAt ? `Checked ${formatUtc(rule.lastEvaluatedAt)}` : 'Not checked yet'}
+                      {rule.lastAlertAt ? `, alerted ${formatUtc(rule.lastAlertAt)}` : ''}
                     </span>
                   </span>
                 </button>
@@ -379,10 +461,17 @@ function MonitorList() {
 }
 
 function StatusChip({ rule }: { rule: Automation }) {
+  if (rule.status === 'active' && !rule.armed) {
+    return (
+      <Chip tone="accent" dot>
+        Alerted, re-arms when the gap closes
+      </Chip>
+    );
+  }
   if (rule.status === 'active') {
     return (
       <Chip tone={rule.lastResult === 'unknown' ? 'warning' : 'success'} dot>
-        {rule.lastResult === 'unknown' ? 'Watching · last check unpriced' : 'Watching'}
+        {rule.lastResult === 'unknown' ? 'Watching, last check unpriced' : 'Watching'}
       </Chip>
     );
   }
@@ -589,7 +678,7 @@ function spreadConfig(draft: Draft, assets: readonly { symbol: string; canonical
   const cooldown = Number(draft.cooldown);
   if (!pair || !base || !quote) return null;
   if (!/^(0|[1-9]\d{0,17})(\.\d{1,6})?$/.test(draft.size) || Number(draft.size) <= 0) return null;
-  if (draft.threshold === '' || !Number.isFinite(threshold) || threshold < 0 || threshold > 50) return null;
+  if (draft.threshold === '' || !Number.isFinite(threshold) || threshold < -5 || threshold > 50) return null;
   if (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 1_440) return null;
   return {
     base: { assetId: base.canonicalId, symbol: base.symbol },
