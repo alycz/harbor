@@ -71,13 +71,13 @@ export function PriceAlerts() {
       });
       return alerts.activate(created);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
   const change = useMutation({
     mutationFn: async ({ action, alert }: { action: 'activate' | 'pause' | 'remove'; alert: Alert }) => {
       await alerts[action](alert);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
   const options = assets.data?.assets ?? [];
 
