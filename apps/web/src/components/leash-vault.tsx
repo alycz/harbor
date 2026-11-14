@@ -1,7 +1,7 @@
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, Check, CircleAlert, LoaderCircle, LockKeyhole, Snowflake } from 'lucide-react';
+import { ArrowUpRight, Bot, Check, CircleAlert, LoaderCircle, LockKeyhole, Snowflake } from 'lucide-react';
 import { type ReactNode, useId, useRef, useState } from 'react';
 
 import { call, ExecutionRequestError, execution as executionApi, type SwapAsset } from '../lib/execution.ts';
@@ -58,21 +58,36 @@ const TOGGLE_OFF = 'border-border bg-card text-muted-foreground hover:text-foreg
  */
 export function LeashVault() {
   const wallet = useWallet();
+  if (wallet.address) return <OwnerVault key={wallet.address} owner={wallet.address} />;
   return (
-    <Panel label="Agent budget" icon={<LockKeyhole />} labelId="leash-vault" bodyClassName="p-5 @xl/workspace:p-6">
-      {wallet.address ? (
-        <OwnerVault key={wallet.address} owner={wallet.address} />
-      ) : (
-        <div className="space-y-4">
-          <Intro />
-          <Button className="h-10 px-4" disabled={wallet.connecting || wallet.restoring} onClick={wallet.connect}>
-            Connect wallet
-          </Button>
-        </div>
-      )}
+    <BudgetPanel>
+      <div className="space-y-4">
+        <Intro />
+        <Button className="h-10 px-4" disabled={wallet.connecting || wallet.restoring} onClick={wallet.connect}>
+          Connect wallet
+        </Button>
+      </div>
+    </BudgetPanel>
+  );
+}
+
+function BudgetPanel({ status, children }: { status?: ReactNode; children: ReactNode }) {
+  return (
+    <Panel
+      label="Agent budget"
+      icon={<LockKeyhole />}
+      labelId="leash-vault"
+      aside={status}
+      bodyClassName="p-5 @xl/workspace:p-6"
+    >
+      {children}
     </Panel>
   );
 }
+
+/** Two columns on a wide screen, words on the left and controls on the right; stacked on a phone. */
+const SPLIT = 'grid gap-x-10 gap-y-7 @3xl/workspace:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]';
+const CONTROLS = 'min-w-0 space-y-5 @3xl/workspace:border-l @3xl/workspace:border-border @3xl/workspace:pl-10';
 
 function Intro() {
   return (
@@ -94,65 +109,97 @@ function OwnerVault({ owner }: { owner: string }) {
 
   if (snapshot.isPending || assets.isPending) {
     return (
-      <p role="status" className="flex items-center gap-2 text-[13px] text-muted-foreground">
-        <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        Reading your budget…
-      </p>
+      <BudgetPanel>
+        <p role="status" className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          Reading your budget…
+        </p>
+      </BudgetPanel>
     );
   }
   if (snapshot.error instanceof ExecutionRequestError && snapshot.error.code === 'SETUP_REQUIRED') {
     return (
-      <div className="space-y-4">
-        <Intro />
-        <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+      <BudgetPanel
+        status={
           <Chip tone="warning" dot>
             Not on this server yet
           </Chip>
-          Until it is, you sign every trade in your own wallet.
-        </p>
-      </div>
+        }
+      >
+        <div className="space-y-3">
+          <Intro />
+          <p className="text-[13px] text-muted-foreground">Until it is, you sign every trade in your own wallet.</p>
+        </div>
+      </BudgetPanel>
     );
   }
   if (snapshot.error || !snapshot.data) {
     return (
-      <div className="space-y-3">
-        <Problem>{snapshot.error?.message ?? 'Could not read your budget.'}</Problem>
-        <Button variant="outline" className="h-9 px-3.5" onClick={() => void snapshot.refetch()}>
-          Try again
-        </Button>
-      </div>
+      <BudgetPanel>
+        <div className="space-y-3">
+          <Problem>{snapshot.error?.message ?? 'Could not read your budget.'}</Problem>
+          <Button variant="outline" className="h-9 px-3.5" onClick={() => void snapshot.refetch()}>
+            Try again
+          </Button>
+        </div>
+      </BudgetPanel>
     );
   }
 
   const data = snapshot.data;
   const registry = assets.data?.assets ?? [];
   const refresh = () => snapshot.refetch().then((result) => result.data?.vault ?? null);
+  const state = data.vault ? vaultState(data.vault) : null;
+  const status = state ? (
+    <Chip tone={state.tone} dot>
+      {state.label}
+    </Chip>
+  ) : undefined;
 
   if (!data.vault || editing) {
     return (
-      <AllowanceEditor
-        owner={owner}
-        registry={registry}
-        vault={data.vault}
-        refresh={refresh}
-        onStart={() => setEditing(true)}
-        onCancel={data.vault ? () => setEditing(false) : undefined}
-        onDone={() => setEditing(false)}
-      />
+      <BudgetPanel status={status}>
+        <AllowanceEditor
+          owner={owner}
+          registry={registry}
+          vault={data.vault}
+          refresh={refresh}
+          onStart={() => setEditing(true)}
+          onCancel={data.vault ? () => setEditing(false) : undefined}
+          onDone={() => setEditing(false)}
+        />
+      </BudgetPanel>
     );
   }
   return (
-    <div className="space-y-7">
-      <VaultOverview
-        vault={data.vault}
-        owner={owner}
-        registry={registry}
-        refresh={refresh}
-        onEdit={() => setEditing(true)}
-      />
-      <AgentSwap owner={owner} vault={data.vault} registry={registry} snapshot={data} />
-    </div>
+    <>
+      <BudgetPanel status={status}>
+        <VaultOverview
+          vault={data.vault}
+          owner={owner}
+          registry={registry}
+          refresh={refresh}
+          onEdit={() => setEditing(true)}
+        />
+      </BudgetPanel>
+      <Panel
+        label="Let the agent make a swap"
+        icon={<Bot />}
+        labelId="leash-swap"
+        bodyClassName="p-5 @xl/workspace:p-6"
+      >
+        <AgentSwap owner={owner} vault={data.vault} registry={registry} snapshot={data} />
+      </Panel>
+    </>
   );
+}
+
+function vaultState(vault: Vault): { tone: 'success' | 'warning' | 'danger'; label: string } {
+  if (vault.frozen) return { tone: 'danger', label: 'Frozen' };
+  if (vault.limits.expires_at_ms !== undefined && vault.limits.expires_at_ms <= Date.now()) {
+    return { tone: 'warning', label: 'Ended' };
+  }
+  return { tone: 'success', label: 'Active' };
 }
 
 /** Opening a vault, or changing its rules: a budget and how long it lasts, the rest under Advanced. */
@@ -329,7 +376,7 @@ function AllowanceEditor({
   const finished = Boolean(steps?.length) && (steps ?? []).every((step) => step.state === 'done');
 
   return (
-    <div className="grid gap-x-10 gap-y-8 @3xl/workspace:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+    <div className={SPLIT}>
       {/* The agreement, in words. The form beside it only fills in its blanks. */}
       <div className="space-y-5">
         {!opening ? (
@@ -342,7 +389,7 @@ function AllowanceEditor({
         <Sentence parts={parts} className="max-w-[30ch] text-[23px] @xl/workspace:text-[27px]" />
       </div>
 
-      <div className="min-w-0 space-y-5 @3xl/workspace:border-l @3xl/workspace:border-border @3xl/workspace:pl-10">
+      <div className={CONTROLS}>
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13.5px] font-medium">{opening ? 'Set the budget' : 'Your rules'}</p>
           {!opening || !usdc ? null : (
@@ -557,8 +604,7 @@ function VaultOverview({
   const [error, setError] = useState('');
   const spent = BigInt(vault.spent_today);
   const cap = BigInt(vault.limits.per_day ?? '0');
-  const share = cap > 0n ? Number((spent * 1000n) / cap) / 10 : 0;
-  const expired = vault.limits.expires_at_ms !== undefined && vault.limits.expires_at_ms <= Date.now();
+  const share = Math.min(100, cap > 0n ? Number((spent * 1000n) / cap) / 10 : 0);
   const parts = allowanceParts({
     daily: fromAtomic(vault.limits.per_day ?? '0', decimals),
     perTrade: fromAtomic(vault.limits.per_action ?? '0', decimals),
@@ -620,49 +666,37 @@ function VaultOverview({
   }
 
   return (
-    <section aria-label="Your vault" className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
-        <div>
-          <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            In your vault
-            <Chip tone={vault.frozen ? 'danger' : expired ? 'warning' : 'success'} dot>
-              {vault.frozen ? 'Frozen' : expired ? 'Ended' : 'Active'}
-            </Chip>
-          </p>
-          <p className="ws-num mt-1 text-[34px] leading-none font-medium tracking-[-0.03em]">
-            {fromAtomic(vault.balance, decimals)} <span className="text-[18px] text-muted-foreground">{symbol}</span>
-          </p>
-        </div>
-        <div className="w-full max-w-xs">
-          <p className="flex justify-between text-[12.5px] text-muted-foreground">
-            <span>Spent today</span>
-            <span className="ws-num">
-              {fromAtomic(vault.spent_today, decimals)} of {fromAtomic(vault.limits.per_day ?? '0', decimals)} {symbol}
-            </span>
-          </p>
-          <meter className="sr-only" min={0} max={100} value={Math.min(100, share)}>
-            {Math.min(100, share)}% of today's budget spent
-          </meter>
-          <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-[var(--ws-accent-ink)]"
-              style={{ width: `${Math.min(100, share)}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4">
-        <Sentence parts={parts} className="max-w-[46ch] text-[17px]" />
+    <section aria-label="Your vault" className={SPLIT}>
+      <div className="flex min-w-0 flex-col items-start gap-5">
+        <Sentence parts={parts} className="max-w-[30ch] text-[23px] @xl/workspace:text-[27px]" />
         <Button variant="outline" className="h-9 px-3.5" disabled={Boolean(busy)} onClick={onEdit}>
           Change rules
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2.5 border-t border-border pt-4">
-        <div className="w-48">
-          <label htmlFor={`${id}-amount`} className="mb-1.5 block text-[13px] font-medium">
-            Amount
+      <div className={CONTROLS}>
+        <div>
+          <p className="text-[13px] text-muted-foreground">In your vault</p>
+          <p className="ws-num mt-1.5 text-[34px] leading-none font-medium tracking-[-0.03em]">
+            {fromAtomic(vault.balance, decimals)} <span className="text-[18px] text-muted-foreground">{symbol}</span>
+          </p>
+          <p className="mt-4 flex justify-between gap-3 text-[12.5px] text-muted-foreground">
+            <span>Spent today</span>
+            <span className="ws-num">
+              {fromAtomic(vault.spent_today, decimals)} of {fromAtomic(vault.limits.per_day ?? '0', decimals)} {symbol}
+            </span>
+          </p>
+          <meter className="sr-only" min={0} max={100} value={share}>
+            {share}% of today's budget spent
+          </meter>
+          <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-[var(--ws-accent-ink)]" style={{ width: `${share}%` }} />
+          </div>
+        </div>
+
+        <div className="space-y-2.5 border-t border-border pt-5">
+          <label htmlFor={`${id}-amount`} className="block text-[13px] font-medium">
+            Add or withdraw
           </label>
           <UnitInput
             id={`${id}-amount`}
@@ -672,48 +706,56 @@ function VaultOverview({
             disabled={Boolean(busy)}
             onChange={setAmount}
           />
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button className="h-10 px-4" disabled={Boolean(busy) || !amount} onClick={() => amountAction('fund')}>
+              {busy === 'fund' ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
+              Add funds
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 px-4"
+              disabled={Boolean(busy) || !amount}
+              onClick={() => amountAction('withdraw')}
+            >
+              {busy === 'withdraw' ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
+              Withdraw
+            </Button>
+          </div>
         </div>
-        <Button className="h-10 px-4" disabled={Boolean(busy) || !amount} onClick={() => amountAction('fund')}>
-          {busy === 'fund' ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
-          Add funds
-        </Button>
-        <Button
-          variant="outline"
-          className="h-10 px-4"
-          disabled={Boolean(busy) || !amount}
-          onClick={() => amountAction('withdraw')}
-        >
-          {busy === 'withdraw' ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
-          Withdraw
-        </Button>
-        <Button
-          variant="outline"
-          className="ml-auto h-10 gap-2 px-4"
-          disabled={Boolean(busy)}
-          onClick={() =>
-            void act(
-              'freeze',
-              { operation: vault.frozen ? 'unfreeze' : 'freeze' },
-              vault.frozen
-                ? 'The agent can spend again, within your rules.'
-                : 'Frozen. The agent cannot spend until you unfreeze.',
-            )
-          }
-        >
-          {busy === 'freeze' ? (
-            <LoaderCircle className="animate-spin motion-reduce:animate-none" />
-          ) : (
-            <Snowflake aria-hidden="true" />
-          )}
-          {vault.frozen ? 'Unfreeze' : 'Freeze'}
-        </Button>
+
+        <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+          <p className="text-[12.5px] leading-snug text-muted-foreground">
+            {vault.frozen ? 'The agent cannot spend until you unfreeze.' : 'Stop the agent spending, at any time.'}
+          </p>
+          <Button
+            variant="outline"
+            className="h-9 shrink-0 gap-2 px-3.5"
+            disabled={Boolean(busy)}
+            onClick={() =>
+              void act(
+                'freeze',
+                { operation: vault.frozen ? 'unfreeze' : 'freeze' },
+                vault.frozen
+                  ? 'The agent can spend again, within your rules.'
+                  : 'Frozen. The agent cannot spend until you unfreeze.',
+              )
+            }
+          >
+            {busy === 'freeze' ? (
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" />
+            ) : (
+              <Snowflake aria-hidden="true" />
+            )}
+            {vault.frozen ? 'Unfreeze' : 'Freeze'}
+          </Button>
+        </div>
+        {message ? (
+          <p role="status" className="text-[13px] text-success">
+            {message}
+          </p>
+        ) : null}
+        {error ? <Problem>{error}</Problem> : null}
       </div>
-      {message ? (
-        <p role="status" className="text-[13px] text-success">
-          {message}
-        </p>
-      ) : null}
-      {error ? <Problem>{error}</Problem> : null}
     </section>
   );
 }
@@ -821,7 +863,7 @@ function AgentSwap({
   if (execution) {
     const state = execution.state ?? execution.status ?? '';
     return (
-      <section aria-labelledby={`${id}-swap`} className="space-y-3 border-t border-border pt-5">
+      <section aria-labelledby={`${id}-swap`} className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 id={`${id}-swap`} className="text-[14px] font-medium">
             The agent's swap
@@ -891,161 +933,193 @@ function AgentSwap({
   }
 
   const summary = quoteSummary(quote?.response);
+  const swapStep = quote ? 1 : 0;
   return (
-    <section aria-labelledby={`${id}-swap`} className="space-y-4 border-t border-border pt-5">
-      <div>
-        <h3 id={`${id}-swap`} className="text-[14px] font-medium">
-          Let the agent make a swap
-        </h3>
-        <p className="mt-1 max-w-[62ch] text-[12.5px] text-muted-foreground">
-          Harbor gets a quote NEAR Intents signs and checks it against your rules. You approve that exact quote, and the
-          agent can send nothing else.
+    <div className={SPLIT}>
+      <div className="min-w-0">
+        <p className="max-w-[46ch] text-[13.5px] leading-relaxed text-muted-foreground">
+          Try it once with a small amount. The agent pays from your vault, and only for the exact quote you approve.
         </p>
-      </div>
-      <div className="flex max-w-2xl flex-wrap items-end gap-2.5">
-        <div className="w-40">
-          <label htmlFor={`${id}-pay`} className="mb-1.5 block text-[13px] font-medium">
-            Pay
-          </label>
-          <UnitInput
-            id={`${id}-pay`}
-            unit={symbol}
-            value={amount}
-            inputMode="decimal"
-            disabled={busy}
-            onChange={(value) => {
-              setAmount(value);
-              setQuote(null);
-            }}
-          />
-        </div>
-        <div className="w-44">
-          <span className="mb-1.5 block text-[13px] font-medium">For</span>
-          <AssetSelect
-            label="Asset the agent buys"
-            value={destination}
-            disabled={busy}
-            choices={vault.limits.buy_assets.map((asset) => {
-              const known = registry.find((entry) => entry.canonicalId === asset);
-              return { value: asset, symbol: known?.symbol ?? asset, detail: known ? chainName(known.chain) : '' };
-            })}
-            onChange={(value) => {
-              setDestination(value);
-              setQuote(null);
-            }}
-          />
-        </div>
-        <Button
-          className="h-10 px-4"
-          disabled={busy || !amount || !destination || !token}
-          onClick={() => void getQuote()}
-        >
-          {busy && !quote ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
-          Get quote
-        </Button>
+        <ol className="mt-5 max-w-[46ch] space-y-3.5">
+          {SWAP_STEPS.map((step, index) => {
+            const done = index < swapStep;
+            const current = index === swapStep;
+            return (
+              <li key={step} aria-current={current ? 'step' : undefined} className="flex gap-3">
+                <span
+                  className={`ws-num grid size-6 shrink-0 place-items-center rounded-full border text-[12px] ${
+                    current
+                      ? 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] text-[var(--ws-accent-ink)]'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  {done ? <Check className="size-3.5 text-success" aria-label="Done" /> : index + 1}
+                </span>
+                <span
+                  className={`pt-0.5 text-[13.5px] leading-relaxed ${current ? 'text-foreground' : 'text-muted-foreground'}`}
+                >
+                  {step}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
-      {quote ? (
-        <div className="max-w-2xl space-y-3 rounded-[12px] border border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] p-4">
-          <p className="flex items-center gap-2 text-[13.5px] font-medium">
-            <Check className="size-4 text-success" aria-hidden="true" />
-            Signed by NEAR Intents and within your rules
-          </p>
-          <p className="text-[14px]">
-            Pay <span className="ws-num font-medium">{summary.amountIn ?? amount}</span> {symbol}, receive at least{' '}
-            <span className="ws-num font-medium">{summary.minOut ?? summary.amountOut ?? '—'}</span> {buy?.symbol}
-            {recipient === owner ? ' in your account.' : ` at ${recipient}.`}
-          </p>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button
-              className="h-10 px-4"
-              disabled={busy || !snapshot.executionAvailable}
-              onClick={() => void approveAndSend(quote.response)}
-            >
-              {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
-              Approve and send
-            </Button>
-            <Button variant="ghost" className="h-10 px-3.5" disabled={busy} onClick={() => setQuote(null)}>
-              Discard
-            </Button>
-          </div>
-          {!snapshot.executionAvailable ? (
-            <p className="text-[12.5px] text-muted-foreground">{snapshot.limitation}</p>
-          ) : null}
-        </div>
-      ) : null}
-
-      <details className="max-w-2xl">
-        <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground select-none hover:text-foreground">
-          Advanced
-        </summary>
-        <div className="mt-4 grid gap-x-6 gap-y-5 @xl/workspace:grid-cols-2">
-          <Field id={`${id}-slip`} label="Slippage" hint="No more than your vault allows.">
+      <div className={CONTROLS}>
+        <div className="grid gap-2.5 @md/workspace:grid-cols-2">
+          <div className="min-w-0">
+            <label htmlFor={`${id}-pay`} className="mb-1.5 block text-[13px] font-medium">
+              Pay
+            </label>
             <UnitInput
-              id={`${id}-slip`}
-              unit="%"
-              value={slippagePct}
+              id={`${id}-pay`}
+              unit={symbol}
+              value={amount}
               inputMode="decimal"
               disabled={busy}
               onChange={(value) => {
-                setSlippagePct(value);
+                setAmount(value);
                 setQuote(null);
               }}
             />
-          </Field>
-          <Field id={`${id}-to`} label="Deliver to" hint="One of your vault's addresses.">
-            <select
-              id={`${id}-to`}
-              className="h-10 w-full rounded-md border border-input bg-card px-3 text-[13.5px]"
-              value={recipient}
+          </div>
+          <div className="min-w-0">
+            <span className="mb-1.5 block text-[13px] font-medium">For</span>
+            <AssetSelect
+              label="Asset the agent buys"
+              value={destination}
               disabled={busy}
-              onChange={(event) => {
-                setRecipient(event.target.value);
+              choices={vault.limits.buy_assets.map((asset) => {
+                const known = registry.find((entry) => entry.canonicalId === asset);
+                return { value: asset, symbol: known?.symbol ?? asset, detail: known ? chainName(known.chain) : '' };
+              })}
+              onChange={(value) => {
+                setDestination(value);
                 setQuote(null);
               }}
-            >
-              {vault.limits.recipients.map((address) => (
-                <option key={address} value={address}>
-                  {address === owner ? 'Your account' : address}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="space-y-2 @xl/workspace:col-span-2">
-            <label htmlFor={`${id}-paste`} className="block text-[13px] font-medium">
-              Use a signed quote you already have
-            </label>
-            <textarea
-              id={`${id}-paste`}
-              className="min-h-24 w-full rounded-md border border-input bg-card p-3 font-mono text-[11.5px]"
-              value={pasted}
-              disabled={busy}
-              onChange={(event) => setPasted(event.target.value)}
             />
-            <Button
-              variant="outline"
-              className="h-9 px-3.5"
-              disabled={busy || !pasted}
-              onClick={() =>
-                void run(async () => {
-                  const response = JSON.parse(pasted) as unknown;
-                  const checked = await call<{ signedQuotePayload: string }>('/api/leash/preview', {
-                    method: 'POST',
-                    body: { quoteResponse: response },
-                  });
-                  setQuote({ response, signedQuotePayload: checked.signedQuotePayload });
-                })
-              }
-            >
-              Check this quote
-            </Button>
           </div>
         </div>
-      </details>
-      {error ? <Problem>{error}</Problem> : null}
-    </section>
+        {quote ? null : (
+          <Button
+            className="h-10 w-full px-4"
+            disabled={busy || !amount || !destination || !token}
+            onClick={() => void getQuote()}
+          >
+            {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
+            Get quote
+          </Button>
+        )}
+
+        {quote ? (
+          <div className="space-y-3 rounded-[12px] border border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] p-4">
+            <p className="flex items-center gap-2 text-[13.5px] font-medium">
+              <Check className="size-4 text-success" aria-hidden="true" />
+              Signed by NEAR Intents and within your rules
+            </p>
+            <p className="text-[14px]">
+              Pay <span className="ws-num font-medium">{summary.amountIn ?? amount}</span> {symbol}, receive at least{' '}
+              <span className="ws-num font-medium">{summary.minOut ?? summary.amountOut ?? '—'}</span> {buy?.symbol}
+              {recipient === owner ? ' in your account.' : ` at ${recipient}.`}
+            </p>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Button
+                className="h-10 px-4"
+                disabled={busy || !snapshot.executionAvailable}
+                onClick={() => void approveAndSend(quote.response)}
+              >
+                {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
+                Approve and send
+              </Button>
+              <Button variant="ghost" className="h-10 px-3.5" disabled={busy} onClick={() => setQuote(null)}>
+                Discard
+              </Button>
+            </div>
+            {!snapshot.executionAvailable ? (
+              <p className="text-[12.5px] text-muted-foreground">{snapshot.limitation}</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <details>
+          <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground select-none hover:text-foreground">
+            Advanced
+          </summary>
+          <div className="mt-4 grid gap-x-4 gap-y-5 grid-cols-2">
+            <Field id={`${id}-slip`} label="Slippage" hint="No more than your vault allows.">
+              <UnitInput
+                id={`${id}-slip`}
+                unit="%"
+                value={slippagePct}
+                inputMode="decimal"
+                disabled={busy}
+                onChange={(value) => {
+                  setSlippagePct(value);
+                  setQuote(null);
+                }}
+              />
+            </Field>
+            <Field id={`${id}-to`} label="Deliver to" hint="One of your vault's addresses.">
+              <select
+                id={`${id}-to`}
+                className="h-10 w-full rounded-md border border-input bg-card px-3 text-[13.5px]"
+                value={recipient}
+                disabled={busy}
+                onChange={(event) => {
+                  setRecipient(event.target.value);
+                  setQuote(null);
+                }}
+              >
+                {vault.limits.recipients.map((address) => (
+                  <option key={address} value={address}>
+                    {address === owner ? 'Your account' : address}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="col-span-2 space-y-2">
+              <label htmlFor={`${id}-paste`} className="block text-[13px] font-medium">
+                Use a signed quote you already have
+              </label>
+              <textarea
+                id={`${id}-paste`}
+                className="min-h-24 w-full rounded-md border border-input bg-card p-3 font-mono text-[11.5px]"
+                value={pasted}
+                disabled={busy}
+                onChange={(event) => setPasted(event.target.value)}
+              />
+              <Button
+                variant="outline"
+                className="h-9 px-3.5"
+                disabled={busy || !pasted}
+                onClick={() =>
+                  void run(async () => {
+                    const response = JSON.parse(pasted) as unknown;
+                    const checked = await call<{ signedQuotePayload: string }>('/api/leash/preview', {
+                      method: 'POST',
+                      body: { quoteResponse: response },
+                    });
+                    setQuote({ response, signedQuotePayload: checked.signedQuotePayload });
+                  })
+                }
+              >
+                Check this quote
+              </Button>
+            </div>
+          </div>
+        </details>
+        {error ? <Problem>{error}</Problem> : null}
+      </div>
+    </div>
   );
 }
+
+const SWAP_STEPS = [
+  'Harbor gets a quote signed by NEAR Intents and checks it against your rules.',
+  'You approve that exact quote. The agent cannot send anything else.',
+  'The agent pays from your vault, and Harbor checks the delivery.',
+];
 
 type Step = { label: string; state: 'waiting' | 'active' | 'done' | 'failed'; run: () => Promise<void> };
 
