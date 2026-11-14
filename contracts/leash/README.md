@@ -25,7 +25,7 @@ near contract deploy <leash-account> use-file target/near/harbor_leash.wasm \
 
 `quote_signer` is 1Click's manager key, the one `packages/adapters/src/oneclick/signature.ts` verifies quotes with. Try the whole flow on testnet, with a stand-in signer key, before mainnet.
 
-Harbor includes unsigned owner/agent call construction, a bounded-signer interface, durable execution journal and settlement verification building blocks. This is not a configured autonomous service: the deployment still needs owned contract/agent accounts, a real bounded signer, approved-request and balance-baseline persistence, and verified dispatch/reconciliation wiring. Current wallet-approved deposits remain signed by the owner.
+Harbor includes owner wallet setup/funding actions, explicitly owner-approved dispatch, immutable request and balance-baseline storage, durable replay protection, a private execute-scoped signer service, and receipt/delivery reconciliation. The Automations UI accepts a complete provider-signed quote JSON for review and explicit approval. This is not deployed or verified unattended trading: operators still must provision owned contract/agent accounts, a restricted signer key, private service binding, reviewed code hash, migrations and execution settings, then validate a funded end-to-end flow. See [dispatch setup](../../docs/leash-dispatch.md) and [private signer setup](../../apps/leash-signer/README.md).
 
 Budget from the exact WASM and current network storage cost, not a fixed 3 NEAR estimate. For reference, a 378,960-byte artifact at 10^19 yoctoNEAR per byte consumes about 3.7896 NEAR for code alone; account/state storage, gas and operating reserves are additional. Recalculate for the artifact you actually deploy.
 

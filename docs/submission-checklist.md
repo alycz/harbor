@@ -33,7 +33,7 @@ already completed. Leash deployment is a separate handoff.
 - Periodic monitors discover opportunities; users review and sign trades separately.
 - Quotes are not guaranteed profit, and two cross-chain legs are not an atomic trade.
 - Rhea/Templar execution depends on supported markets, liquidity and account setup.
-- Leash has contract and integration building blocks, not verified deployed autonomous
+- Leash has an owner-approved UI, durable dispatch and private bounded signer, not verified deployed autonomous
   trading. See [its handoff](../contracts/leash/README.md); do not use fixture accounts
   as deployment accounts or claim a testnet stand-in is real 1Click settlement.
 - KAIO is excluded from the current implementation scope.

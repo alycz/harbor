@@ -81,6 +81,7 @@ const config = {
     EXECUTION_ENABLED: String(execution),
     ENABLED_WRITE_ADAPTERS: adapters,
   },
+  services: source.services,
   durable_objects: source.durable_objects,
   migrations: source.migrations,
   d1_databases: [
