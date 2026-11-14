@@ -35,3 +35,13 @@ Do not treat source code or unit-test files as evidence of a passing build.
 - Expose owner freeze, unfreeze, withdraw and recovery. Contract refunds go to owner, not vault.
 
 This handoff changes no execution flag, deployed account, credential, or financial transaction.
+
+## Combined implementation update
+
+The build-only GitHub workflow now produces WASM and checksum/source metadata; verify the
+artifact corresponds to the final approved commit. Mac-local tooling remains unavailable.
+Worker integration now provides authenticated `/api/leash/vault` and `/api/leash/preview`.
+Both remain read/preview-only with `executionAvailable: false`; no signer or submit endpoint exists.
+Configure `LEASH_CONTRACT_ID` and `LEASH_AGENT_ACCOUNT_ID` only after selecting the deployment.
+Pending-callback accounting fixes add persisted state: this build is for a fresh deployment,
+not an in-place upgrade of an existing contract without a separately reviewed migration.
