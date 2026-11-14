@@ -27,6 +27,32 @@ export const PriceAlertConfigSchema = z
 
 export type PriceAlertConfig = z.infer<typeof PriceAlertConfigSchema>;
 
+/**
+ * A cross-venue spread monitor on one NEAR pair. Each check prices a round trip of `size` (in the quote
+ * asset) both ways: buy the base on NEAR Intents and sell it on Rhea, and the reverse. It alerts when the
+ * better round trip returns at least `thresholdPct` more than it started with, after each venue's fees.
+ */
+export const SpreadAlertConfigSchema = z
+  .strictObject({
+    base: z.strictObject({ assetId: ASSET_ID, symbol: SYMBOL }),
+    quote: z.strictObject({ assetId: ASSET_ID, symbol: SYMBOL }),
+    /** How much of the quote asset each round trip starts with. */
+    size: DECIMAL,
+    /** Alert when the better round trip gains at least this, in percent of `size`. */
+    /** 0 means any round trip that ends ahead after venue fees. */
+    thresholdPct: z.number().min(0).max(50),
+    cooldownMinutes: z.number().int().min(1).max(1_440),
+    mode: z.enum(['once', 'repeat']),
+  })
+  .refine((config) => config.base.assetId !== config.quote.assetId, { message: 'Choose two different assets.' })
+  .refine((config) => Number(config.size) > 0, { message: 'Enter a size above zero.' });
+
+export type SpreadAlertConfig = z.infer<typeof SpreadAlertConfigSchema>;
+
+export const AUTOMATION_RULE_KINDS = ['price_alert', 'spread_alert', 'roundtrip_alert'] as const;
+export type AutomationKind = (typeof AUTOMATION_RULE_KINDS)[number];
+export type AutomationConfig = PriceAlertConfig | SpreadAlertConfig | RoundtripAlertConfig;
+
 /** Checks run about once a minute: the scheduled handler's cadence. */
 export const EVALUATION_INTERVAL_MS = 60_000;
 
@@ -37,5 +63,5 @@ export const RoundtripAlertConfigSchema = RoundtripSchema.extend({
   .refine((config) => config.sellAssetId !== config.buyAssetId, { message: 'Choose two different assets.' })
   .refine((config) => Number(config.amount) > 0, { message: 'Enter an amount above zero.' });
 export type RoundtripAlertConfig = z.infer<typeof RoundtripAlertConfigSchema>;
-export type MonitorConfig = PriceAlertConfig | RoundtripAlertConfig;
-export type MonitorKind = 'price_alert' | 'roundtrip_alert';
+export type MonitorConfig = AutomationConfig;
+export type MonitorKind = AutomationKind;

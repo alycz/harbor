@@ -5,6 +5,7 @@ import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { PriceAlerts } from '../components/price-alerts.tsx';
 import { RoundtripMonitor } from '../components/roundtrip-monitor.tsx';
+import { SpreadMonitors } from '../components/spread-monitors.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
 import { Chip, PageHeader, Panel } from '../components/workspace.tsx';
 import { outboundReviewRequest, roundtripDraftValid } from '../lib/automation-draft.ts';
@@ -77,10 +78,10 @@ export function AutomationsPage() {
           </section>
         ))}
       </div>
-      <Panel label="Round-trip scanner" icon={<Radar />} bodyClassName="p-5">
+      <Panel label="Intents-only round-trip scanner" icon={<Radar />} bodyClassName="p-5">
         <p className="mb-5 text-sm text-muted-foreground">
-          Compare A → B → A using two sequential, read-only Intents quotes. This is a snapshot, not a continuously
-          running arbitrage bot.
+          Compare A → B → A using two sequential, read-only Intents quotes. Scan now, then save this route for recurring
+          monitoring below. This never executes a trade.
         </p>
         <form
           onSubmit={(event) => {
@@ -256,6 +257,7 @@ export function AutomationsPage() {
           </Button>
         </section>
       ) : null}
+      <SpreadMonitors />
       <PriceAlerts />
     </div>
   );

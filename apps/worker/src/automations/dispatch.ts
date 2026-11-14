@@ -1,5 +1,6 @@
 import { formatRawAmount, MAX_U128_RAW, parseDecimalAmount } from '@harbor/domain/amount';
 import { claim, complete, enqueue, fail, failExhausted, type Lease, Superseded } from '@harbor/jobs/jobs';
+import { tokenContractOf } from '@harbor/near/chain';
 import { drizzle } from 'drizzle-orm/d1';
 import { z } from 'zod';
 
@@ -35,7 +36,33 @@ export function automationDeps(env: Env): AutomationDeps {
     network: config.network,
     now: Date.now,
     quotes: venueQuotes(execution),
+    reference: rheaQuotes(execution),
     roundtrip: (config) => previewRoundtrip(execution, config),
+  };
+}
+
+/** Reads a swap's price on Rhea's router: a price only, Harbor never executes there. NEAR tokens only. */
+function rheaQuotes(deps: ExecutionDeps): QuoteSource {
+  return {
+    async read(request) {
+      const router = deps.reference;
+      if (!router) throw new Error('No Rhea router is configured.');
+      const sell = deps.assets.byId(request.sellAssetId);
+      const buy = deps.assets.byId(request.buyAssetId);
+      if (!sell || !buy) throw new Error('This monitor names an asset Harbor does not support.');
+      const tokenIn = tokenContractOf(sell.canonicalId);
+      const tokenOut = tokenContractOf(buy.canonicalId);
+      if (sell.chain !== 'near' || buy.chain !== 'near' || !tokenIn || !tokenOut) {
+        throw new Error('Rhea prices NEAR tokens only.');
+      }
+      const quote = await router.quote({
+        tokenIn,
+        tokenOut,
+        amountIn: parseDecimalAmount(request.amount, sell.decimals, MAX_U128_RAW),
+      });
+      if (!quote) throw new Error('Rhea has no route for this pair and size right now.');
+      return { amountOut: formatRawAmount(quote.amountOut, buy.decimals), venue: 'rhea', observedAtMs: deps.now() };
+    },
   };
 }
 

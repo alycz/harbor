@@ -1,5 +1,7 @@
 # Intents round-trip monitoring
 
+This is distinct from the NEAR-only `spread_alert` monitor, which compares Intents against Rhea. Both coexist with single-route `price_alert` monitors. The Automations page keeps the Intents-only scanner and Rhea/Intents spread workspace separate so a reference-venue signal is not mistaken for an executable two-leg transaction.
+
 `POST /api/automations/roundtrip-preview` accepts `{sellAssetId,buyAssetId,amount,minSpreadBps?}`. Asset IDs must come from Harbor's network registry. This performs two real dry 1Click quotes, never creates a deposit address, and never signs or broadcasts a transaction. The return leg uses the outbound minimum output as its input.
 
 - `opportunity` means the conservative return exceeds the input and meets the requested gross basis-point threshold; it is not a net-profit or execution guarantee.

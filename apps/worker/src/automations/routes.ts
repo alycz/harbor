@@ -23,7 +23,7 @@ import {
 } from './rules.ts';
 
 const CreateSchema = z.strictObject({
-  kind: z.enum(['price_alert', 'roundtrip_alert']),
+  kind: z.enum(['price_alert', 'roundtrip_alert', 'spread_alert']),
   name: z.string().max(80).optional(),
   config: z.unknown(),
 });
@@ -37,7 +37,7 @@ const ActivateSchema = z.strictObject({
   configHash: z.string().regex(/^[0-9a-f]{64}$/),
 });
 const PreviewSchema = z.strictObject({
-  kind: z.enum(['price_alert', 'roundtrip_alert']).default('price_alert'),
+  kind: z.enum(['price_alert', 'roundtrip_alert', 'spread_alert']).default('price_alert'),
   config: z.unknown(),
 });
 

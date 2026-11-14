@@ -11,6 +11,7 @@ import {
   PriceAlertConfigSchema,
   type RoundtripAlertConfig,
   RoundtripAlertConfigSchema,
+  SpreadAlertConfigSchema,
 } from './config.ts';
 import type { QuoteSource } from './evaluate.ts';
 
@@ -18,6 +19,7 @@ export interface AutomationDeps {
   db: D1Database;
   network: Network;
   quotes: QuoteSource;
+  reference?: QuoteSource;
   now(): number;
   roundtrip?: (config: RoundtripAlertConfig) => Promise<import('./roundtrip.ts').RoundtripPreview>;
 }
@@ -71,7 +73,11 @@ export function parseConfig(value: unknown): PriceAlertConfig;
 export function parseConfig(value: unknown, kind: MonitorKind): MonitorConfig;
 export function parseConfig(value: unknown, kind: MonitorKind = 'price_alert'): MonitorConfig {
   const parsed =
-    kind === 'roundtrip_alert' ? RoundtripAlertConfigSchema.safeParse(value) : PriceAlertConfigSchema.safeParse(value);
+    kind === 'roundtrip_alert'
+      ? RoundtripAlertConfigSchema.safeParse(value)
+      : kind === 'spread_alert'
+        ? SpreadAlertConfigSchema.safeParse(value)
+        : PriceAlertConfigSchema.safeParse(value);
   if (!parsed.success) {
     throw new AppError('INVALID_REQUEST', parsed.error.issues[0]?.message ?? 'The monitor settings are invalid.');
   }
@@ -302,6 +308,8 @@ async function configHash(config: MonitorConfig, revision: number): Promise<stri
 }
 
 function defaultName(config: MonitorConfig): string {
+  if ('base' in config)
+    return `${config.base.symbol}/${config.quote.symbol} spread ≥ ${config.thresholdPct}% on ${config.size} ${config.quote.symbol}`;
   if ('sellAssetId' in config) return `Round trip ≥ ${config.minSpreadBps} bps`;
   return `${config.sell.amount} ${config.sell.symbol} → ${config.buy.symbol} ≥ ${config.minOutput}`;
 }
