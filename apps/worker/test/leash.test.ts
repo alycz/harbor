@@ -23,6 +23,7 @@ describe('Leash unsigned preparation boundaries', () => {
     const fetch = vi.spyOn(globalThis, 'fetch');
     expect((await call('/vault')).status).toBe(401);
     expect((await call('/preview', '', { quoteResponse: {} })).status).toBe(401);
+    expect((await call('/quote', '', {})).status).toBe(401);
     expect((await call('/prepare-owner-action', '', { operation: 'freeze' })).status).toBe(401);
     expect(fetch).not.toHaveBeenCalled();
   });

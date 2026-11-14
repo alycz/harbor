@@ -12,7 +12,12 @@ type Snapshot = {
   contractId: string;
   executionAvailable: boolean;
   limitation: string;
-  vault: null | { balance: string; frozen: boolean; spent_today: string; limits: Record<string, unknown> };
+  vault: null | {
+    balance: string;
+    frozen: boolean;
+    spent_today: string;
+    limits: { token: string; buy_assets: string[]; recipients: string[]; max_slippage_bps: number };
+  };
 };
 type Prepared = { signerId: string; transaction: WalletTransaction };
 type Execution = { id: string; state?: string; status?: string; settled?: boolean; txHash?: string };
@@ -56,6 +61,10 @@ function OwnerVault({ owner }: { owner: string }) {
   const [amount, setAmount] = useState('');
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [quote, setQuote] = useState('');
+  const [destination, setDestination] = useState('');
+  const [quoteRecipient, setQuoteRecipient] = useState(owner);
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteSlippage, setQuoteSlippage] = useState('50');
   const [preview, setPreview] = useState<{ signedQuotePayload: string } | null>(null);
   const [execution, setExecution] = useState<Execution | null>(() => {
     try {
@@ -216,36 +225,117 @@ function OwnerVault({ owner }: { owner: string }) {
         </div>
       )}
       <div className="space-y-3">
-        <h3 className="font-medium">2. Review a signed quote</h3>
+        <h3 className="font-medium">2. Get and review a signed quote</h3>
         <p className="text-sm text-muted-foreground">
-          Paste a complete provider-signed 1Click quote response. The server checks its signature, expiry and vault
-          rules. Previewing does not authorize execution.
+          Choose a permitted route and get a quote directly from 1Click. The server checks its signature, expiry and
+          vault rules. Getting a quote does not authorize execution.
         </p>
-        <textarea
-          aria-label="Provider-signed quote JSON"
-          className="min-h-28 w-full rounded border p-3 font-mono text-xs"
-          value={quote}
-          disabled={busy || !!execution}
-          onChange={(e) => {
-            setQuote(e.target.value);
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm">
+            Buy asset
+            <select
+              className="rounded border p-2"
+              value={destination}
+              disabled={busy || !!execution}
+              onChange={(e) => {
+                setDestination(e.target.value);
+                setPreview(null);
+                setQuote('');
+              }}
+            >
+              <option value="">Choose a permitted asset</option>
+              {snapshot.data?.vault?.limits.buy_assets.map((asset) => (
+                <option key={asset} value={asset}>
+                  {asset}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm">
+            Recipient
+            <select
+              className="rounded border p-2"
+              value={quoteRecipient}
+              disabled={busy || !!execution}
+              onChange={(e) => {
+                setQuoteRecipient(e.target.value);
+                setPreview(null);
+                setQuote('');
+              }}
+            >
+              <option value="">Choose a permitted recipient</option>
+              {snapshot.data?.vault?.limits.recipients.map((address) => (
+                <option key={address} value={address}>
+                  {address}
+                </option>
+              ))}
+            </select>
+          </label>
+          {field('Quote amount (atomic token units)', quoteAmount, (value) => {
+            setQuoteAmount(value);
             setPreview(null);
-          }}
-        />
+            setQuote('');
+          })}
+          {field('Quote slippage (basis points)', quoteSlippage, (value) => {
+            setQuoteSlippage(value);
+            setPreview(null);
+            setQuote('');
+          })}
+        </div>
         <Button
-          disabled={busy || !quote || !!execution}
+          disabled={busy || !!execution || !destination || !quoteAmount || !quoteRecipient || !snapshot.data?.vault}
           onClick={() =>
             void run(async () => {
-              setPreview(
-                await call<{ signedQuotePayload: string }>('/api/leash/preview', {
-                  method: 'POST',
-                  body: { quoteResponse: JSON.parse(quote) },
-                }),
-              );
+              setPreview(null);
+              setQuote('');
+              const result = await call<{ quoteResponse: unknown; signedQuotePayload: string }>('/api/leash/quote', {
+                method: 'POST',
+                body: {
+                  destinationAsset: destination,
+                  recipient: quoteRecipient,
+                  amount: requireLeashAmount(quoteAmount, true),
+                  slippageBps: Number(quoteSlippage),
+                },
+              });
+              setQuote(JSON.stringify(result.quoteResponse));
+              setPreview({ signedQuotePayload: result.signedQuotePayload });
             })
           }
         >
-          Preview quote
+          Get provider-signed quote
         </Button>
+        <p className="text-sm text-muted-foreground">
+          The server requests the quote directly from 1Click and verifies its signature. This does not approve or submit
+          a swap. Review amounts and fees below before approving.
+        </p>
+        <details>
+          <summary className="cursor-pointer text-sm">Advanced: import a signed quote</summary>
+          <textarea
+            aria-label="Provider-signed quote JSON"
+            className="min-h-28 w-full rounded border p-3 font-mono text-xs"
+            value={quote}
+            disabled={busy || !!execution}
+            onChange={(e) => {
+              setQuote(e.target.value);
+              setPreview(null);
+            }}
+          />
+          <Button
+            disabled={busy || !quote || !!execution}
+            onClick={() =>
+              void run(async () => {
+                setPreview(
+                  await call<{ signedQuotePayload: string }>('/api/leash/preview', {
+                    method: 'POST',
+                    body: { quoteResponse: JSON.parse(quote) },
+                  }),
+                );
+              })
+            }
+          >
+            Preview quote
+          </Button>
+        </details>
         {preview && (
           <>
             <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded border p-3 text-xs">
