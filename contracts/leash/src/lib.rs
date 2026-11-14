@@ -43,6 +43,8 @@ pub struct Vault {
     frozen: bool,
     day_started_ns: u64,
     spent_today: u128,
+    /// Prevent token changes while a transfer can still restore its balance.
+    pending_transfers: u32,
 }
 
 #[near(serializers = [json])]
@@ -86,13 +88,16 @@ impl Leash {
         let before = env::storage_usage();
         match self.vaults.get_mut(&owner) {
             Some(vault) => {
-                require!(vault.balance == 0 || vault.limits.token == limits.token, "Withdraw before changing the token");
+                require!(
+                    vault.limits.token == limits.token || (vault.balance == 0 && vault.pending_transfers == 0),
+                    "Withdraw and wait for pending transfers before changing the token"
+                );
                 vault.limits = limits;
             }
             None => {
                 self.vaults.insert(
                     owner.clone(),
-                    Vault { limits, balance: 0, frozen: false, day_started_ns: env::block_timestamp(), spent_today: 0 },
+                    Vault { limits, balance: 0, frozen: false, day_started_ns: env::block_timestamp(), spent_today: 0, pending_transfers: 0 },
                 );
             }
         }
@@ -116,6 +121,7 @@ impl Leash {
         let vault = self.own_vault();
         require!(amount.0 > 0 && amount.0 <= vault.balance, "Not that much in the vault");
         vault.balance -= amount.0;
+        vault.pending_transfers += 1;
         let token = vault.limits.token.clone();
         Promise::new(token)
             .function_call(
@@ -160,6 +166,7 @@ impl Leash {
         require!(quote.get("dry") == Some(&Value::Bool(false)), "Not an executable quote");
         require!(field("swapType") == "EXACT_INPUT", "Only exact-input swaps");
         require!(field("depositType") == "ORIGIN_CHAIN", "Only origin-chain deposits");
+        require!(field("recipientType") == "DESTINATION_CHAIN", "Only destination-chain delivery");
         require!(field("refundType") == "ORIGIN_CHAIN", "Refunds must return to the origin chain");
         require!(field("originAsset") == format!("nep141:{}", vault.limits.token), "This vault does not hold that asset");
         require!(vault.limits.buy_assets.contains(&field("destinationAsset")), "The owner does not allow buying that");
@@ -184,6 +191,8 @@ impl Leash {
         require!(amount <= vault.balance, "Not enough budget in the vault");
         vault.balance -= amount;
         vault.spent_today += amount;
+        vault.pending_transfers += 1;
+        let spend_window_ns = vault.day_started_ns;
         let token = vault.limits.token.clone();
         self.paid.insert(deposit.clone());
         log_event(
@@ -205,25 +214,34 @@ impl Leash {
                 NearToken::from_yoctonear(1),
                 GAS_TOKEN_CALL,
             )
-            .then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_execute(owner, U128(amount)))
+            .then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_execute(owner, U128(amount), spend_window_ns))
     }
 
     /// Puts the budget back if the transfer did not happen. The deposit address stays paid.
     #[private]
-    pub fn on_execute(&mut self, owner: AccountId, amount: U128, #[callback_result] result: Result<(), PromiseError>) {
-        if result.is_err() {
-            if let Some(vault) = self.vaults.get_mut(&owner) {
+    pub fn on_execute(&mut self, owner: AccountId, amount: U128, spend_window_ns: u64, #[callback_result] result: Result<(), PromiseError>) {
+        if let Some(vault) = self.vaults.get_mut(&owner) {
+            require!(vault.pending_transfers > 0, "No pending transfer");
+            vault.pending_transfers -= 1;
+            if result.is_err() {
                 vault.balance += amount.0;
-                vault.spent_today = vault.spent_today.saturating_sub(amount.0);
+                // A delayed failure must not refund spending from a newer budget window.
+                if vault.day_started_ns == spend_window_ns {
+                    vault.spent_today = vault.spent_today.saturating_sub(amount.0);
+                }
             }
+        }
+        if result.is_err() {
             log_event("execute_failed", &owner, "{}");
         }
     }
 
     #[private]
     pub fn on_withdraw(&mut self, owner: AccountId, amount: U128, #[callback_result] result: Result<(), PromiseError>) {
-        if result.is_err() {
-            if let Some(vault) = self.vaults.get_mut(&owner) {
+        if let Some(vault) = self.vaults.get_mut(&owner) {
+            require!(vault.pending_transfers > 0, "No pending transfer");
+            vault.pending_transfers -= 1;
+            if result.is_err() {
                 vault.balance += amount.0;
             }
         }
@@ -234,7 +252,11 @@ impl Leash {
             limits: vault.limits.clone(),
             balance: U128(vault.balance),
             frozen: vault.frozen,
-            spent_today: U128(vault.spent_today),
+            spent_today: U128(if env::block_timestamp().saturating_sub(vault.day_started_ns) >= DAY_NS {
+                0
+            } else {
+                vault.spent_today
+            }),
         })
     }
 

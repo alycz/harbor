@@ -227,7 +227,7 @@ fn restores_the_budget_when_the_transfer_fails() {
     let mut leash = funded();
     execute(&mut leash, &quote(|_| {}));
     as_caller("leash.near", NearToken::from_yoctonear(0));
-    leash.on_execute(account("alice.near"), U128(1_000), Err(PromiseError::Failed));
+    leash.on_execute(account("alice.near"), U128(1_000), leash.vaults.get(&account("alice.near")).unwrap().day_started_ns, Err(PromiseError::Failed));
     let vault = leash.get_vault(account("alice.near")).unwrap();
     assert_eq!(vault.balance.0, 10_000);
     assert_eq!(vault.spent_today.0, 0);
@@ -256,4 +256,76 @@ fn reads_iso_times_as_unix_milliseconds() {
     assert_eq!(parse_iso_ms("2026-11-14T05:25:10.968Z"), Some(1_794_633_910_968));
     assert_eq!(parse_iso_ms("2024-02-29T23:59:59.999Z"), Some(1_709_251_199_999));
     assert_eq!(parse_iso_ms("not a date"), None);
+}
+
+#[test]
+#[should_panic(expected = "Withdraw and wait for pending transfers")]
+fn token_cannot_change_while_withdrawal_is_pending() {
+    let mut leash = funded();
+    as_caller("alice.near", NearToken::from_yoctonear(0));
+    let _ = leash.withdraw(U128(10_000));
+    let mut replacement = limits();
+    replacement.token = account("other.near");
+    leash.set_limits(replacement);
+}
+
+#[test]
+fn successful_withdrawal_releases_token_change_lock() {
+    let mut leash = funded();
+    as_caller("alice.near", NearToken::from_yoctonear(0));
+    let _ = leash.withdraw(U128(10_000));
+    as_caller("leash.near", NearToken::from_yoctonear(0));
+    leash.on_withdraw(account("alice.near"), U128(10_000), Ok(()));
+    as_caller("alice.near", NearToken::from_near(1));
+    let mut replacement = limits();
+    replacement.token = account("other.near");
+    leash.set_limits(replacement);
+    assert_eq!(leash.get_vault(account("alice.near")).unwrap().limits.token, account("other.near"));
+}
+
+#[test]
+fn delayed_failure_does_not_refund_a_new_spend_window() {
+    let mut leash = funded();
+    execute(&mut leash, &quote(|_| {}));
+    let owner = account("alice.near");
+    let old_window = leash.vaults.get(&owner).unwrap().day_started_ns;
+    let vault = leash.vaults.get_mut(&owner).unwrap();
+    vault.day_started_ns += super::DAY_NS;
+    vault.spent_today = 500;
+    as_caller("leash.near", NearToken::from_yoctonear(0));
+    leash.on_execute(owner.clone(), U128(1_000), old_window, Err(PromiseError::Failed));
+    let vault = leash.get_vault(owner).unwrap();
+    assert_eq!(vault.balance.0, 10_000);
+    assert_eq!(vault.spent_today.0, 500);
+}
+
+#[test]
+fn vault_view_resets_elapsed_daily_allowance() {
+    let mut leash = funded();
+    execute(&mut leash, &quote(|_| {}));
+    let mut context = VMContextBuilder::new();
+    context.current_account_id(account("leash.near"))
+        .block_timestamp(NOW_MS * 1_000_000 + super::DAY_NS);
+    testing_env!(context.build());
+    assert_eq!(leash.get_vault(account("alice.near")).unwrap().spent_today.0, 0);
+}
+
+#[test]
+fn failed_withdrawal_restores_original_token_balance() {
+    let mut leash = funded();
+    as_caller("alice.near", NearToken::from_yoctonear(0));
+    let _ = leash.withdraw(U128(10_000));
+    as_caller("leash.near", NearToken::from_yoctonear(0));
+    leash.on_withdraw(account("alice.near"), U128(10_000), Err(PromiseError::Failed));
+    let vault = leash.get_vault(account("alice.near")).unwrap();
+    assert_eq!(vault.balance.0, 10_000);
+    assert_eq!(vault.limits.token, account("wrap.near"));
+    assert_eq!(leash.vaults.get(&account("alice.near")).unwrap().pending_transfers, 0);
+}
+
+#[test]
+#[should_panic(expected = "Only destination-chain delivery")]
+fn rejects_delivery_to_an_intents_balance() {
+    let mut leash = funded();
+    execute(&mut leash, &quote(|value| value["recipientType"] = "INTENTS".into()));
 }
