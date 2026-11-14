@@ -27,9 +27,7 @@ const SwapIntentSchema = z.strictObject({
 const PlanSchema = z.strictObject({ intentId: z.uuid(), quoteId: z.uuid() });
 const ApproveSchema = z.strictObject({ digest: z.string().regex(/^[0-9a-f]{64}$/) });
 const DepositSchema = z.strictObject({
-  txHash: z
-    .string()
-    .regex(/^(?:[1-9A-HJ-NP-Za-km-z]{43,44}|0x[0-9a-fA-F]{64})$/),
+  txHash: z.string().regex(/^(?:[1-9A-HJ-NP-Za-km-z]{43,44}|0x[0-9a-fA-F]{64})$/),
 });
 const IdempotencyKeySchema = z
   .string()
