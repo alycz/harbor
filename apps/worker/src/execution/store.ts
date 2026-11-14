@@ -202,8 +202,8 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
       .prepare(
         `INSERT INTO plans (id, intent_id, quote_id, network, account_id, idempotency_key, status, digest, policy,
            policy_check, policy_id, source, recipient, recipient_chain, quote_hash, deposit_address, deposit_memo,
-           error_code, created_at_ms, updated_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           result, error_code, created_at_ms, updated_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         row.id,
@@ -223,6 +223,7 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
         row.quote_hash,
         row.deposit_address,
         row.deposit_memo,
+        row.result,
         row.error_code,
         row.created_at_ms,
         row.updated_at_ms,
@@ -258,6 +259,7 @@ export function newPlanRow(input: {
   policyId: string | null;
   source: PlanRow['source'];
   recipient: { chain: string; address: string } | null;
+  origin?: { chain: string; address: string } | null;
   deposit: { address: string; memo: string | null; quoteHash: string } | null;
   errorCode: string | null;
   now: number;
@@ -286,7 +288,7 @@ export function newPlanRow(input: {
     one_click_status: null,
     delivery_tx_hash: null,
     delivery_verified_at_ms: null,
-    result: null,
+    result: input.origin ? JSON.stringify({ origin: input.origin }) : null,
     error_code: input.errorCode,
     created_at_ms: input.now,
     updated_at_ms: input.now,
@@ -399,6 +401,7 @@ export function logFailure(step: string, error: unknown): void {
 
 /** Fields every plan view shares, whatever the action. */
 export function basePlanView(row: PlanRow) {
+  const origin = (JSON.parse(row.result ?? '{}') as { origin?: { chain?: string } }).origin;
   return {
     id: row.id,
     status: row.status,
@@ -415,9 +418,20 @@ export function basePlanView(row: PlanRow) {
     oneClickStatus: row.one_click_status,
     deliveryVerified: row.delivery_verified_at_ms !== null,
     txHash: row.tx_hash,
-    explorerUrl: row.tx_hash ? txExplorerUrl(row.network, row.tx_hash) : null,
+    explorerUrl: row.tx_hash ? originExplorerUrl(row.network, origin?.chain ?? 'near', row.tx_hash) : null,
     errorCode: row.error_code,
   };
+}
+
+function originExplorerUrl(network: Network, chain: string, hash: string): string | null {
+  if (chain === 'near') return txExplorerUrl(network, hash);
+  if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) return null;
+  const base: Readonly<Record<string, string>> = {
+    eth: 'https://etherscan.io/tx/',
+    base: 'https://basescan.org/tx/',
+    arb: 'https://arbiscan.io/tx/',
+  };
+  return base[chain] ? `${base[chain]}${hash}` : null;
 }
 
 export function firstBlock(decision: Decision): string | null {

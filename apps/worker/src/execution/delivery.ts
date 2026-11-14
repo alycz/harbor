@@ -12,31 +12,34 @@ const EVM_RPC: Readonly<Record<string, string>> = {
 const BRIDGED_TOKEN = /^nep141:(eth|base|arb)-(0x[0-9a-f]{40})\.omft\.near$/;
 
 export interface EvmReader {
-  /** A transaction receipt, or null while the chain does not know it. */
+  /** A transaction and receipt, or null while the chain does not know them. */
+  transaction?(chain: string, hash: string): Promise<unknown | null>;
   receipt(chain: string, hash: string): Promise<unknown | null>;
 }
 
 export function createEvmReader(fetcher: typeof fetch = fetch): EvmReader {
+  async function rpc(chain: string, hash: string, method: string): Promise<unknown | null> {
+    const url = EVM_RPC[chain];
+    if (!url || !/^0x[0-9a-fA-F]{64}$/.test(hash)) return null;
+    let response: Response;
+    try {
+      response = await fetcher(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: [hash] }),
+        signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+        redirect: 'manual',
+      });
+    } catch (error) {
+      throw new ChainReadFailed(`The ${chain} RPC did not answer.`, { cause: error });
+    }
+    if (!response.ok) throw new ChainReadFailed(`The ${chain} RPC answered HTTP ${response.status}.`);
+    const body = (await response.json().catch(() => null)) as { result?: unknown } | null;
+    return body?.result ?? null;
+  }
   return {
-    async receipt(chain, hash) {
-      const url = EVM_RPC[chain];
-      if (!url || !/^0x[0-9a-fA-F]{64}$/.test(hash)) return null;
-      let response: Response;
-      try {
-        response = await fetcher(url, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [hash] }),
-          signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
-          redirect: 'manual',
-        });
-      } catch (error) {
-        throw new ChainReadFailed(`The ${chain} RPC did not answer.`, { cause: error });
-      }
-      if (!response.ok) throw new ChainReadFailed(`The ${chain} RPC answered HTTP ${response.status}.`);
-      const body = (await response.json().catch(() => null)) as { result?: unknown } | null;
-      return body?.result ?? null;
-    },
+    transaction: (chain, hash) => rpc(chain, hash, 'eth_getTransactionByHash'),
+    receipt: (chain, hash) => rpc(chain, hash, 'eth_getTransactionReceipt'),
   };
 }
 
@@ -49,6 +52,107 @@ export interface Delivery {
   /** The recipient's balance of the bought token when the owner approved, for NEAR deliveries. */
   balanceBeforeRaw: bigint | null;
   deliveryTxHashes: readonly string[];
+}
+
+export type OriginDepositCheck =
+  | { outcome: 'confirmed' }
+  | { outcome: 'pending' }
+  | { outcome: 'failed'; detail: string }
+  | { outcome: 'mismatch'; detail: string };
+
+/** Independently decodes an EVM origin deposit; provider status is never used as proof. */
+export async function verifyEvmDeposit(
+  evm: EvmReader,
+  input: {
+    chain: string;
+    txHash: string;
+    asset: string;
+    sender: string;
+    depositAddress: string;
+    amountRaw: bigint;
+  },
+): Promise<OriginDepositCheck> {
+  if (!['eth', 'base', 'arb'].includes(input.chain)) {
+    return { outcome: 'mismatch', detail: 'The origin chain is not supported for verified deposits.' };
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(input.sender) || !/^0x[0-9a-fA-F]{40}$/.test(input.depositAddress)) {
+    return { outcome: 'mismatch', detail: 'The origin or deposit address is invalid.' };
+  }
+  if (!evm.transaction) return { outcome: 'mismatch', detail: 'No origin-chain transaction reader is configured.' };
+  const transaction = (await evm.transaction(input.chain, input.txHash)) as {
+    hash?: unknown;
+    from?: unknown;
+    to?: unknown;
+    input?: unknown;
+    value?: unknown;
+  } | null;
+  const receipt = (await evm.receipt(input.chain, input.txHash)) as {
+    transactionHash?: unknown;
+    status?: unknown;
+    logs?: unknown;
+  } | null;
+  if (!transaction || !receipt) return { outcome: 'pending' };
+  if (
+    String(transaction.hash).toLowerCase() !== input.txHash.toLowerCase() ||
+    String(receipt.transactionHash).toLowerCase() !== input.txHash.toLowerCase()
+  ) {
+    return { outcome: 'mismatch', detail: 'The RPC response does not match the submitted transaction hash.' };
+  }
+  if (receipt.status !== '0x1') return { outcome: 'failed', detail: 'The origin-chain transaction failed.' };
+  if (String(transaction.from).toLowerCase() !== input.sender.toLowerCase()) {
+    return { outcome: 'mismatch', detail: 'The transaction sender is not the policy-bound origin address.' };
+  }
+  if (input.asset === 'nep141:eth.omft.near') {
+    if (
+      input.chain !== 'eth' ||
+      String(transaction.to).toLowerCase() !== input.depositAddress.toLowerCase() ||
+      typeof transaction.value !== 'string' ||
+      !/^0x[0-9a-fA-F]+$/.test(transaction.value) ||
+      BigInt(transaction.value) !== input.amountRaw ||
+      !['0x', '0x0', ''].includes(String(transaction.input).toLowerCase())
+    ) {
+      return { outcome: 'mismatch', detail: 'The native transfer does not match the planned deposit.' };
+    }
+    return { outcome: 'confirmed' };
+  }
+  const token = BRIDGED_TOKEN.exec(input.asset);
+  if (
+    !token ||
+    token[1] !== input.chain ||
+    String(transaction.to).toLowerCase() !== token[2]?.toLowerCase() ||
+    typeof transaction.value !== 'string' ||
+    !/^0x[0-9a-fA-F]+$/.test(transaction.value) ||
+    BigInt(transaction.value) !== 0n
+  ) {
+    return { outcome: 'mismatch', detail: 'The token contract does not match the planned origin asset.' };
+  }
+  const recipientWord = input.depositAddress.toLowerCase().slice(2).padStart(64, '0');
+  const amountWord = input.amountRaw.toString(16).padStart(64, '0');
+  const expected = `0xa9059cbb${recipientWord}${amountWord}`;
+  if (String(transaction.input).toLowerCase() !== expected) {
+    return { outcome: 'mismatch', detail: 'The token transfer receiver or amount does not match the plan.' };
+  }
+  const senderTopic = `0x${input.sender.toLowerCase().slice(2).padStart(64, '0')}`;
+  const recipientTopic = `0x${recipientWord}`;
+  const amountData = `0x${amountWord}`;
+  const transferred = Array.isArray(receipt.logs)
+    ? (receipt.logs as Array<{ address?: unknown; topics?: unknown; data?: unknown }>).some((log) => {
+        const topics = Array.isArray(log.topics)
+          ? (log.topics as unknown[]).map((topic) => String(topic).toLowerCase())
+          : [];
+        return (
+          String(log.address).toLowerCase() === token[2]?.toLowerCase() &&
+          topics[0] === TRANSFER_TOPIC &&
+          topics[1] === senderTopic &&
+          topics[2] === recipientTopic &&
+          String(log.data).toLowerCase() === amountData
+        );
+      })
+    : false;
+  if (!transferred) {
+    return { outcome: 'mismatch', detail: 'No exact token Transfer event proves the planned deposit succeeded.' };
+  }
+  return { outcome: 'confirmed' };
 }
 
 export type DeliveryCheck =

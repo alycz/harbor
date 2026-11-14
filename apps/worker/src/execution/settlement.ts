@@ -3,7 +3,7 @@ import { rawFromText } from '@harbor/domain/amount';
 import { AppError } from '@harbor/domain/errors';
 import { ChainReadFailed, checkDeposit, isTxHash, tokenContractOf } from '@harbor/near/chain';
 
-import { verifyDelivery } from './delivery.ts';
+import { type OriginDepositCheck, verifyDelivery, verifyEvmDeposit } from './delivery.ts';
 import { readPlan } from './lifecycle.ts';
 import {
   type ExecutionDeps,
@@ -32,7 +32,9 @@ const WAITING_FOR_DEPOSIT: readonly PlanStatus[] = ['awaiting_signature', 'expir
  * counts: funds that moved are never ignored.
  */
 export async function recordDeposit(deps: ExecutionDeps, planId: string, account: string, txHash: string) {
-  if (!isTxHash(txHash)) throw new AppError('INVALID_REQUEST', 'Send the deposit transaction hash.');
+  if (!isTxHash(txHash) && !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+    throw new AppError('INVALID_REQUEST', 'Send the deposit transaction hash.');
+  }
   let plan = await loadOwnPlan(deps, planId, account);
   if (plan.tx_hash !== null && plan.tx_hash !== txHash) {
     throw new AppError('CONFLICT', 'This plan already has a deposit transaction.');
@@ -97,8 +99,62 @@ export async function settlePlans(deps: ExecutionDeps) {
 async function checkClaimedDeposit(deps: ExecutionDeps, plan: PlanRow): Promise<{ mismatch?: string }> {
   const intent = await loadIntent(deps, plan.intent_id);
   const quote = await loadQuote(deps, plan.quote_id);
+  const origin = (
+    JSON.parse(plan.result ?? '{}') as {
+      origin?: { chain?: string; address?: string };
+    }
+  ).origin;
+  if (!plan.tx_hash || !plan.deposit_address) return {};
+  if (origin?.chain && origin.chain !== 'near') {
+    let check: OriginDepositCheck;
+    try {
+      check = await verifyEvmDeposit(deps.evm, {
+        chain: origin.chain,
+        txHash: plan.tx_hash,
+        asset: intent.sell_asset,
+        sender: origin.address ?? '',
+        depositAddress: plan.deposit_address,
+        amountRaw: rawFromText(quote.amount_in_raw),
+      });
+    } catch (error) {
+      if (error instanceof ChainReadFailed) return {};
+      throw error;
+    }
+    if (check.outcome === 'confirmed') {
+      const moved = await transition(
+        deps,
+        plan,
+        'submitted',
+        { error_code: null },
+        'system',
+        `Deposit verified on ${origin.chain}`,
+      );
+      if (moved && deps.executor) {
+        await deps.executor
+          .submitDeposit({
+            txHash: plan.tx_hash,
+            depositAddress: plan.deposit_address,
+            memo: plan.deposit_memo || null,
+            sender: origin.address ?? '',
+            originChain: origin.chain,
+          })
+          .catch((error) => logFailure('deposit_notice', error));
+      }
+      return {};
+    }
+    if (check.outcome === 'failed') {
+      await transition(deps, plan, 'failed', { error_code: 'DEPOSIT_FAILED' }, 'system', check.detail);
+      return {};
+    }
+    if (check.outcome === 'mismatch') {
+      await unclaim(deps, plan);
+      return { mismatch: `That transaction is not this plan's deposit: ${check.detail}` };
+    }
+    if (deps.now() - plan.updated_at_ms > UNSEEN_DEPOSIT_MS) await unclaim(deps, plan);
+    return {};
+  }
   const tokenContract = tokenContractOf(intent.sell_asset);
-  if (!plan.tx_hash || !plan.deposit_address || !tokenContract) return {};
+  if (!tokenContract) return {};
   let result: unknown;
   try {
     result = await deps.chain.transaction(plan.tx_hash, plan.account_id);
@@ -129,6 +185,7 @@ async function checkClaimedDeposit(deps: ExecutionDeps, plan: PlanRow): Promise<
             depositAddress: plan.deposit_address,
             memo: plan.deposit_memo || null,
             sender: plan.account_id,
+            originChain: 'near',
           })
           .catch((error) => logFailure('deposit_notice', error));
       }
