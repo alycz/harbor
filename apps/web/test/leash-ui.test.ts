@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test, { describe, it } from 'node:test';
-import { canSubmitLeash, fromAtomic, requireLeashAmount, toAtomic } from '../src/lib/leash-ui.ts';
+import {
+  allowanceSentence,
+  canSubmitLeash,
+  expiryAfterDays,
+  fromAtomic,
+  requireLeashAmount,
+  spokenList,
+  toAtomic,
+} from '../src/lib/leash-ui.ts';
 
 test('atomic amounts preserve full integer precision', () => {
   const value = '99999999999999999999999999';
@@ -40,5 +48,46 @@ describe('token units', () => {
     assert.throws(() => toAtomic('-1', 6));
     assert.throws(() => toAtomic('1e6', 6));
     assert.throws(() => toAtomic('', 6));
+  });
+});
+
+describe('plain-language allowance', () => {
+  const endsAt = new Date(2026, 10, 21);
+
+  it('reads the default vault as one sentence', () => {
+    const sentence = allowanceSentence({
+      daily: '2',
+      perTrade: '2',
+      symbol: 'USDC',
+      buys: ['NEAR'],
+      toOwnAccount: true,
+      recipients: 1,
+      endsAt,
+    });
+    assert.match(
+      sentence,
+      /^Harbor's agent may spend up to 2 USDC a day, only to buy NEAR for your own account, until /,
+    );
+  });
+
+  it('mentions a per-trade cap only when it differs from the daily budget', () => {
+    const sentence = allowanceSentence({
+      daily: '10',
+      perTrade: '2',
+      symbol: 'USDC',
+      buys: ['NEAR', 'USDT', 'ETH'],
+      toOwnAccount: false,
+      recipients: 2,
+      endsAt,
+    });
+    assert.match(
+      sentence,
+      /up to 10 USDC a day, at most 2 per trade, only to buy NEAR, USDT and ETH for your 2 chosen addresses/,
+    );
+  });
+
+  it('counts days from now', () => {
+    assert.equal(expiryAfterDays(7, 0), 7 * 86_400_000);
+    assert.equal(spokenList(['NEAR', 'USDT']), 'NEAR and USDT');
   });
 });

@@ -34,3 +34,37 @@ export function fromAtomic(raw: string, decimals: number): string {
   const fraction = decimals > 0 ? padded.slice(-decimals).replace(/0+$/, '') : '';
   return fraction ? `${whole}.${fraction}` : whole;
 }
+
+/** How long a vault's allowance lasts, offered as three plain choices. */
+export const ALLOWANCE_DAYS = [1, 7, 30] as const;
+
+export function expiryAfterDays(days: number, nowMs: number): number {
+  return nowMs + days * 86_400_000;
+}
+
+/** A list read the way a person says it: "NEAR", "NEAR and USDT", "NEAR, USDT and ETH". */
+export function spokenList(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+}
+
+/**
+ * The vault's rules as one sentence, so an owner reads what they grant rather than a form:
+ * "Harbor's agent may spend up to 2 USDC a day, only to buy NEAR for your own account, until Fri 21 Nov."
+ */
+export function allowanceSentence(input: {
+  daily: string;
+  perTrade: string;
+  symbol: string;
+  buys: readonly string[];
+  toOwnAccount: boolean;
+  recipients: number;
+  endsAt: Date;
+}): string {
+  const budget = `${input.daily || '…'} ${input.symbol}`.trim();
+  const cap = input.perTrade && input.perTrade !== input.daily ? `, at most ${input.perTrade} per trade` : '';
+  const buys = input.buys.length ? spokenList(input.buys) : 'nothing yet';
+  const to = input.toOwnAccount ? 'your own account' : `your ${input.recipients} chosen addresses`;
+  const until = input.endsAt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  return `Harbor's agent may spend up to ${budget} a day${cap}, only to buy ${buys} for ${to}, until ${until}.`;
+}
