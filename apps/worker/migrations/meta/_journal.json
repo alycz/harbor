@@ -22,6 +22,34 @@
       "when": 1794371552684,
       "tag": "0002_autopilot_strategies",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794685189486,
+      "tag": "0003_rhea_supply_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794685190132,
+      "tag": "0004_templar_borrow_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794685198456,
+      "tag": "0005_drop_legacy_rhea_supply_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794685199127,
+      "tag": "0006_rhea_supply_plans_v2",
+      "breakpoints": true
     }
   ]
 }

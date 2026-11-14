@@ -183,7 +183,7 @@ export function EarnSkeleton() {
       <div className="flex flex-col gap-3.5">
         <SectionTitleSkeleton />
         <div className="grid gap-3 @xl/workspace:grid-cols-2">
-          {[0, 1].map((card) => (
+          {[0, 1, 2, 3].map((card) => (
             <div key={card} className="ws-card space-y-4 p-5">
               <SkeletonBox width="50%" height={13} />
               <SkeletonBox width="40%" height={38} radius={7} />

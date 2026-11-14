@@ -41,13 +41,13 @@ Sources: [decoder](https://github.com/alycz/harbor/blob/main/apps/worker/src/con
 After building the app and docs, select the mainnet write integrations explicitly:
 
 ```sh
-node scripts/prepare-deployment.mjs mainnet DATABASE_ID --write-adapters=oneclick,rhea-lending,templar
+node scripts/prepare-deployment.mjs mainnet DATABASE_ID --enable-execution --write-adapters=oneclick,rhea-lending
 ```
 
 This generates a local configuration only; it does not deploy, apply migrations, or enable execution.
 `EXECUTION_ENABLED` remains `false` unless `--enable-execution` is explicitly added.
 The adapter selection is retained while execution is off, so both gates remain independent.
-When `--write-adapters` is omitted, the selection in the built configuration is preserved.
+When `--write-adapters` is omitted, the selection in the built configuration is kept. The committed `apps/worker/wrangler.jsonc` selects none and keeps execution off, so local development and tests never move funds; a production deploy must name its adapters.
 An empty `--write-adapters=` clears the selection; execution cannot be enabled with an empty list.
 Only `oneclick`, `rhea-lending`, and `templar` are accepted. KAIO is not a supported write adapter.
 These adapters are mainnet-only; testnet configurations remain execution-disabled with an empty list.

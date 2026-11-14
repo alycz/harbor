@@ -1,31 +1,95 @@
 import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
 import {
+  type DepositChoice,
   DepositDialog,
   NotYetDialog,
   VAULTS,
   type Vault,
+  vaultApy,
   vaultForPool,
   vaultListing,
 } from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
-import { RheaOpportunities } from '../components/rhea-opportunities.tsx';
-import { TemplarBorrow } from '../components/templar-borrow.tsx';
+import { RheaDepositDialog } from '../components/rhea-deposit.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
 import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
+import { type LiveEarn, lending, RHEA_SYMBOLS, type RheaSymbol } from '../lib/lending.ts';
 import { research, snapshotCredit } from '../lib/research.ts';
 import { apyDrift, HOME_CHAIN, projectLogo, projectName } from '../lib/research-view.ts';
 
 /** Pools below this size are left out: their rates move too much to plan around. */
 const MIN_TVL_USD = 1_000_000;
+const RHEA_PROJECT = 'rhea-lend';
+
+/** Where a Deposit button leads: a 1Click vault, or Rhea Lend on NEAR. */
+type Target = { kind: 'vault'; vault: Vault } | { kind: 'rhea'; symbol: RheaSymbol };
+
+function rheaSymbolForPool(pool: YieldPoolRow): RheaSymbol | null {
+  const symbol = pool.symbol.toUpperCase();
+  return pool.chain === HOME_CHAIN &&
+    pool.project === RHEA_PROJECT &&
+    (RHEA_SYMBOLS as readonly string[]).includes(symbol)
+    ? (symbol as RheaSymbol)
+    : null;
+}
+
+function targetForPool(pool: YieldPoolRow): Target | null {
+  const vault = vaultForPool(pool);
+  if (vault) return { kind: 'vault', vault };
+  const symbol = rheaSymbolForPool(pool);
+  return symbol ? { kind: 'rhea', symbol } : null;
+}
+
+/** Rhea's pool in the dated snapshot, for TVL and the 30-day mean the contract does not give. */
+function rheaListing(symbol: RheaSymbol): YieldPoolRow | null {
+  return (
+    research.yieldPools.find(
+      (pool) => pool.chain === HOME_CHAIN && pool.project === RHEA_PROJECT && pool.symbol.toUpperCase() === symbol,
+    ) ?? null
+  );
+}
 
 export function EarnPage() {
-  const [depositVault, setDepositVault] = useState<Vault | null>(null);
+  const [target, setTarget] = useState<Target | null>(null);
   const [notYet, setNotYet] = useState<YieldPoolRow | null>(null);
+  // Live from Rhea's contract and each vault's own source; the dated snapshot stands in until they answer.
+  const live = useQuery({ queryKey: ['live-earn'], queryFn: lending.live, staleTime: 60_000 });
+  const rheaLive = (symbol: RheaSymbol) => live.data?.rhea.find((market) => market.symbol === symbol) ?? null;
+  const vaultLive = (vault: Vault) => live.data?.vaults.find((entry) => entry.receipt === vault.receipt) ?? null;
+  const rheaApr = (symbol: RheaSymbol) => rheaLive(symbol)?.supplyAprPct ?? null;
+  const choices: DepositChoice[] = [
+    ...RHEA_SYMBOLS.map((symbol) => {
+      const live = rheaApr(symbol);
+      return {
+        key: `rhea-${symbol}`,
+        name: `Rhea ${symbol}`,
+        detail: 'Rhea Lend on NEAR',
+        chain: HOME_CHAIN,
+        rate: live === null ? formatApy(rheaListing(symbol)?.totalApyPct ?? null) : `${formatApy(live)} APR`,
+        onSelect: () => {
+          setNotYet(null);
+          setTarget({ kind: 'rhea', symbol });
+        },
+      };
+    }),
+    ...VAULTS.map((vault) => ({
+      key: vault.receipt,
+      name: vault.name,
+      detail: `${vault.protocol} on ${vault.chain}`,
+      chain: vault.chain,
+      rate: vaultLive(vault) ? `${formatApy(vaultLive(vault)?.apyPct ?? null)} APY` : vaultApy(vault),
+      onSelect: () => {
+        setNotYet(null);
+        setTarget({ kind: 'vault', vault });
+      },
+    })),
+  ];
   const pools = stablePools(research.yieldPools);
   const best = bestPerChain(pools);
   const top = best.reduce<YieldPoolRow | null>(
@@ -53,8 +117,6 @@ export function EarnPage() {
           </Button>
         }
       />
-      <RheaOpportunities />
-      <TemplarBorrow />
       {best.length === 0 ? (
         <Panel>
           <EmptyState
@@ -67,9 +129,29 @@ export function EarnPage() {
         <>
           <section aria-labelledby="earn-vaults" className="flex flex-col gap-3.5">
             <SectionTitle id="earn-vaults" title="Deposit now" />
+            {live.data ? (
+              <p className="-mt-1.5 text-[13px] text-muted-foreground">
+                Live rates, read{' '}
+                {new Date(live.data.fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} from
+                Rhea's contract, Morpho and Portals.
+              </p>
+            ) : null}
             <ul className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2">
+              {RHEA_SYMBOLS.map((symbol) => (
+                <RheaCard
+                  key={symbol}
+                  symbol={symbol}
+                  live={rheaLive(symbol)}
+                  onDeposit={() => setTarget({ kind: 'rhea', symbol })}
+                />
+              ))}
               {VAULTS.map((vault) => (
-                <VaultCard key={vault.receipt} vault={vault} onDeposit={setDepositVault} />
+                <VaultCard
+                  key={vault.receipt}
+                  vault={vault}
+                  live={vaultLive(vault)}
+                  onDeposit={() => setTarget({ kind: 'vault', vault })}
+                />
               ))}
             </ul>
           </section>
@@ -77,7 +159,7 @@ export function EarnPage() {
             <SectionTitle id="earn-best" title="Best rate by chain" />
             <ol className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">
               {best.map((pool) => (
-                <RateCard key={pool.id} pool={pool} onDeposit={setDepositVault} onNotYet={setNotYet} />
+                <RateCard key={pool.id} pool={pool} onDeposit={setTarget} onNotYet={setNotYet} />
               ))}
             </ol>
           </section>
@@ -133,9 +215,9 @@ export function EarnPage() {
                   required: true,
                   numeric: true,
                   cell: (row) => {
-                    const vault = vaultForPool(row);
-                    return vault ? (
-                      <Button size="sm" className="h-8 px-3" onClick={() => setDepositVault(vault)}>
+                    const rowTarget = targetForPool(row);
+                    return rowTarget ? (
+                      <Button size="sm" className="h-8 px-3" onClick={() => setTarget(rowTarget)}>
                         Deposit
                       </Button>
                     ) : null;
@@ -144,15 +226,16 @@ export function EarnPage() {
               ]}
             />
           </section>
-          <DepositDialog vault={depositVault} onOpenChange={(open) => (open ? null : setDepositVault(null))} />
-          <NotYetDialog
-            pool={notYet}
-            onOpenChange={(open) => (open ? null : setNotYet(null))}
-            onDeposit={(vault) => {
-              setNotYet(null);
-              setDepositVault(vault);
-            }}
+          <DepositDialog
+            vault={target?.kind === 'vault' ? target.vault : null}
+            onOpenChange={(open) => (open ? null : setTarget(null))}
           />
+          <RheaDepositDialog
+            symbol={target?.kind === 'rhea' ? target.symbol : null}
+            aprPct={target?.kind === 'rhea' ? rheaApr(target.symbol) : null}
+            onOpenChange={(open) => (open ? null : setTarget(null))}
+          />
+          <NotYetDialog pool={notYet} choices={choices} onOpenChange={(open) => (open ? null : setNotYet(null))} />
         </>
       )}
     </div>
@@ -166,10 +249,10 @@ function RateCard({
   onNotYet,
 }: {
   pool: YieldPoolRow;
-  onDeposit: (vault: Vault) => void;
+  onDeposit: (target: Target) => void;
   onNotYet: (pool: YieldPoolRow) => void;
 }) {
-  const vault = vaultForPool(pool);
+  const target = targetForPool(pool);
   const drift = apyDrift(pool);
   const home = pool.chain === HOME_CHAIN;
   return (
@@ -225,7 +308,7 @@ function RateCard({
         </Link>
         <button
           type="button"
-          onClick={() => (vault ? onDeposit(vault) : onNotYet(pool))}
+          onClick={() => (target ? onDeposit(target) : onNotYet(pool))}
           className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
         >
           Deposit
@@ -235,50 +318,119 @@ function RateCard({
   );
 }
 
-/** A vault Harbor can deposit into: its best rate in the snapshot when listed, the chain, and both actions. */
-function VaultCard({ vault, onDeposit }: { vault: Vault; onDeposit: (vault: Vault) => void }) {
+/** A vault Harbor can deposit into: its live rate when its source answers, else the dated snapshot. */
+function VaultCard({
+  vault,
+  live,
+  onDeposit,
+}: {
+  vault: Vault;
+  live: LiveEarn['vaults'][number] | null;
+  onDeposit: () => void;
+}) {
   const lead = vaultListing(vault);
+  return (
+    <DepositCard
+      title={vault.name}
+      chain={vault.chain}
+      rate={formatApy(live?.apyPct ?? lead?.totalApyPct ?? null)}
+      rateLabel={live ? 'APY now' : 'APY'}
+      detail={`${vault.protocol} on ${vault.chain} · pay USDC on NEAR, receive ${vault.receipt}`}
+      figures={[
+        { label: 'TVL', value: formatUsd(live?.tvlUsd ?? lead?.tvlUsd ?? null) },
+        lead?.mean30dApyPct != null
+          ? { label: '30d mean', value: formatApy(lead.mean30dApyPct) }
+          : { label: 'Source', value: lead?.source === 'portals-explorer' ? 'Portals' : 'DefiLlama' },
+        { label: 'Minimum', value: '~50 USDC' },
+      ]}
+      ask={`Tell me about ${vault.name} (${vault.protocol} on ${vault.chain}): the risks, fees and how I would exit.`}
+      onDeposit={onDeposit}
+    />
+  );
+}
+
+/** Rhea Lend on NEAR: the live supply rate from its contract, with the snapshot's TVL and mean beside it. */
+function RheaCard({
+  symbol,
+  live,
+  onDeposit,
+}: {
+  symbol: RheaSymbol;
+  live: LiveEarn['rhea'][number] | null;
+  onDeposit: () => void;
+}) {
+  const listing = rheaListing(symbol);
+  return (
+    <DepositCard
+      title={`Rhea ${symbol}`}
+      chain={HOME_CHAIN}
+      rate={formatApy(live?.supplyAprPct ?? listing?.totalApyPct ?? null)}
+      rateLabel={live ? 'APR now' : 'APY'}
+      detail={`Rhea Lend on NEAR · supply ${symbol} from your wallet, never as collateral`}
+      figures={[
+        // A stablecoin market: tokens supplied stand in for dollars.
+        { label: 'Supplied', value: formatUsd(live?.supplied ?? listing?.tvlUsd ?? null) },
+        { label: '30d mean', value: formatApy(listing?.mean30dApyPct ?? null) },
+        { label: 'Minimum', value: 'None' },
+      ]}
+      ask={`Tell me about supplying ${symbol} on Rhea Lend (NEAR): the current rate, the risks and how I would withdraw.`}
+      onDeposit={onDeposit}
+    />
+  );
+}
+
+function DepositCard({
+  title,
+  chain,
+  rate,
+  rateLabel,
+  detail,
+  figures,
+  ask,
+  onDeposit,
+}: {
+  title: string;
+  chain: string;
+  rate: string;
+  rateLabel: string;
+  detail: string;
+  figures: { label: string; value: string }[];
+  ask: string;
+  onDeposit: () => void;
+}) {
   return (
     <li className="ws-card flex flex-col">
       <div className="flex items-center justify-between gap-3 px-5 pt-4">
         <p className="flex items-center gap-2 text-[13.5px] font-medium">
-          <ChainLogo chain={vault.chain} className="size-5" />
-          {vault.name}
+          <ChainLogo chain={chain} className="size-5" />
+          {title}
         </p>
       </div>
       <div className="px-5 pt-5">
         <p className="flex items-baseline gap-2.5">
           <span className="text-[38px] leading-none font-medium tracking-[-0.035em] [font-variant-numeric:proportional-nums]">
-            {lead ? formatApy(lead.totalApyPct) : '—'}
+            {rate}
           </span>
-          <span className="text-[12.5px] text-muted-foreground">APY</span>
+          <span className="text-[12.5px] text-muted-foreground">{rateLabel}</span>
         </p>
-        <p className="mt-3.5 text-[13.5px] text-muted-foreground">
-          {vault.protocol} on {vault.chain} · pay USDC on NEAR, receive {vault.receipt}
-        </p>
+        <p className="mt-3.5 text-[13.5px] text-muted-foreground">{detail}</p>
       </div>
       <dl className="mx-5 mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3.5 text-[12.5px]">
-        <Figure label="TVL" value={lead ? formatUsd(lead.tvlUsd) : '—'} />
-        {lead?.mean30dApyPct != null ? (
-          <Figure label="30d mean" value={formatApy(lead.mean30dApyPct)} />
-        ) : (
-          <Figure label="Source" value={lead?.source === 'portals-explorer' ? 'Portals' : 'DefiLlama'} />
-        )}
-        <Figure label="Minimum" value="~50 USDC" />
+        {figures.map((figure) => (
+          <Figure key={figure.label} label={figure.label} value={figure.value} />
+        ))}
       </dl>
       <div className="mt-4 grid grid-cols-2 border-t border-border text-[13px] font-medium">
         <Link
           to="/chat"
-          search={{
-            ask: `Tell me about ${vault.name} (${vault.protocol} on ${vault.chain}): the risks, fees and how I would exit.`,
-          }}
+          search={{ ask }}
           className="flex items-center justify-center gap-1.5 rounded-bl-[11px] border-r border-border px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
         >
           Research on Harbor <ArrowUpRight className="size-3.5" aria-hidden="true" />
         </Link>
         <button
           type="button"
-          onClick={() => onDeposit(vault)}
+          onClick={onDeposit}
           className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
         >
           Deposit

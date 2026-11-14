@@ -1,0 +1,1 @@
+DROP TABLE `rhea_supply_plans`;

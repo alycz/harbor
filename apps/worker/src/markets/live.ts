@@ -1,4 +1,4 @@
-import { createRheaLending } from '@harbor/adapters/rhea/lending';
+import { createRheaReader } from '@harbor/adapters/rhea/lending';
 import type { AssetRef } from '@harbor/domain/asset';
 import { parseOneClickAssetId } from '@harbor/domain/asset';
 import { z } from 'zod';
@@ -79,19 +79,19 @@ async function taler(fetcher: typeof fetch): Promise<LiveVault> {
 }
 
 async function rhea(rpcUrl: string, assets: readonly AssetRef[], fetcher: typeof fetch): Promise<LiveRheaMarket[]> {
-  const lending = createRheaLending(rpcUrl, fetcher);
+  const reader = createRheaReader(rpcUrl, fetcher);
   const near = assets.flatMap((asset) => {
     const identity = asset.chain === 'near' ? parseOneClickAssetId(asset.canonicalId) : null;
     return identity?.standard === 'nep141' ? [{ asset, tokenId: identity.contractId }] : [];
   });
-  const markets = await Promise.allSettled(near.map(({ tokenId }) => lending.market(tokenId)));
+  const markets = await Promise.allSettled(near.map(({ tokenId }) => reader.market(tokenId)));
   return markets.flatMap((result, index) => {
     const entry = near[index];
     if (result.status !== 'fulfilled' || !entry) return [];
     const market = result.value;
-    const scale = entry.asset.decimals + market.extraDecimals;
+    if (market.supplyAprPct === null) return [];
     // Two decimal places of whole tokens is plenty for a TVL figure.
-    const supplied = Number(BigInt(market.suppliedRaw) / 10n ** BigInt(Math.max(0, scale - 2))) / 100;
+    const supplied = Number(market.totalSuppliedRaw / 10n ** BigInt(Math.max(0, entry.asset.decimals - 2))) / 100;
     return [
       {
         assetId: entry.asset.canonicalId,

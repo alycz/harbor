@@ -1,186 +1,69 @@
-import { createRheaLending, RheaRegistrationRequired } from '@harbor/adapters/rhea/lending';
-import { MAX_U128_RAW, parseDecimalAmount } from '@harbor/domain/amount';
-import { parseOneClickAssetId } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
 import { Hono } from 'hono';
+import { createMiddleware } from 'hono/factory';
 import { z } from 'zod';
+
 import type { AppEnv } from '../app.ts';
-import { recipientOf, requireSession } from '../auth/guard.ts';
-import { decodeExecutionConfig } from '../config.ts';
-import { assetRegistry } from '../execution/assets.ts';
+import { requireSession } from '../auth/guard.ts';
+import { approvePlan, cancelPlan, createPlan, lendingDeps, readAccount, readPlan, submitPlan } from './lifecycle.ts';
 
-import { approveSupply, cancelSupply, claimSupply, createSupply, readSupply, settleSupply } from './lifecycle.ts';
+const PlanRequest = z.strictObject({
+  asset: z.string().min(1).max(320),
+  amount: z.string().min(1).max(64),
+});
+const Approval = z.strictObject({ digest: z.string().regex(/^[0-9a-f]{64}$/) });
+const Submission = z.strictObject({ txHash: z.string().min(1).max(64) });
+const IdempotencyKey = z.string().regex(/^[A-Za-z0-9._:-]{8,128}$/);
+const PlanId = z.uuid();
 
-const Request = z.strictObject({ assetId: z.string().min(1).max(320), amount: z.string().min(1).max(64) });
+function parse<T>(schema: z.ZodType<T>, value: unknown, message: string): T {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw new AppError('INVALID_REQUEST', message);
+  return parsed.data;
+}
 
-/** Supply-specific, one-time owner approval. Never reuses swap or autonomous-agent authority. */
+/**
+ * Rhea Lend supplies from the owner's NEAR wallet. Everything here needs the owner's session, and only
+ * that owner can read or move their deposits. Live rates are public at /api/markets/live.
+ */
 export function createLendingRoutes() {
   const routes = new Hono<AppEnv>();
-  routes.use('*', requireSession);
-  routes.use('*', async (c, next) => {
-    c.header('cache-control', 'no-store');
-    await next();
-  });
-  routes.get('/rhea/assets', (c) => {
-    const config = decodeExecutionConfig(c.env);
-    return c.json({
-      assets: assetRegistry(config.network)
-        .list()
-        .filter((asset) => asset.chain === 'near'),
+
+  /** The owner's own data and deposits: a session, and never cached. */
+  const owner = createMiddleware<AppEnv>(async (c, next) => {
+    await requireSession(c, async () => {
+      await next();
+      c.header('cache-control', 'no-store');
     });
   });
-  // Discovery is read-only. Deposit support is verified on-chain, not inferred from a ticker.
-  routes.get('/rhea/opportunities', async (c) => {
-    const config = decodeExecutionConfig(c.env);
-    if (config.network !== 'mainnet') {
-      return c.json({
-        opportunities: [],
-        unavailable: [],
-        observedAt: new Date().toISOString(),
-        executionEnabled: false,
-      });
-    }
-    const candidates = assetRegistry(config.network)
-      .list()
-      .filter((asset) => asset.chain === 'near' && parseOneClickAssetId(asset.canonicalId)?.standard === 'nep141');
-    const adapter = createRheaLending(config.rpcUrl);
-    const opportunities: Array<{
-      assetId: string;
-      tokenId: string;
-      symbol: string;
-      protocol: string;
-      network: string;
-      supplyEnabled: boolean;
-      apy: null;
-    }> = [];
-    const unavailable: string[] = [];
-    // Bounded concurrency avoids overwhelming the RPC and preserves partial results.
-    for (let offset = 0; offset < candidates.length; offset += 6) {
-      await Promise.all(
-        candidates.slice(offset, offset + 6).map(async (asset) => {
-          const identity = parseOneClickAssetId(asset.canonicalId);
-          if (identity?.standard !== 'nep141') return;
-          try {
-            const market = await adapter.asset(identity.contractId);
-            if (market.config.can_deposit)
-              opportunities.push({
-                assetId: asset.canonicalId,
-                tokenId: identity.contractId,
-                symbol: asset.symbol,
-                protocol: 'rhea-lending',
-                network: 'near:mainnet',
-                supplyEnabled: true,
-                apy: null,
-              });
-          } catch {
-            unavailable.push(asset.canonicalId);
-          }
-        }),
-      );
-    }
-    opportunities.sort((a, b) => a.assetId.localeCompare(b.assetId));
-    return c.json({
-      opportunities,
-      unavailable,
-      observedAt: new Date().toISOString(),
-      executionEnabled: config.executionEnabled && config.writeAdapters.has('rhea-lending'),
-    });
+
+  routes.get('/rhea/account', owner, async (c) => {
+    const asset = parse(z.string().min(1).max(320), c.req.query('asset'), 'Name the token, such as USDC.');
+    return c.json(await readAccount(lendingDeps(c.env), c.get('account'), asset));
   });
-  // Rhea holds a small storage deposit per account. Without it a supply is refunded, so it comes first.
-  routes.get('/rhea/registration', async (c) => {
-    const config = decodeExecutionConfig(c.env);
-    if (config.network !== 'mainnet') {
-      throw new AppError('UNAVAILABLE', 'Rhea lending has no configured testnet integration.');
-    }
-    if (!config.executionEnabled || !config.writeAdapters.has('rhea-lending')) {
-      throw new AppError(
-        'EXECUTION_DISABLED',
-        'Rhea execution is disabled. An operator must enable the validated lending adapter.',
-      );
-    }
-    try {
-      return c.json(await createRheaLending(config.rpcUrl).registration(c.get('account')));
-    } catch {
-      throw new AppError('UNAVAILABLE', 'Could not read your Rhea registration. Retry in a moment.');
-    }
+  routes.post('/rhea/plans', owner, async (c) => {
+    const key = parse(IdempotencyKey, c.req.header('idempotency-key'), 'Send an Idempotency-Key header.');
+    const body = parse(PlanRequest, await c.req.json().catch(() => null), 'Send the token and an amount.');
+    return c.json(await createPlan(lendingDeps(c.env), c.get('account'), body, key), 201);
   });
-  routes.post('/rhea/prepare', async (c) => {
-    const config = decodeExecutionConfig(c.env);
-    if (config.network !== 'mainnet')
-      throw new AppError('UNAVAILABLE', 'Rhea lending has no configured testnet integration.');
-    const parsed = Request.safeParse(await c.req.json().catch(() => null));
-    if (!parsed.success) throw new AppError('INVALID_REQUEST', 'Select an asset and a positive supply amount.');
-    const asset = assetRegistry(config.network).byId(parsed.data.assetId);
-    const identity = asset && parseOneClickAssetId(asset.canonicalId);
-    if (asset?.chain !== 'near' || identity?.standard !== 'nep141') {
-      throw new AppError('INVALID_REQUEST', 'Choose a verified NEAR fungible token.');
-    }
-    let amount: bigint;
-    try {
-      amount = parseDecimalAmount(parsed.data.amount, asset.decimals, MAX_U128_RAW);
-    } catch {
-      throw new AppError('INVALID_REQUEST', 'Enter a positive amount within token precision.');
-    }
-    if (amount <= 0n) throw new AppError('INVALID_REQUEST', 'Enter a positive amount within token precision.');
-    try {
-      const plan = await createRheaLending(config.rpcUrl).prepareSupply({
-        network: 'near:mainnet',
-        accountId: c.get('account'),
-        tokenId: identity.contractId,
-        amount,
-      });
-      const executionEnabled = config.executionEnabled && config.writeAdapters.has('rhea-lending');
-      const key = c.req.header('idempotency-key');
-      const approval =
-        executionEnabled && key ? await createSupply(c.env, c.get('account'), recipientOf(c), key, plan) : null;
-      return c.json({
-        plan,
-        asset,
-        executionEnabled,
-        approval,
-        status: 'prepared-not-approved',
-        limitation: executionEnabled
-          ? 'Review the one-time supply approval, then sign the transaction in your wallet. No funds have moved yet.'
-          : 'Rhea execution is disabled by the operator. Preview only; no funds have moved.',
-      });
-    } catch (error) {
-      if (error instanceof AppError) throw error;
-      if (error instanceof RheaRegistrationRequired) {
-        throw new AppError('CONFLICT', 'Register with Rhea first: one wallet transaction, then supply.');
-      }
-      if (error instanceof Error && error.message === 'Insufficient token balance') {
-        throw new AppError('INVALID_REQUEST', 'Your wallet holds less than this amount of the token.');
-      }
-      throw new AppError(
-        'UNAVAILABLE',
-        'Rhea preparation failed. Check asset deposit availability and your balance, then retry.',
-      );
-    }
+  routes.get('/rhea/plans/:id', owner, async (c) => {
+    const id = parse(PlanId, c.req.param('id'), 'No such deposit.');
+    return c.json(await readPlan(lendingDeps(c.env), c.get('account'), id));
   });
-  routes.get('/rhea/plans/:id', async (c) => c.json(await readSupply(c.env, c.get('account'), c.req.param('id'))));
-  routes.post('/rhea/plans/:id/approve', async (c) => {
-    const body = z
-      .strictObject({
-        digest: z.string().regex(/^[0-9a-f]{64}$/),
-        publicKey: z.string().max(128),
-        signature: z.string().max(256),
-      })
-      .safeParse(await c.req.json().catch(() => null));
-    if (!body.success) throw new AppError('INVALID_REQUEST', 'Send the wallet approval signature.');
-    return c.json(await approveSupply(c.env, c.get('account'), c.req.param('id'), body.data, recipientOf(c)));
+  routes.post('/rhea/plans/:id/approve', owner, async (c) => {
+    const id = parse(PlanId, c.req.param('id'), 'No such deposit.');
+    const body = parse(Approval, await c.req.json().catch(() => null), 'Send the digest you reviewed.');
+    return c.json(await approvePlan(lendingDeps(c.env), c.get('account'), id, body));
   });
-  routes.post('/rhea/plans/:id/claim', async (c) =>
-    c.json(await claimSupply(c.env, c.get('account'), c.req.param('id'))),
-  );
-  routes.post('/rhea/plans/:id/cancel', async (c) =>
-    c.json(await cancelSupply(c.env, c.get('account'), c.req.param('id'))),
-  );
-  routes.post('/rhea/plans/:id/settle', async (c) => {
-    const body = z
-      .strictObject({ txHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/) })
-      .safeParse(await c.req.json().catch(() => null));
-    if (!body.success) throw new AppError('INVALID_REQUEST', 'Send a transaction hash from your wallet.');
-    return c.json(await settleSupply(c.env, c.get('account'), c.req.param('id'), body.data.txHash));
+  routes.post('/rhea/plans/:id/submit', owner, async (c) => {
+    const id = parse(PlanId, c.req.param('id'), 'No such deposit.');
+    const body = parse(Submission, await c.req.json().catch(() => null), 'Send the transaction hash.');
+    return c.json(await submitPlan(lendingDeps(c.env), c.get('account'), id, body.txHash));
   });
+  routes.post('/rhea/plans/:id/cancel', owner, async (c) => {
+    const id = parse(PlanId, c.req.param('id'), 'No such deposit.');
+    return c.json(await cancelPlan(lendingDeps(c.env), c.get('account'), id));
+  });
+
   return routes;
 }
