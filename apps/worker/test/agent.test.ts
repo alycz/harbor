@@ -343,7 +343,8 @@ describe('admission', () => {
     expect((await send(true)).status).toBe(202);
     expect((await send(true)).status).toBe(202);
     expect((await send(true)).status).toBe(429);
-  });
+    // Five full conversation round trips: slower than the default 5 s when the whole suite runs in parallel.
+  }, 20_000);
 });
 
 describe('list_markets', () => {
