@@ -1,6 +1,6 @@
 # Swap plans
 
-## The flow
+## The NEAR-origin flow
 
 1. Choose two different supported assets and a decimal amount. Anyone can get a live quote; a plan needs a signed-in wallet.
 2. Harbor resolves both assets from its verified registry and records an intent.
@@ -14,7 +14,7 @@ The first swap of a token may ask for a one-time setup: 1Click only quotes for a
 
 ## What the review checks
 
-- **Plan checks, which no approval overrides:** the sold asset is on NEAR; the recipient is your own (your NEAR account, or an address you signed in your policy); the quote is still valid; the minimum output is positive and no more than the output; Harbor's fee is zero.
+- **Plan checks, which no approval overrides:** the origin asset/network is supported (NEAR or a supported EVM funding path); the recipient is your own (your NEAR account, or an address you signed in your policy); the quote is still valid; the minimum output is positive and no more than the output; Harbor's fee is zero.
 - **Your signed policy:** allowed assets, per-action, daily and total spend for the sold asset, slippage, quote age, expiry, freeze, and for the agent its schedule. Outside the policy, only you can approve the plan.
 
 ## How a swap can end
@@ -26,3 +26,5 @@ The first swap of a token may ask for a one-time setup: 1Click only quotes for a
 - **Expired:** the approval window closed before any deposit. A deposit that still lands is accepted.
 
 Sources: [executable quotes](https://github.com/alycz/harbor/blob/main/packages/adapters/src/oneclick/venue.ts), [plan checks](https://github.com/alycz/harbor/blob/main/apps/worker/src/execution/swap.ts), [deposit check](https://github.com/alycz/harbor/blob/main/packages/near/src/chain.ts), [settlement](https://github.com/alycz/harbor/blob/main/apps/worker/src/execution/settlement.ts).
+
+Supported EVM-origin funding uses a separate wallet transaction and exact receipt verification. The NEAR registration/wrapping steps above do not apply to EVM-origin transfers. Unsupported origins are rejected rather than treated as verified.
