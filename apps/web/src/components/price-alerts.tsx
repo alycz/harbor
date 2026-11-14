@@ -7,6 +7,7 @@ import { useId, useState } from 'react';
 import { call, execution } from '../lib/execution.ts';
 import { formatUtc } from '../lib/format.ts';
 import { useWallet } from '../lib/wallet.tsx';
+import { AssetSelect, chainName } from './asset-select.tsx';
 import { MonitorHistory } from './monitor-history.tsx';
 import { Chip, EmptyState, Panel } from './workspace.tsx';
 
@@ -22,9 +23,6 @@ interface Alert {
   lastAlertAt: string | null;
   unacknowledgedAlerts: number;
 }
-
-const SELECT =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40';
 
 const alerts = {
   list: () => call<{ automations: Alert[] }>('/api/automations'),
@@ -83,6 +81,11 @@ export function PriceAlerts() {
     onSettled: refresh,
   });
   const options = assets.data?.assets ?? [];
+  const choices = options.map((asset) => ({
+    value: asset.canonicalId,
+    symbol: asset.symbol,
+    detail: chainName(asset.chain),
+  }));
 
   if (!wallet.address) {
     return (
@@ -98,7 +101,7 @@ export function PriceAlerts() {
   return (
     <Panel label="Intents route and price monitors" icon={<Bell />} labelId="price-alerts" bodyClassName="p-5">
       <div className="grid gap-3 @xl/workspace:grid-cols-[1fr_1fr_1fr_1fr_auto]">
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-amount`}>
+        <label className="space-y-1.5 text-[13px] font-medium" htmlFor={`${id}-amount`}>
           When
           <Input
             id={`${id}-amount`}
@@ -108,23 +111,17 @@ export function PriceAlerts() {
             onChange={(event) => setDraft({ ...draft, amount: event.target.value.trim() })}
           />
         </label>
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-sell`}>
+        <label className="space-y-1.5 text-[13px] font-medium" htmlFor={`${id}-sell`}>
           Of
-          <select
+          <AssetSelect
             id={`${id}-sell`}
-            className={SELECT}
             value={draft.sell}
-            onChange={(event) => setDraft({ ...draft, sell: event.target.value })}
-          >
-            <option value="">Choose asset and chain</option>
-            {options.map((asset) => (
-              <option key={asset.canonicalId} value={asset.canonicalId}>
-                {asset.symbol} · {asset.chain}
-              </option>
-            ))}
-          </select>
+            onChange={(sell) => setDraft({ ...draft, sell })}
+            choices={choices}
+            placeholder="Choose an asset"
+          />
         </label>
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-target`}>
+        <label className="space-y-1.5 text-[13px] font-medium" htmlFor={`${id}-target`}>
           Quotes at least
           <Input
             id={`${id}-target`}
@@ -134,21 +131,15 @@ export function PriceAlerts() {
             onChange={(event) => setDraft({ ...draft, target: event.target.value.trim() })}
           />
         </label>
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-buy`}>
+        <label className="space-y-1.5 text-[13px] font-medium" htmlFor={`${id}-buy`}>
           Of
-          <select
+          <AssetSelect
             id={`${id}-buy`}
-            className={SELECT}
             value={draft.buy}
-            onChange={(event) => setDraft({ ...draft, buy: event.target.value })}
-          >
-            <option value="">Choose asset and chain</option>
-            {options.map((asset) => (
-              <option key={asset.canonicalId} value={asset.canonicalId}>
-                {asset.symbol} · {asset.chain}
-              </option>
-            ))}
-          </select>
+            onChange={(buy) => setDraft({ ...draft, buy })}
+            choices={choices}
+            placeholder="Choose an asset"
+          />
         </label>
         <Button
           className="mt-auto h-10 gap-2 px-4"

@@ -22,11 +22,10 @@ import {
 import { ExecutionRequestError, execution } from '../lib/execution.ts';
 import { formatTokenAmount, formatUtc } from '../lib/format.ts';
 import { useWallet } from '../lib/wallet.tsx';
+import { PairSelect } from './asset-select.tsx';
 import { SwapProposalCard } from './swap-proposal.tsx';
 import { Chip, EmptyState, Panel } from './workspace.tsx';
 
-const SELECT =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40';
 const PREVIEW_REFRESH_MS = 30_000;
 const LIST_REFRESH_MS = 30_000;
 
@@ -118,18 +117,13 @@ function ConfigureMonitor() {
       <div className="space-y-5 px-5 py-5 @xl/workspace:px-6">
         <div className="grid gap-x-5 gap-y-4 @2xl/workspace:grid-cols-2">
           <Field id={`${id}-pair`} label="Pair" hint={`Priced on NEAR Intents and on Rhea, both on NEAR.`}>
-            <select
+            <PairSelect
               id={`${id}-pair`}
-              className={SELECT}
               value={draft.pair}
-              onChange={(event) => set({ pair: Number(event.target.value) })}
-            >
-              {SPREAD_PAIRS.map((option, index) => (
-                <option key={`${option.base}/${option.quote}`} value={index}>
-                  {option.base} / {option.quote}
-                </option>
-              ))}
-            </select>
+              onChange={(pair) => set({ pair })}
+              pairs={SPREAD_PAIRS}
+              detail="on NEAR"
+            />
           </Field>
           <Field id={`${id}-size`} label={`Trade size (${pair.quote})`} hint="The round trip the gap is measured on.">
             <Input

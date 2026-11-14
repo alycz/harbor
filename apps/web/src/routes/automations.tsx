@@ -2,7 +2,8 @@ import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
+import { AssetSelect, chainName } from '../components/asset-select.tsx';
 import { PriceAlerts } from '../components/price-alerts.tsx';
 import { RoundtripMonitor } from '../components/roundtrip-monitor.tsx';
 import { SpreadMonitors } from '../components/spread-monitors.tsx';
@@ -22,7 +23,6 @@ type Roundtrip = {
   reason: string;
   legs: { amountIn: string; amountOut: string; minAmountOut: string; venue: string; expiresAt: string }[];
 };
-const SELECT = 'h-11 w-full rounded-md border border-input bg-background px-3 text-sm';
 
 /** Read-only quote research; never constructs an executable arbitrage or signs a transaction. */
 export function AutomationsPage() {
@@ -45,6 +45,12 @@ export function AutomationsPage() {
   const [reviewLocked, setReviewLocked] = useState(false);
   const review = useMutation({ mutationFn: () => execution.createSwap(outboundReviewRequest(origin, via, amount)) });
   const result = preview.data;
+  const locked = preview.isPending || review.isPending || reviewLocked || Boolean(review.data);
+  const choices = options.map((asset) => ({
+    value: asset.canonicalId,
+    symbol: asset.symbol,
+    detail: chainName(asset.chain),
+  }));
   const freshness = useCountdown(result?.expiresAt ?? undefined);
   function clearResult() {
     preview.reset();
@@ -58,10 +64,10 @@ export function AutomationsPage() {
       />
       <SpreadMonitors />
       <PriceAlerts />
-      <Panel label="Intents-only round-trip scanner" icon={<Radar />} bodyClassName="p-5">
-        <p className="mb-5 text-sm text-muted-foreground">
-          Compare A → B → A using two sequential, read-only Intents quotes. Scan now, then save this route for recurring
-          monitoring below. This never executes a trade.
+      <Panel label="Intents round-trip scan" icon={<Radar />} bodyClassName="p-5 @xl/workspace:p-6">
+        <p className="mb-5 max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">
+          Quote a round trip on NEAR Intents right now: start with one asset, swap through another and back. Save the
+          route below to check it every minute. Nothing here trades.
         </p>
         <form
           onSubmit={(event) => {
@@ -70,85 +76,73 @@ export function AutomationsPage() {
           }}
           className="space-y-4"
         >
-          <div className="grid items-end gap-3 @xl/workspace:grid-cols-[1fr_auto_1fr]">
-            <label className="space-y-2 text-sm" htmlFor="roundtrip-origin">
-              Starting asset
-              <select
+          <div className="grid items-start gap-3 @xl/workspace:grid-cols-[1fr_auto_1fr]">
+            <ScanField id="roundtrip-origin" label="Start with" hint="The asset you begin and end the round trip in.">
+              <AssetSelect
                 id="roundtrip-origin"
-                className={SELECT}
                 value={origin}
-                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
-                onChange={(event) => {
-                  setOrigin(event.target.value);
+                disabled={locked}
+                choices={choices}
+                placeholder="Choose an asset"
+                onChange={(next) => {
+                  setOrigin(next);
                   clearResult();
                 }}
-              >
-                <option value="">Choose asset and chain</option>
-                {options.map((asset) => (
-                  <option key={asset.canonicalId} value={asset.canonicalId}>
-                    {asset.symbol} · {asset.chain} · {asset.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <ArrowRight className="mb-3 hidden size-5 text-muted-foreground @xl/workspace:block" aria-hidden="true" />
-            <label className="space-y-2 text-sm" htmlFor="roundtrip-via">
-              Via asset
-              <select
+              />
+            </ScanField>
+            <ArrowRight className="mt-9 hidden size-4 text-muted-foreground @xl/workspace:block" aria-hidden="true" />
+            <ScanField id="roundtrip-via" label="Swap through" hint="The asset the round trip passes through.">
+              <AssetSelect
                 id="roundtrip-via"
-                className={SELECT}
                 value={via}
-                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
-                onChange={(event) => {
-                  setVia(event.target.value);
+                disabled={locked}
+                choices={choices.filter((choice) => choice.value !== origin)}
+                placeholder="Choose an asset"
+                onChange={(next) => {
+                  setVia(next);
                   clearResult();
                 }}
-              >
-                <option value="">Choose asset and chain</option>
-                {options
-                  .filter((asset) => asset.canonicalId !== origin)
-                  .map((asset) => (
-                    <option key={asset.canonicalId} value={asset.canonicalId}>
-                      {asset.symbol} · {asset.chain} · {asset.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
+              />
+            </ScanField>
           </div>
-          <div className="grid items-end gap-3 @xl/workspace:grid-cols-[1fr_1fr_auto]">
-            <label className="space-y-2 text-sm" htmlFor="roundtrip-amount">
-              Starting amount
-              <Input
+          <div className="grid items-start gap-3 @xl/workspace:grid-cols-[1fr_1fr_auto]">
+            <ScanField id="roundtrip-amount" label="Amount" hint="How much the round trip starts with.">
+              <UnitInput
                 id="roundtrip-amount"
+                unit={originAsset?.symbol ?? ''}
                 value={amount}
                 inputMode="decimal"
-                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
-                onChange={(event) => {
-                  setAmount(event.target.value);
+                disabled={locked}
+                onChange={(next) => {
+                  setAmount(next);
                   clearResult();
                 }}
               />
-            </label>
-            <label className="space-y-2 text-sm" htmlFor="roundtrip-threshold">
-              Minimum gross spread (basis points)
-              <Input
+            </ScanField>
+            <ScanField
+              id="roundtrip-threshold"
+              label="Flag at a gross spread of"
+              hint="Before network fees. 100 bps is 1%."
+            >
+              <UnitInput
                 id="roundtrip-threshold"
+                unit="bps"
                 value={threshold}
                 inputMode="numeric"
-                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
-                onChange={(event) => {
-                  setThreshold(event.target.value);
+                disabled={locked}
+                onChange={(next) => {
+                  setThreshold(next);
                   clearResult();
                 }}
               />
-            </label>
+            </ScanField>
             <Button
               type="submit"
-              className="h-10 px-5"
+              className="h-10 px-5 @xl/workspace:mt-[26px]"
               disabled={!valid || preview.isPending || review.isPending || Boolean(review.data)}
             >
-              <RefreshCw className={preview.isPending ? 'animate-spin' : ''} />
-              {preview.isPending ? 'Reading quotes…' : 'Scan route'}
+              <RefreshCw className={preview.isPending ? 'animate-spin motion-reduce:animate-none' : ''} />
+              {preview.isPending ? 'Quoting…' : 'Scan route'}
             </Button>
           </div>
         </form>
@@ -236,6 +230,54 @@ export function AutomationsPage() {
             Close review
           </Button>
         </section>
+      ) : null}
+    </div>
+  );
+}
+
+/** A labelled scan setting with a short hint, matching the monitor card above. */
+function ScanField({ id, label, hint, children }: { id: string; label: string; hint: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-[13px] font-medium">
+        {label}
+      </label>
+      {children}
+      <p className="text-[12px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+/** A number input with its unit shown inside, on the right. */
+function UnitInput({
+  id,
+  unit,
+  value,
+  inputMode,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  unit: string;
+  value: string;
+  inputMode: 'decimal' | 'numeric';
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        className="h-10 pr-14"
+        value={value}
+        inputMode={inputMode}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value.trim())}
+      />
+      {unit ? (
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[12.5px] text-muted-foreground">
+          {unit}
+        </span>
       ) : null}
     </div>
   );
