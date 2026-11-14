@@ -5,13 +5,26 @@ import { fileURLToPath } from 'node:url';
 const [network, databaseId, ...options] = process.argv.slice(2);
 if (!['mainnet', 'testnet'].includes(network) || !/^[a-f0-9-]{36}$/.test(databaseId ?? '')) {
   throw new Error(
-    'Usage: node scripts/prepare-deployment.mjs mainnet|testnet DATABASE_ID [--enable-execution] [--enable-templar] [--write-adapters=oneclick,rhea-lending,templar] [--domain=HOSTNAME]',
+    'Usage: node scripts/prepare-deployment.mjs mainnet|testnet DATABASE_ID [--enable-execution] [--enable-templar] [--write-adapters=oneclick,rhea-lending,templar] [--domain=HOSTNAME] [--leash=CONTRACT,AGENT,CODE_HASH]',
   );
 }
 const adapterOptions = options.filter((option) => option.startsWith('--write-adapters='));
 if (adapterOptions.length > 1) throw new Error('Specify --write-adapters only once.');
 const adapterOption = adapterOptions[0];
 const domainOption = options.find((option) => option.startsWith('--domain='));
+// Leash: the deployed vault contract, the agent it trusts, and the reviewed code hash Harbor pins.
+// Turns on owner-approved agent dispatch through the private harbor-leash-signer Worker.
+const leashOption = options.find((option) => option.startsWith('--leash='));
+const leashParts = leashOption?.slice('--leash='.length).split(',');
+const NEAR_ACCOUNT = /^(?=.{2,64}$)[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+if (
+  leashParts &&
+  (leashParts.length !== 3 ||
+    !NEAR_ACCOUNT.test(leashParts[0] ?? '') ||
+    !NEAR_ACCOUNT.test(leashParts[1] ?? '') ||
+    !/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(leashParts[2] ?? ''))
+)
+  throw new Error('--leash takes CONTRACT_ACCOUNT,AGENT_ACCOUNT,BASE58_CODE_HASH.');
 const domain = domainOption?.slice('--domain='.length);
 if (domain !== undefined && !/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(domain)) throw new Error('Invalid --domain hostname.');
 if (
@@ -20,6 +33,7 @@ if (
       option !== '--enable-execution' &&
       option !== '--enable-templar' &&
       option !== domainOption &&
+      option !== leashOption &&
       option !== adapterOption,
   )
 )
@@ -50,6 +64,9 @@ if (network === 'testnet' && (execution || (adapterOption !== undefined && adapt
   throw new Error('These execution adapters are mainnet-only; testnet must remain execution-disabled.');
 }
 const adapters = network === 'mainnet' ? [...new Set(adapterNames)].join(',') : '';
+if (leashParts && (network !== 'mainnet' || !execution || !adapters.split(',').includes('oneclick'))) {
+  throw new Error('Leash dispatches 1Click deposits on mainnet: it needs --enable-execution with oneclick.');
+}
 if (execution && adapters === '') {
   throw new Error('Execution requires an explicit nonempty adapter selection or a selection in the built config.');
 }
@@ -80,8 +97,20 @@ const config = {
     NEAR_NETWORK: network,
     EXECUTION_ENABLED: String(execution),
     ENABLED_WRITE_ADAPTERS: adapters,
+    ...(leashParts
+      ? {
+          LEASH_CONTRACT_ID: leashParts[0],
+          LEASH_AGENT_ACCOUNT_ID: leashParts[1],
+          LEASH_CONTRACT_CODE_HASH: leashParts[2],
+          LEASH_EXECUTION_ENABLED: 'true',
+        }
+      : {}),
   },
-  services: source.services,
+  services: [
+    ...(source.services ?? []),
+    // A private binding, never a public URL: the signer has no route of its own.
+    ...(leashParts ? [{ binding: 'LEASH_SIGNER', service: 'harbor-leash-signer' }] : []),
+  ],
   durable_objects: source.durable_objects,
   migrations: source.migrations,
   d1_databases: [
