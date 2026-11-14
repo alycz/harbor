@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const [network, databaseId, ...options] = process.argv.slice(2);
 if (!['mainnet', 'testnet'].includes(network) || !/^[a-f0-9-]{36}$/.test(databaseId ?? '')) {
   throw new Error(
-    'Usage: node scripts/prepare-deployment.mjs mainnet|testnet DATABASE_ID [--enable-execution] [--write-adapters=oneclick,rhea-lending,templar] [--domain=HOSTNAME]',
+    'Usage: node scripts/prepare-deployment.mjs mainnet|testnet DATABASE_ID [--enable-execution] [--enable-templar] [--write-adapters=oneclick,rhea-lending,templar] [--domain=HOSTNAME]',
   );
 }
 const adapterOptions = options.filter((option) => option.startsWith('--write-adapters='));
@@ -14,7 +14,15 @@ const adapterOption = adapterOptions[0];
 const domainOption = options.find((option) => option.startsWith('--domain='));
 const domain = domainOption?.slice('--domain='.length);
 if (domain !== undefined && !/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(domain)) throw new Error('Invalid --domain hostname.');
-if (options.some((option) => option !== '--enable-execution' && option !== domainOption && option !== adapterOption))
+if (
+  options.some(
+    (option) =>
+      option !== '--enable-execution' &&
+      option !== '--enable-templar' &&
+      option !== domainOption &&
+      option !== adapterOption,
+  )
+)
   throw new Error('Unknown deployment option.');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourcePath = path.join(root, 'apps/web/dist/harbor/wrangler.json');
@@ -24,7 +32,8 @@ if (typeof source.main !== 'string' || typeof source.assets?.directory !== 'stri
 }
 // Preserve an existing selection unless the operator explicitly replaces it. Never carry
 // the built configuration's global execution switch into a newly generated deployment.
-const execution = options.includes('--enable-execution');
+const enableTemplar = options.includes('--enable-templar');
+const execution = options.includes('--enable-execution') || enableTemplar;
 const selected =
   adapterOption === undefined
     ? (source.vars.ENABLED_WRITE_ADAPTERS ?? '')
@@ -32,6 +41,8 @@ const selected =
 if (typeof selected !== 'string') throw new Error('ENABLED_WRITE_ADAPTERS must be a comma-separated string.');
 const supported = new Set(['oneclick', 'rhea-lending', 'templar']);
 const adapterNames = selected === '' ? [] : selected.split(',').map((name) => name.trim());
+// Explicit opt-in sets BOTH switches; preserve other selected adapters.
+if (enableTemplar) adapterNames.push('templar');
 if (adapterNames.some((name) => !supported.has(name))) {
   throw new Error('Supported write adapters: oneclick,rhea-lending,templar. KAIO is not enabled.');
 }
@@ -70,6 +81,7 @@ const config = {
     EXECUTION_ENABLED: String(execution),
     ENABLED_WRITE_ADAPTERS: adapters,
   },
+  services: source.services,
   durable_objects: source.durable_objects,
   migrations: source.migrations,
   d1_databases: [

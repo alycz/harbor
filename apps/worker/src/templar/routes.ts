@@ -59,6 +59,11 @@ export function createTemplarRoutes() {
         observedAt: new Date().toISOString(),
         source: 'finalized NEAR contract read',
         borrowingEnabled: config.executionEnabled && config.writeAdapters.has('templar'),
+        borrowingDisabledReason: !config.executionEnabled
+          ? 'EXECUTION_DISABLED'
+          : !config.writeAdapters.has('templar')
+            ? 'TEMPLAR_ADAPTER_DISABLED'
+            : null,
         note: 'Credit market, not an earn APY. Registry can include retired markets. Rates, liquidity and collateral health must be reviewed before borrowing.',
       });
     })

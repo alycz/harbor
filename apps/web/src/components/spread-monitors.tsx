@@ -255,6 +255,14 @@ function LiveNow({
   if (error || !reading) return <div className={`${box} text-[13px] text-destructive`}>{errorText(error)}</div>;
   const { evidence } = reading;
   const prices = venuePrices(evidence);
+  const priced = prices.filter((venue): venue is { name: string; price: number } => venue.price !== null);
+  // Lower quote-per-base is the cheaper place to buy; only worth saying when both venues priced.
+  const cheaper =
+    priced.length === 2 && priced[0] && priced[1] && priced[0].price !== priced[1].price
+      ? priced[0].price < priced[1].price
+        ? priced[0].name
+        : priced[1].name
+      : null;
   const best = evidence.trips.find((trip) => trip.route === evidence.best) ?? null;
   const returned = best?.returned ?? null;
   const delta = returned === null ? null : Number(returned) - Number(evidence.size.amount);
@@ -276,20 +284,27 @@ function LiveNow({
           {status}
         </Chip>
       </div>
-      <div className="mt-4 grid gap-4 @xl/workspace:grid-cols-2">
+      <div className="mt-4 grid gap-3 @xl/workspace:grid-cols-2">
         {prices.map((venue) => (
-          <div key={venue.name}>
-            <p className="text-[13px] text-muted-foreground">{venue.name}</p>
-            <p className="ws-num mt-1 text-[26px] leading-none font-medium tracking-[-0.02em]">
+          <div
+            key={venue.name}
+            className={`rounded-lg border bg-card px-4 py-3.5 ${venue.name === cheaper ? 'border-[var(--ws-accent-border)]' : 'border-border'}`}
+          >
+            <div className="flex h-6 items-center justify-between gap-2">
+              <p className="text-[13px] font-medium">{venue.name}</p>
+              {venue.name === cheaper ? <Chip tone="accent">Cheaper to buy</Chip> : null}
+            </div>
+            <p className="ws-num mt-2 text-[28px] leading-none font-medium tracking-[-0.02em]">
               {venue.price === null ? '—' : formatPrice(venue.price)}
             </p>
             <p className="mt-1.5 text-[12px] text-muted-foreground">
-              {config.quote.symbol} per {config.base.symbol}, buying with {formatTokenAmount(config.size)}{' '}
-              {config.quote.symbol}, fees included
+              {config.quote.symbol} per {config.base.symbol} for {formatTokenAmount(config.size)} {config.quote.symbol},
+              fees included
             </p>
           </div>
         ))}
       </div>
+      {best?.edgePct != null ? <SpreadMeter edge={best.edgePct} threshold={config.thresholdPct} /> : null}
       <dl className="mt-5 space-y-2 border-t border-border pt-4 text-[13.5px]">
         <div className="flex items-baseline justify-between gap-4">
           <dt className="text-muted-foreground">Price gap</dt>
@@ -316,6 +331,50 @@ function LiveNow({
         priced for comparison.
       </p>
     </section>
+  );
+}
+
+/**
+ * Where the better round trip sits now against the alert line, on one scale: how far the market is from
+ * firing this monitor, at a glance.
+ */
+function SpreadMeter({ edge, threshold }: { edge: number; threshold: number }) {
+  const low = Math.min(-1, edge - 0.25, threshold - 0.25);
+  const high = Math.max(1, edge + 0.25, threshold + 0.25);
+  const at = (value: number) => `${((value - low) / (high - low)) * 100}%`;
+  const fires = edge >= threshold;
+  const zero = at(0);
+  const [from, to] = edge >= 0 ? [zero, at(edge)] : [at(edge), zero];
+  return (
+    <figure className="mt-5" aria-label={`Round trip ${formatEdge(edge)}, alert at ${formatEdge(threshold)}`}>
+      <div className="relative h-2 rounded-full bg-border/70">
+        <div
+          aria-hidden="true"
+          className={`absolute inset-y-0 rounded-full ${fires ? 'bg-success' : edge >= 0 ? 'bg-success/60' : 'bg-muted-foreground/45'}`}
+          style={{ left: from, right: `calc(100% - ${to})` }}
+        />
+        <div aria-hidden="true" className="absolute -inset-y-1 w-px bg-border-strong" style={{ left: zero }} />
+        <div
+          aria-hidden="true"
+          className="absolute -inset-y-1.5 w-0.5 rounded-full bg-[var(--harbor-accent)]"
+          style={{ left: at(threshold) }}
+        />
+        <div
+          aria-hidden="true"
+          className={`absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card shadow-sm ${fires ? 'bg-success' : 'bg-foreground'}`}
+          style={{ left: at(edge) }}
+        />
+      </div>
+      <figcaption className="mt-2 flex justify-between gap-3 text-[12px] text-muted-foreground">
+        <span>
+          Now <span className="ws-num font-medium text-foreground">{formatEdge(edge)}</span>
+        </span>
+        <span>
+          Alert at <span className="ws-num font-medium text-[var(--ws-accent-ink)]">{formatEdge(threshold)}</span>
+          {fires ? null : <span className="ws-num">, {Math.abs(threshold - edge).toFixed(2)} points to go</span>}
+        </span>
+      </figcaption>
+    </figure>
   );
 }
 
