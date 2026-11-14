@@ -111,14 +111,22 @@ export async function verifyEvmDeposit(
       String(transaction.to).toLowerCase() !== input.depositAddress.toLowerCase() ||
       typeof transaction.value !== 'string' ||
       !/^0x[0-9a-fA-F]+$/.test(transaction.value) ||
-      BigInt(transaction.value) !== input.amountRaw
+      BigInt(transaction.value) !== input.amountRaw ||
+      !['0x', '0x0', ''].includes(String(transaction.input).toLowerCase())
     ) {
       return { outcome: 'mismatch', detail: 'The native transfer does not match the planned deposit.' };
     }
     return { outcome: 'confirmed' };
   }
   const token = BRIDGED_TOKEN.exec(input.asset);
-  if (!token || token[1] !== input.chain || String(transaction.to).toLowerCase() !== token[2]?.toLowerCase()) {
+  if (
+    !token ||
+    token[1] !== input.chain ||
+    String(transaction.to).toLowerCase() !== token[2]?.toLowerCase() ||
+    typeof transaction.value !== 'string' ||
+    !/^0x[0-9a-fA-F]+$/.test(transaction.value) ||
+    BigInt(transaction.value) !== 0n
+  ) {
     return { outcome: 'mismatch', detail: 'The token contract does not match the planned origin asset.' };
   }
   const recipientWord = input.depositAddress.toLowerCase().slice(2).padStart(64, '0');
