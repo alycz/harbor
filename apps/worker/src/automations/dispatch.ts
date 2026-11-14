@@ -24,6 +24,7 @@ const JobPayloadSchema = z.strictObject({
   ruleId: z.uuid(),
   revision: z.number().int().positive(),
   scheduledForMs: z.number().int().nonnegative(),
+  enqueuedAtMs: z.number().int().nonnegative().optional(),
 });
 
 export function automationDeps(env: Env): AutomationDeps {
@@ -86,7 +87,12 @@ export async function runAutomations(deps: AutomationDeps) {
       db,
       {
         kind: JOB_KIND,
-        payload: { ruleId: rule.id, revision: rule.revision, scheduledForMs: rule.next_due_at_ms },
+        payload: {
+          ruleId: rule.id,
+          revision: rule.revision,
+          scheduledForMs: rule.next_due_at_ms,
+          enqueuedAtMs: startedAtMs,
+        },
         dedupeKey: `automation:${rule.id}:${rule.revision}:${rule.next_due_at_ms}`,
         maxAttempts: MAX_ATTEMPTS,
       },
@@ -132,8 +138,13 @@ async function runCheck(deps: AutomationDeps, lease: Lease): Promise<boolean> {
     .prepare('SELECT * FROM automation_rules WHERE id = ? AND network = ?')
     .bind(payload.ruleId, deps.network)
     .first<RuleRow>();
-  if (rule?.status !== 'active' || rule.revision !== payload.revision) {
-    // Paused, deleted or revised since the slot was queued: the old revision is never evaluated.
+  if (
+    rule?.status !== 'active' ||
+    rule.revision !== payload.revision ||
+    (rule.next_due_at_ms !== null &&
+      (payload.enqueuedAtMs ?? payload.scheduledForMs) < rule.next_due_at_ms - rule.interval_ms)
+  ) {
+    // Paused, revised, or superseded due slot: never replay old scans from a backlog.
     await complete(db, lease, deps.now());
     return false;
   }
@@ -154,9 +165,10 @@ async function runCheck(deps: AutomationDeps, lease: Lease): Promise<boolean> {
                last_result = 'true', updated_at_ms = ?,
                status = CASE WHEN mode = 'once' THEN 'completed' ELSE status END,
                next_due_at_ms = CASE WHEN mode = 'once' THEN NULL ELSE next_due_at_ms END
-             WHERE id = ? AND revision = ? AND status = 'active' AND armed = 1 AND ${owned}`,
+             WHERE id = ? AND revision = ? AND status = 'active' AND armed = 1
+               AND (last_triggered_at_ms IS NULL OR ? - last_triggered_at_ms >= cooldown_ms) AND ${owned}`,
           )
-          .bind(now, now, now, rule.id, rule.revision, ...ownedArgs),
+          .bind(now, now, now, rule.id, rule.revision, now, ...ownedArgs),
         deps.db
           .prepare(
             `INSERT OR IGNORE INTO automation_triggers
@@ -171,7 +183,7 @@ async function runCheck(deps: AutomationDeps, lease: Lease): Promise<boolean> {
           .prepare(
             `UPDATE automation_rules SET armed = CASE WHEN ? = 'false' THEN 1 ELSE armed END,
                last_evaluated_at_ms = ?, last_result = ?, updated_at_ms = ?
-             WHERE id = ? AND revision = ? AND ${owned}`,
+             WHERE id = ? AND revision = ? AND status = 'active' AND ${owned}`,
           )
           .bind(evaluation.result, now, evaluation.result, now, rule.id, rule.revision, ...ownedArgs),
       ];
