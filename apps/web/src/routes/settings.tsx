@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, OctagonX, ShieldCheck, Snowflake, Wallet } from 'lucide-react';
 
 import { StrategiesPanel } from '../components/autopilot.tsx';
-import { LeashVault } from '../components/leash-vault.tsx';
 import { PolicyEditor } from '../components/policy-editor.tsx';
 import { Chip, EmptyState, FactRow, PageHeader, Panel } from '../components/workspace.tsx';
 import { formatUtc } from '../lib/format.ts';
@@ -88,7 +87,6 @@ export function PolicyPage() {
           </div>
         </section>
       </div>
-      <LeashVault />
     </div>
   );
 }

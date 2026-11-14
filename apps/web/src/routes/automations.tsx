@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { AssetSelect, chainName } from '../components/asset-select.tsx';
+import { LeashVault } from '../components/leash-vault.tsx';
 import { PriceAlerts } from '../components/price-alerts.tsx';
 import { RoundtripMonitor } from '../components/roundtrip-monitor.tsx';
 import { SpreadMonitors } from '../components/spread-monitors.tsx';
@@ -231,6 +232,7 @@ export function AutomationsPage() {
           </Button>
         </section>
       ) : null}
+      <LeashVault />
     </div>
   );
 }
