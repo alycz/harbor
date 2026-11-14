@@ -85,7 +85,7 @@ export function DepositDialog({ vault, onOpenChange }: { vault: Vault | null; on
               <DialogDescription className="mt-4 text-[13.5px] leading-relaxed">
                 Pay with USDC on NEAR and receive {vault.receipt} at your own address on {vault.chain}. Add that address
                 to{' '}
-                <Link to="/settings/policy" className="ws-link">
+                <Link to="/agent" hash="policy" className="ws-link">
                   your policy
                 </Link>{' '}
                 first. Withdrawals happen on {vault.chain}.

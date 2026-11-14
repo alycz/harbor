@@ -30,7 +30,6 @@ import {
   Menu,
   MessageCircle,
   PiggyBank,
-  ShieldCheck,
   Telescope,
   Wallet,
   WalletCards,
@@ -59,8 +58,6 @@ const ROUTES = [
   { to: '/portfolio', label: 'Portfolio', icon: WalletCards },
 ] as const;
 
-const SETTINGS = [{ to: '/settings/policy', label: 'Policy', icon: ShieldCheck }] as const;
-
 const DOCS_URL = '/docs/';
 
 /** Pinned to the bottom of the sidebar: a card that opens the Harbor docs in a new tab. */
@@ -88,7 +85,7 @@ function DocsBanner() {
   );
 }
 
-type NavItem = (typeof ROUTES)[number] | (typeof SETTINGS)[number];
+type NavItem = (typeof ROUTES)[number];
 
 /** The workspace frame. Route pages render in its outlet; error and not-found pages pass `children`. */
 export function AppShell({ children }: { children?: ReactNode }) {
@@ -227,7 +224,6 @@ function WorkspaceContent({ pathname, children }: { pathname: string; children: 
 
 function pageTitle(pathname: string): string {
   if (pathname.startsWith('/plans')) return 'Plan';
-  if (pathname.startsWith('/settings/policy')) return 'Policy';
   if (pathname === '/chat') return 'Ask Harbor';
   return ROUTES.find((route) => pathname.startsWith(route.to))?.label ?? 'Workspace';
 }
@@ -259,14 +255,6 @@ function NavGroups({
       <nav aria-label="Primary">
         <ul className="space-y-0.5">
           {ROUTES.map((item) => (
-            <li key={item.to}>
-              <NavLink item={item} active={isActiveGroup(pathname, item.to)} onNavigate={onNavigate} />
-            </li>
-          ))}
-        </ul>
-        <p className="ws-label mt-6 mb-1.5 px-2.5">Settings</p>
-        <ul className="space-y-0.5">
-          {SETTINGS.map((item) => (
             <li key={item.to}>
               <NavLink item={item} active={isActiveGroup(pathname, item.to)} onNavigate={onNavigate} />
             </li>

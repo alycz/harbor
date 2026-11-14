@@ -80,8 +80,8 @@ export function LandingPage() {
             <Link to="/trade" className="transition-colors hover:text-foreground">
               Trade
             </Link>
-            <Link to="/settings/policy" className="transition-colors hover:text-foreground">
-              Policy
+            <Link to="/agent" hash="policy" className="transition-colors hover:text-foreground">
+              Agent
             </Link>
           </nav>
           <span className="text-[13px] text-muted-foreground">© {new Date().getFullYear()} Harbor · Built on NEAR</span>

@@ -1,16 +1,14 @@
 import { Button } from '@harbor/ui/components/button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { Check, CircleCheck, OctagonX, ShieldCheck, Snowflake, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-
-import { StrategiesPanel } from '../components/autopilot.tsx';
-import { PolicyEditor } from '../components/policy-editor.tsx';
-import { Chip, EmptyState, FactRow, PageHeader, Panel } from '../components/workspace.tsx';
 import { formatUtc } from '../lib/format.ts';
 import { policies, type SignedPolicyView } from '../lib/policy.ts';
 import { useWallet } from '../lib/wallet.tsx';
+import { StrategiesPanel } from './autopilot.tsx';
+import { PolicyEditor } from './policy-editor.tsx';
+import { Chip, EmptyState, FactRow, Panel, SectionTitle } from './workspace.tsx';
 
 const RULES = [
   'Harbor never asks for or holds your keys. You sign in your own wallet.',
@@ -20,7 +18,11 @@ const RULES = [
   'The agent cannot change your policy, and a freeze stops it at once.',
 ] as const;
 
-export function PolicyPage() {
+/**
+ * The owner's signed policy: the limits on every trade Harbor prepares for them to sign, the schedule the agent
+ * runs on, and the editor to sign a new revision. It sits under the agent's budget on the Agent page.
+ */
+export function PolicySection() {
   const wallet = useWallet();
   const current = useQuery({
     queryKey: ['policy', wallet.address],
@@ -48,18 +50,14 @@ export function PolicyPage() {
   }, [justSigned, liveRevision]);
 
   return (
-    <div className="ws-stagger flex flex-col gap-7">
-      <PageHeader
-        title="Your policy"
-        actions={
-          <Link
-            to="/agent"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3.5 text-[13px] font-medium transition-colors hover:bg-secondary/60"
-          >
-            Agent budget
-          </Link>
-        }
-      />
+    <section aria-labelledby="policy" className="flex scroll-mt-6 flex-col gap-4">
+      <div>
+        <SectionTitle id="policy" title="Your policy" />
+        <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-relaxed text-muted-foreground">
+          The limits on every trade Harbor prepares for you to sign, in chat or from a schedule. Sign it in your wallet;
+          it moves no funds.
+        </p>
+      </div>
       <div className="grid items-start gap-5 @3xl/workspace:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-5">
           {!wallet.address && !wallet.restoring ? (
@@ -121,7 +119,7 @@ export function PolicyPage() {
           </div>
         </section>
       </div>
-    </div>
+    </section>
   );
 }
 

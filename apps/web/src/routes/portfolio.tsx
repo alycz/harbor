@@ -71,7 +71,7 @@ export function PortfolioPage() {
                 nativeButton={false}
                 variant="outline"
                 className="h-9 flex-1 gap-2 px-3 @3xl/workspace:flex-none"
-                render={<Link to="/settings/policy" />}
+                render={<Link to="/agent" hash="policy" />}
               >
                 <ShieldCheck className="text-muted-foreground" /> Review policy
               </Button>

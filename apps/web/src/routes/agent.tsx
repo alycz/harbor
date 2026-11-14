@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ArrowUpRight, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
-import type { ComponentType, ReactNode } from 'react';
+import { type ComponentType, type ReactNode, useEffect } from 'react';
 
 import { LeashVault } from '../components/leash-vault.tsx';
+import { PolicySection } from '../components/policy-section.tsx';
 import { Chip, type ChipTone, PageHeader, SectionTitle } from '../components/workspace.tsx';
 import { call } from '../lib/execution.ts';
 import { policies } from '../lib/policy.ts';
@@ -15,6 +16,12 @@ import { useWallet } from '../lib/wallet.tsx';
  */
 export function AgentPage() {
   const wallet = useWallet();
+  // A link to #policy can arrive before this page's code has loaded, so the router's own scroll finds nothing.
+  useEffect(() => {
+    if (window.location.hash !== '#policy') return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('policy')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }, []);
   const leash = useQuery({
     queryKey: ['leash-ids', wallet.address],
     queryFn: () => call<{ contractId: string; agentAccountId: string }>('/api/leash/vault'),
@@ -44,7 +51,8 @@ export function AgentPage() {
         description="A budget Harbor's agent can spend without asking you each time. A NEAR contract holds the money and refuses any trade outside the rules you set."
         actions={
           <Link
-            to="/settings/policy"
+            to="/agent"
+            hash="policy"
             className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3.5 text-[13px] font-medium transition-colors hover:bg-secondary/60"
           >
             <ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -90,16 +98,18 @@ export function AgentPage() {
                 {policyState.label}
               </Chip>
             }
-            body="Limits every trade Harbor prepares for you to sign, in chat or from an automation: how much, to which addresses, and how often automations may act. Freeze it and automations stop."
+            body="Limits every trade Harbor prepares for you to sign, in chat or from a schedule: how much, to which addresses, and how often the agent may act. Freeze it and the schedule stops."
             link={
-              <Link to="/settings/policy" className={LINK}>
-                {current ? 'Open your policy' : 'Sign a policy'}
+              <Link to="/agent" hash="policy" className={LINK}>
+                {current ? 'Review your policy' : 'Sign a policy'}
                 <ArrowUpRight className="size-3.5" aria-hidden="true" />
               </Link>
             }
           />
         </ul>
       </section>
+
+      <PolicySection />
     </div>
   );
 }

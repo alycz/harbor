@@ -18,7 +18,6 @@ import {
   EarnSkeleton,
   LandingSkeleton,
   PlanSkeleton,
-  PolicySkeleton,
   PortfolioSkeleton,
   ResearchSkeleton,
   TradeSkeleton,
@@ -99,11 +98,13 @@ const planRoute = createRoute({
   pendingComponent: PlanSkeleton,
   component: PlanView,
 });
+// The policy now lives under the agent's budget; old links and bookmarks land there.
 const policyRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/settings/policy',
-  pendingComponent: PolicySkeleton,
-  component: lazy(() => import('./routes/settings.tsx').then((module) => ({ default: module.PolicyPage }))),
+  beforeLoad: () => {
+    throw redirect({ to: '/agent', hash: 'policy', replace: true });
+  },
 });
 const walletAlias = createRoute({
   getParentRoute: () => workspaceRoute,

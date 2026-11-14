@@ -323,11 +323,11 @@ export function PlanSkeleton() {
   );
 }
 
-/** Policy: the page title, the cards to set limits on, and the dark rules card beside them. */
-export function PolicySkeleton() {
+/** The policy under the agent: a title, the cards to set limits on, and the dark rules card beside them. */
+function PolicyBlockSkeleton() {
   return (
-    <Loading label="Loading policy" className="flex flex-col gap-7">
-      <SkeletonBox width={200} height={34} radius={7} />
+    <div className="flex flex-col gap-4">
+      <SkeletonBox width={140} height={22} radius={6} />
       <div className="grid items-start gap-5 @3xl/workspace:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <div className="ws-card space-y-5 p-6">
           <SkeletonBox width={140} height={14} />
@@ -346,7 +346,7 @@ export function PolicySkeleton() {
           ))}
         </div>
       </div>
-    </Loading>
+    </div>
   );
 }
 
@@ -441,6 +441,7 @@ export function AgentSkeleton() {
           </div>
         ))}
       </div>
+      <PolicyBlockSkeleton />
     </Loading>
   );
 }
@@ -452,7 +453,6 @@ export function SkeletonForPath({ pathname }: { pathname: string }) {
   if (pathname === '/trade') return <TradeSkeleton />;
   if (pathname === '/portfolio') return <PortfolioSkeleton />;
   if (pathname.startsWith('/plans/')) return <PlanSkeleton />;
-  if (pathname === '/settings/policy') return <PolicySkeleton />;
   if (pathname === '/chat') return <ChatSkeleton />;
   if (pathname === '/agent') return <AgentSkeleton />;
   return <PageSkeleton />;
