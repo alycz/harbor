@@ -43,3 +43,12 @@ clearly labelled stand-in quote signer. 1Click settlement is mainnet-only; do no
 present a testnet stand-in as actual 1Click settlement. The same contract ABI is used
 on both networks. Never initialize it with an arbitrary agent account: that account
 is the sole execution authority for every funded vault in that deployment.
+
+### Pending-transfer accounting
+
+Token changes wait for every outstanding transfer callback, including withdrawals.
+Failed executions restore daily allowance only in the same spending window that
+reserved it. The `pending_transfers` field changes the stored vault layout: this
+version is for a fresh deployment, **not an in-place upgrade of an existing vault**
+without a separately reviewed state migration. The public Worker-facing ABI is
+unchanged; the private execution callback now also receives its spending-window ID.
