@@ -1,3 +1,4 @@
+import { TemplarBorrowExecution } from './templar-borrow-execution.tsx';
 import { useState } from 'react';
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
@@ -31,7 +32,7 @@ export function TemplarBorrow() {
     finally { setBusy(false); }
   }
   return <Panel label="Templar: live contract preparation" bodyClassName="space-y-3 p-5">
-    <p className="text-sm text-muted-foreground">Reads Templar's mainnet registry and prepares real contract calls. Signing is not enabled here. Registry entries can include retired markets.</p>
+    <p className="text-sm text-muted-foreground">Reads Templar's mainnet registry and prepares real contract calls. Real borrow signing requires a separate reviewed plan and operator enablement. Registry entries can include retired markets.</p>
     <Button disabled={busy || offset === null} onClick={load}>Load {markets.length ? 'more ' : ''}markets</Button>
     <label className="block text-sm">Market
       <select className="block w-full rounded border p-2" value={marketId} onChange={(e) => { setMarket(e.target.value); setResult(null); }}>
@@ -48,6 +49,7 @@ export function TemplarBorrow() {
     </label>
     {wallet.address ? <Button disabled={busy || !marketId || !/^[1-9][0-9]*$/.test(amount)} onClick={prepare}>Prepare for review</Button> :
       <Button disabled={wallet.connecting} onClick={wallet.connect}>Connect wallet</Button>}
+    {operation === 'borrow' && marketId && /^[1-9][0-9]*$/.test(amount) ? <TemplarBorrowExecution key={marketId + ':' + amount + ':' + wallet.address} marketId={marketId} amountAtomic={amount} /> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     {result && result.accountId === wallet.address ? <div className="space-y-2">
       <p className="text-sm">{result.limitation}</p>
