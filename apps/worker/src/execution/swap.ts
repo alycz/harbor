@@ -315,7 +315,7 @@ export async function swapPlanPolicy(
   now: number,
   destination: {
     recipient: Destination | null;
-    origin: Destination | null;
+    origin?: Destination | null;
     own: readonly Destination[];
     deposit: Deposit | null;
   },
@@ -331,7 +331,7 @@ export async function swapPlanPolicy(
     buyChain: assetOf(deps, intent.buy_asset).chain,
     own: destination.own,
     sellChain: assetOf(deps, intent.sell_asset).chain,
-    origin: destination.origin,
+    origin: destination.origin ?? null,
   });
   const digest = await sha256Hex(
     canonicalJson({
