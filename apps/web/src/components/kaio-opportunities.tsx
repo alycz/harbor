@@ -1,7 +1,7 @@
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   KAIO_CATALOG_CHECKED_AT, KAIO_CATALOG_SOURCE, KAIO_OPPORTUNITIES,
@@ -31,6 +31,21 @@ function OpportunityCard({ opportunity }: { opportunity: KaioOpportunity }) {
   const { address } = useWallet();
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    setAmount('');
+    setMessage('');
+    if (!address) return;
+    try {
+      const raw = sessionStorage.getItem(`harbor:kaio-draft:${address}:${opportunity.symbol}`);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as { product?: unknown; estimatedUsd?: unknown; status?: unknown };
+      if (draft.product === opportunity.symbol && draft.status === 'local_draft_not_submitted'
+        && typeof draft.estimatedUsd === 'string') {
+        setAmount(draft.estimatedUsd);
+        setMessage('Restored local draft. Not submitted to KAIO.');
+      }
+    } catch { /* A missing/unreadable local draft never blocks discovery. */ }
+  }, [address, opportunity.symbol]);
 
   function saveDraft() {
     if (!address) return;
