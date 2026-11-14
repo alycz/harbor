@@ -85,32 +85,32 @@ export function IntegrationDemo() {
         </p>
       </div>
 
-      <div className="mt-4 grid gap-2 @xl/workspace:grid-cols-2 @4xl/workspace:grid-cols-4" role="list" aria-label="Demo flows">
+      <ul className="mt-4 grid list-none gap-2 @xl/workspace:grid-cols-2 @4xl/workspace:grid-cols-4" aria-label="Demo flows">
         {FLOWS.map((entry) => {
           const Icon = entry.icon;
           const selected = entry.id === flow.id;
           return (
-            <button
-              key={entry.id}
-              type="button"
-              role="listitem"
-              aria-pressed={selected}
-              onClick={() => choose(entry.id)}
-              className={`rounded-xl border px-3.5 py-3 text-left transition-colors ${
-                selected
-                  ? 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)]'
-                  : 'border-border bg-background/50 hover:border-border-strong'
-              }`}
-            >
-              <span className="flex items-center gap-2 text-[13.5px] font-medium">
-                <Icon className="size-4" aria-hidden="true" />
-                {entry.name}
-              </span>
-              <span className="mt-1 block text-[12px] leading-relaxed text-muted-foreground">{entry.summary}</span>
-            </button>
+            <li key={entry.id}>
+              <button
+                type="button"
+                aria-pressed={selected}
+                onClick={() => choose(entry.id)}
+                className={`h-full w-full rounded-xl border px-3.5 py-3 text-left transition-colors ${
+                  selected
+                    ? 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)]'
+                    : 'border-border bg-background/50 hover:border-border-strong'
+                }`}
+              >
+                <span className="flex items-center gap-2 text-[13.5px] font-medium">
+                  <Icon className="size-4" aria-hidden="true" />
+                  {entry.name}
+                </span>
+                <span className="mt-1 block text-[12px] leading-relaxed text-muted-foreground">{entry.summary}</span>
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       <div className="mt-4 rounded-xl border border-border bg-background/40 p-4">
         {phase === 'configure' ? (
