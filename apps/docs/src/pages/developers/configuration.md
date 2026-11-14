@@ -44,12 +44,12 @@ After building the app and docs, select the mainnet write integrations explicitl
 node scripts/prepare-deployment.mjs mainnet DATABASE_ID --enable-execution --write-adapters=oneclick,rhea-lending
 ```
 
-This generates a local configuration only; it does not deploy, apply migrations, or enable execution.
+This generates a local configuration only; it does not deploy or apply migrations. With `--enable-execution`, the generated file enables execution for the selected adapters when subsequently deployed.
 `EXECUTION_ENABLED` remains `false` unless `--enable-execution` is explicitly added.
 The adapter selection is retained while execution is off, so both gates remain independent.
 When `--write-adapters` is omitted, the selection in the built configuration is kept. The committed `apps/worker/wrangler.jsonc` selects none and keeps execution off, so local development and tests never move funds; a production deploy must name its adapters.
 An empty `--write-adapters=` clears the selection; execution cannot be enabled with an empty list.
 Only `oneclick`, `rhea-lending`, and `templar` are accepted. KAIO is not a supported write adapter.
 These adapters are mainnet-only; testnet configurations remain execution-disabled with an empty list.
-Changing either gate does not establish that migrations, protocol registration, market allowlists,
+Changing either gate does not establish that migrations, protocol registration, supported-market verification,
 wallet approval, balances, or settlement verification are ready. Those requirements still apply.

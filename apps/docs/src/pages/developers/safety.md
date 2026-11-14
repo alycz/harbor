@@ -28,7 +28,7 @@ Policy signing and enforcement are planned. Do not describe destination blocking
 
 ## Settlement requirements
 
-Before any future deposit is accepted, its decoded receiver and amount must exactly match the plan. Unknown 1Click status does not prove non-execution. Refund is distinct from success. Delivery must be checked independently before settlement is trusted.
+Before any deposit is accepted, its decoded receiver and amount must exactly match the plan. Unknown 1Click status does not prove non-execution. Refund is distinct from success. Delivery must be checked independently before settlement is trusted.
 
 No deployment, remote migration, or Cloudflare account changes belong in routine documentation work.
 
