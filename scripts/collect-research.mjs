@@ -58,7 +58,27 @@ const SOURCES = [
     url: 'https://defillama.com/chains',
     attribution: 'Chain TVL from DefiLlama (defillama.com)',
   },
+  {
+    id: 'portals-explorer',
+    name: 'Portals Explorer',
+    url: 'https://explorer.portals.fi',
+    attribution: 'Vault data from Portals (portals.fi)',
+  },
 ].map((source) => ({ ...source, captured_at: capturedAt, live: false }));
+
+// Vaults Harbor deposits into that DefiLlama does not list. Portals publishes each as a page with
+// front matter; the address is the vault's token contract, the one Harbor's swap asset list names.
+const EXTRA_VAULTS = [
+  {
+    chain: 'Ethereum',
+    network: 'ethereum',
+    address: '0x0f38f1ce62776d4a0038bc6cac66877a5687383b',
+    project: 'taler-finance',
+    symbol: 'TLO',
+    poolMeta: 'TAU Lending Optimizer',
+    underlying: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+  },
+];
 
 async function get(url) {
   const response = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(90_000) });
@@ -74,6 +94,41 @@ const [poolsBody, protocolsBody, chainsBody] = await Promise.all([
   get('https://api.llama.fi/protocols'),
   get('https://api.llama.fi/v2/chains'),
 ]);
+
+/** A vault's APY and TVL from its Portals page; null when the page cannot be read, so one miss never fails a run. */
+async function portalsVault(vault) {
+  try {
+    const url = `https://explorer.portals.fi/yield/${vault.network}:${vault.address}.md`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) return null;
+    const text = await response.text();
+    const field = (name) => Number(text.match(new RegExp(`^${name}: "?([0-9.]+)"?$`, 'm'))?.[1]);
+    const apy = finite(field('apy'));
+    const tvl = finite(field('tvl_usd'));
+    if (apy === null || tvl === null) return null;
+    return {
+      pool_id: `portals:${vault.network}:${vault.address}`,
+      chain: vault.chain,
+      project: vault.project,
+      symbol: vault.symbol,
+      pool_meta: vault.poolMeta,
+      stablecoin: true,
+      tvl_usd: Math.round(tvl),
+      total_apy_pct: round(apy * 100, 3),
+      apy_mean_30d_pct: null,
+      base_apy_pct: round(apy * 100, 3),
+      reward_apy_pct: null,
+      underlying_tokens: [vault.underlying],
+      source: 'portals-explorer',
+      observed_at: capturedAt,
+      executable: false,
+      asset_identity_verified: false,
+    };
+  } catch {
+    return null;
+  }
+}
+const extraPools = (await Promise.all(EXTRA_VAULTS.map(portalsVault))).filter((pool) => pool !== null);
 
 const chains = chainsBody
   .filter((chain) => CHAINS.has(chain.name) && finite(chain.tvl) !== null)
@@ -178,7 +233,7 @@ const snapshot = {
   sources: SOURCES,
   chains,
   protocols,
-  yield_pools: yieldPools,
+  yield_pools: [...yieldPools, ...extraPools],
 };
 const history = {
   schema_version: 'harbor.research.history.v1',
@@ -191,5 +246,5 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 await writeFile(path.join(root, 'research/data/research-snapshot.json'), json(snapshot));
 await writeFile(path.join(root, 'research/data/research-history.json'), json(history));
 console.log(
-  `Captured ${chains.length} chains, ${protocols.length} protocols, ${yieldPools.length} pools and ${series.length} TVL series at ${capturedAt}.`,
+  `Captured ${chains.length} chains, ${protocols.length} protocols, ${yieldPools.length + extraPools.length} pools and ${series.length} TVL series at ${capturedAt}.`,
 );
