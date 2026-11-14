@@ -83,13 +83,24 @@ export async function verifyEvmDeposit(
   }
   if (!evm.transaction) return { outcome: 'mismatch', detail: 'No origin-chain transaction reader is configured.' };
   const transaction = (await evm.transaction(input.chain, input.txHash)) as {
+    hash?: unknown;
     from?: unknown;
     to?: unknown;
     input?: unknown;
     value?: unknown;
   } | null;
-  const receipt = (await evm.receipt(input.chain, input.txHash)) as { status?: unknown } | null;
+  const receipt = (await evm.receipt(input.chain, input.txHash)) as {
+    transactionHash?: unknown;
+    status?: unknown;
+    logs?: unknown;
+  } | null;
   if (!transaction || !receipt) return { outcome: 'pending' };
+  if (
+    String(transaction.hash).toLowerCase() !== input.txHash.toLowerCase() ||
+    String(receipt.transactionHash).toLowerCase() !== input.txHash.toLowerCase()
+  ) {
+    return { outcome: 'mismatch', detail: 'The RPC response does not match the submitted transaction hash.' };
+  }
   if (receipt.status !== '0x1') return { outcome: 'failed', detail: 'The origin-chain transaction failed.' };
   if (String(transaction.from).toLowerCase() !== input.sender.toLowerCase()) {
     return { outcome: 'mismatch', detail: 'The transaction sender is not the policy-bound origin address.' };
@@ -99,6 +110,7 @@ export async function verifyEvmDeposit(
       input.chain !== 'eth' ||
       String(transaction.to).toLowerCase() !== input.depositAddress.toLowerCase() ||
       typeof transaction.value !== 'string' ||
+      !/^0x[0-9a-fA-F]+$/.test(transaction.value) ||
       BigInt(transaction.value) !== input.amountRaw
     ) {
       return { outcome: 'mismatch', detail: 'The native transfer does not match the planned deposit.' };
@@ -114,6 +126,26 @@ export async function verifyEvmDeposit(
   const expected = `0xa9059cbb${recipientWord}${amountWord}`;
   if (String(transaction.input).toLowerCase() !== expected) {
     return { outcome: 'mismatch', detail: 'The token transfer receiver or amount does not match the plan.' };
+  }
+  const senderTopic = `0x${input.sender.toLowerCase().slice(2).padStart(64, '0')}`;
+  const recipientTopic = `0x${recipientWord}`;
+  const amountData = `0x${amountWord}`;
+  const transferred = Array.isArray(receipt.logs)
+    ? (receipt.logs as Array<{ address?: unknown; topics?: unknown; data?: unknown }>).some((log) => {
+        const topics = Array.isArray(log.topics)
+          ? (log.topics as unknown[]).map((topic) => String(topic).toLowerCase())
+          : [];
+        return (
+          String(log.address).toLowerCase() === token[2]?.toLowerCase() &&
+          topics[0] === TRANSFER_TOPIC &&
+          topics[1] === senderTopic &&
+          topics[2] === recipientTopic &&
+          String(log.data).toLowerCase() === amountData
+        );
+      })
+    : false;
+  if (!transferred) {
+    return { outcome: 'mismatch', detail: 'No exact token Transfer event proves the planned deposit succeeded.' };
   }
   return { outcome: 'confirmed' };
 }
