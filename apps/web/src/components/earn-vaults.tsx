@@ -56,7 +56,7 @@ export function vaultListing(vault: Vault): YieldPoolRow | null {
   );
 }
 
-function vaultApy(vault: Vault): string {
+export function vaultApy(vault: Vault): string {
   const listing = vaultListing(vault);
   return listing ? `${formatApy(listing.totalApyPct)} APY` : 'Rate not listed';
 }
@@ -173,14 +173,24 @@ function DepositForm({ vault }: { vault: Vault }) {
  * A pool Harbor has no deposit path into yet. Says so plainly, and offers what does work: depositing
  * into a vault Harbor supports, or asking Harbor about this pool.
  */
+/** Somewhere Harbor can deposit today, offered from a pool it cannot. */
+export interface DepositChoice {
+  key: string;
+  name: string;
+  detail: string;
+  chain: string;
+  rate: string;
+  onSelect: () => void;
+}
+
 export function NotYetDialog({
   pool,
+  choices,
   onOpenChange,
-  onDeposit,
 }: {
   pool: YieldPoolRow | null;
+  choices: DepositChoice[];
   onOpenChange: (open: boolean) => void;
-  onDeposit: (vault: Vault) => void;
 }) {
   const name = pool ? projectName(pool.project) : '';
   return (
@@ -210,21 +220,19 @@ export function NotYetDialog({
             <div className="border-t border-border px-6 pt-5 pb-6">
               <p className="text-[12.5px] font-medium text-muted-foreground">Deposit today instead</p>
               <ul className="mt-2.5 flex flex-col gap-2">
-                {VAULTS.map((vault) => (
-                  <li key={vault.receipt}>
+                {choices.map((choice) => (
+                  <li key={choice.key}>
                     <button
                       type="button"
-                      onClick={() => onDeposit(vault)}
+                      onClick={choice.onSelect}
                       className="group flex w-full items-center gap-3 rounded-[10px] border border-border bg-card px-3.5 py-3 text-left transition-colors hover:border-[var(--harbor-border-strong)] hover:bg-[var(--harbor-accent-tint)]"
                     >
-                      <ChainLogo chain={vault.chain} className="size-8" />
+                      <ChainLogo chain={choice.chain} className="size-8" />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[14px] font-medium">{vault.name}</span>
-                        <span className="block text-[12.5px] text-muted-foreground">
-                          {vault.protocol} on {vault.chain}
-                        </span>
+                        <span className="block text-[14px] font-medium">{choice.name}</span>
+                        <span className="block text-[12.5px] text-muted-foreground">{choice.detail}</span>
                       </span>
-                      <span className="ws-num text-[13.5px] font-medium">{vaultApy(vault)}</span>
+                      <span className="ws-num text-[13.5px] font-medium">{choice.rate}</span>
                       <ChevronRight
                         className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
                         aria-hidden="true"

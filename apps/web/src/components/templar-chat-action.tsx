@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { call } from '../lib/execution.ts';
 import { TemplarBorrowExecution } from './templar-borrow-execution.tsx';
 
-export interface TemplarMarket {
+interface TemplarMarket {
   marketId: string;
   configuration: { borrow_asset: unknown; collateral_asset: unknown; [key: string]: unknown };
   observedAt: string;
   borrowingEnabled: boolean;
   note: string;
 }
-export function useTemplarMarket(marketId: string) {
+function useTemplarMarket(marketId: string) {
   const [market, setMarket] = useState<TemplarMarket | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -31,7 +31,7 @@ export function useTemplarMarket(marketId: string) {
   }, [marketId]);
   return { market, error };
 }
-export function TemplarMarketDetails({ market }: { market: TemplarMarket }) {
+function TemplarMarketDetails({ market }: { market: TemplarMarket }) {
   return (
     <div className="space-y-2 text-sm">
       <p>
