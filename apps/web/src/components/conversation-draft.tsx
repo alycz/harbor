@@ -21,6 +21,7 @@ import {
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ChatRequestError } from '../lib/agent-chat.ts';
 import { amountDraftIssue } from '../lib/draft-validation.ts';
+import { ChatDataCard } from './chat-data-card.tsx';
 import { AssetSelect } from './financial-draft.tsx';
 import { HarborMark } from './harbor-logo.tsx';
 import { MessageContent } from './message-content.tsx';
@@ -166,6 +167,10 @@ export function ConversationDraft({
                     ) : (
                       <span className="sr-only">You</span>
                     )}
+                    {message.cards?.map(({ cardId, card }) => (
+                      <ChatDataCard key={cardId} card={card} />
+                    ))}
+                    {message.cards?.length && message.text ? <div className="h-4" aria-hidden="true" /> : null}
                     {message.text ? (
                       message.role === 'assistant' ? (
                         <MessageContent text={message.text} />
