@@ -167,6 +167,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (typeof hash !== 'string' || hash.length === 0) {
         throw new WalletProblem('The wallet did not return a transaction hash. Check your wallet activity.');
       }
+      // A wallet hands back a hash even when the chain rejected the transaction; that is a failure, not a send.
+      const status = (outcome as { status?: unknown } | undefined)?.status;
+      if (status && typeof status === 'object' && 'Failure' in status) {
+        const reason = /"ExecutionError":"([^"]{1,200})"/.exec(JSON.stringify(status))?.[1];
+        throw new WalletProblem(
+          `The transaction failed on NEAR${reason ? `: ${reason.replace(/^Smart contract panicked: /, '')}` : ''}. Nothing in it took effect.`,
+        );
+      }
       return hash;
     },
     [sessionWallet, network],
