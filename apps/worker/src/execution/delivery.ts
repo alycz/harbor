@@ -13,7 +13,7 @@ const BRIDGED_TOKEN = /^nep141:(eth|base|arb)-(0x[0-9a-f]{40})\.omft\.near$/;
 
 export interface EvmReader {
   /** A transaction and receipt, or null while the chain does not know them. */
-  transaction(chain: string, hash: string): Promise<unknown | null>;
+  transaction?(chain: string, hash: string): Promise<unknown | null>;
   receipt(chain: string, hash: string): Promise<unknown | null>;
 }
 
@@ -81,6 +81,7 @@ export async function verifyEvmDeposit(
   ) {
     return { outcome: 'mismatch', detail: 'The origin or deposit address is invalid.' };
   }
+  if (!evm.transaction) return { outcome: 'mismatch', detail: 'No origin-chain transaction reader is configured.' };
   const transaction = (await evm.transaction(input.chain, input.txHash)) as {
     from?: unknown;
     to?: unknown;
