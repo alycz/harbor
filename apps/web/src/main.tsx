@@ -28,7 +28,12 @@ createRoot(root).render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
-        <Toaster />
+        {/* Above the phone's bottom navigation; see --toast-bottom in workspace.css. */}
+        <Toaster
+          position="bottom-right"
+          offset={{ bottom: 'var(--toast-bottom)' }}
+          mobileOffset={{ bottom: 'var(--toast-bottom)' }}
+        />
       </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,

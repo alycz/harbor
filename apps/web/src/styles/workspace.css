@@ -705,3 +705,13 @@ header.ws-chrome {
     animation: none;
   }
 }
+
+/* Toasts sit above the phone's bottom navigation (md:hidden, 64px tall) and in the corner elsewhere. */
+:root {
+  --toast-bottom: 24px;
+}
+@media (width < 48rem) {
+  :root {
+    --toast-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}

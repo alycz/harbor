@@ -27,7 +27,8 @@
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "skullet": "catalog:"
+    "skullet": "catalog:",
+    "sonner": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "catalog:",
