@@ -13,7 +13,7 @@ export interface LiveEarn {
   vaults: LiveVault[];
 }
 
-export interface LiveRheaMarket {
+interface LiveRheaMarket {
   /** The registry asset a supply uses: its canonical 1Click ID, symbol and decimals. */
   assetId: string;
   symbol: string;
@@ -25,7 +25,7 @@ export interface LiveRheaMarket {
   canWithdraw: boolean;
 }
 
-export interface LiveVault {
+interface LiveVault {
   /** The receipt token Harbor buys through 1Click to deposit. */
   receipt: string;
   apyPct: number;
