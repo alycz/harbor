@@ -48,7 +48,7 @@ export function SwapProposalCard({
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [externalHash, setExternalHash] = useState('');
-  const secondsLeft = useCountdown(phase === 'quoted' || phase === 'review' ? quote?.expiresAt : undefined);
+  const secondsLeft = useCountdown(quote?.expiresAt);
   useEffect(() => {
     onInteractionLock?.(
       phase === 'planning' ||
@@ -300,22 +300,33 @@ export function SwapProposalCard({
         {phase === 'approved' ? (
           plan?.funding && !plan.funding.walletTransactionAvailable ? (
             <div className="space-y-3 rounded-lg border border-warning/25 bg-warning/8 px-3.5 py-3 text-[13px]">
-              <p className="font-medium text-warning">Fund this exact deposit in your {plan.funding.chain} wallet</p>
-              <p>
-                Send exactly <span className="ws-num font-medium">{quote?.sell.amount} {quote?.sell.symbol}</span> to{' '}
-                <span className="break-all font-mono text-[12px]">{plan.funding.address}</span>.
-                {plan.funding.memo ? <> Memo: <span className="font-mono">{plan.funding.memo}</span>.</> : null}
-              </p>
-              <p className="text-[12px] text-muted-foreground">
-                Use the policy-bound origin address. Harbor independently checks sender, chain, token, receiver, amount,
-                receipt and Transfer event before submitting anything to NEAR Intents.
-              </p>
-              <Input
-                aria-label="Origin-chain transaction hash"
-                placeholder="0x transaction hash"
-                value={externalHash}
-                onChange={(event) => setExternalHash(event.currentTarget.value.trim())}
-              />
+              {secondsLeft === 0 ? (
+                <p className="font-medium text-destructive">Do not fund this deposit: the executable quote expired.</p>
+              ) : (
+                <>
+                  <p className="font-medium text-warning">Fund this exact deposit in your {plan.funding.chain} wallet</p>
+                  <p>
+                    Send exactly <span className="ws-num font-medium">{quote?.sell.amount} {quote?.sell.symbol}</span> to{' '}
+                    <span className="break-all font-mono text-[12px]">{plan.funding.address}</span>.
+                    {plan.funding.memo ? <> Memo: <span className="font-mono">{plan.funding.memo}</span>.</> : null}
+                  </p>
+                  <dl className="space-y-1 text-[12px]">
+                    <div><dt className="inline text-muted-foreground">Asset ID: </dt><dd className="inline break-all font-mono">{plan.funding.asset}</dd></div>
+                    <div><dt className="inline text-muted-foreground">Send from: </dt><dd className="inline break-all font-mono">{plan.funding.sender}</dd></div>
+                    <div><dt className="inline text-muted-foreground">Fund before: </dt><dd className="inline">{new Date(plan.funding.deadline).toLocaleString()}</dd></div>
+                  </dl>
+                  <p className="text-[12px] text-muted-foreground">
+                    Harbor independently checks sender, chain, token, receiver, amount, receipt and Transfer event
+                    before recording the deposit as verified in Harbor.
+                  </p>
+                  <Input
+                    aria-label="Origin-chain transaction hash"
+                    placeholder="0x transaction hash"
+                    value={externalHash}
+                    onChange={(event) => setExternalHash(event.currentTarget.value.trim())}
+                  />
+                </>
+              )}
             </div>
           ) : (
             <p className="flex items-start gap-2.5 rounded-lg border border-success/20 bg-success/6 px-3.5 py-3 text-[13px]">
@@ -383,7 +394,7 @@ export function SwapProposalCard({
               <Button
                 className="h-10 px-4"
                 onClick={recordExternalDeposit}
-                disabled={!/^0x[0-9a-fA-F]{64}$/.test(externalHash)}
+                disabled={secondsLeft === 0 || !/^0x[0-9a-fA-F]{64}$/.test(externalHash)}
               >
                 Verify external deposit
               </Button>
