@@ -1,5 +1,6 @@
 import type { VenueQuote } from '@harbor/adapters/venue';
 import { formatRawAmount, MAX_U128_RAW, parseDecimalAmount } from '@harbor/domain/amount';
+import type { AssetRef } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
 import { z } from 'zod';
 
@@ -47,16 +48,17 @@ export async function previewRoundtrip(deps: ExecutionDeps, input: z.infer<typeo
     observedAt: string; expiresAt: string;
   }> = [];
   try {
-    if (!deps.venue) throw new Error('Live Intents quotes are available on mainnet only.');
-    const read = async (from: typeof sell, to: typeof buy, amountIn: bigint) => {
-      const quote = await deps.venue!.quote({ network: deps.config.network, sell: from, buy: to, amountIn, slippageBps: 50 });
+    const venue = deps.venue;
+    if (!venue) throw new Error('Live Intents quotes are available on mainnet only.');
+    const read = async (from: AssetRef, to: AssetRef, amountIn: bigint) => {
+      const quote = await venue.quote({ network: deps.config.network, sell: from, buy: to, amountIn, slippageBps: 50 });
       validateQuote(quote, amountIn);
       const observed = deps.now();
       legs.push({
         amountIn: formatRawAmount(amountIn, from.decimals),
         amountOut: formatRawAmount(quote.amountOut, to.decimals),
         minAmountOut: formatRawAmount(quote.minAmountOut, to.decimals),
-        venue: deps.venue!.id,
+        venue: venue.id,
         observedAt: new Date(observed).toISOString(),
         expiresAt: new Date(started + FRESHNESS_MS).toISOString(),
       });
