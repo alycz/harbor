@@ -5,8 +5,9 @@ import { z } from 'zod';
 
 import { decodeExecutionConfig } from '../config.ts';
 import { type ExecutionDeps, executionDeps } from '../execution/store.ts';
-import type { PriceAlertConfig } from './config.ts';
-import { evaluatePriceAlert, type QuoteSource } from './evaluate.ts';
+import type { QuoteSource } from './evaluate.ts';
+import { evaluateMonitor } from './monitor.ts';
+import { previewRoundtrip } from './roundtrip.ts';
 import type { AutomationDeps, RuleRow } from './rules.ts';
 
 const JOB_KIND = 'automation.evaluate';
@@ -33,6 +34,7 @@ export function automationDeps(env: Env): AutomationDeps {
     network: config.network,
     now: Date.now,
     quotes: venueQuotes(execution),
+    roundtrip: (config) => previewRoundtrip(execution, config),
   };
 }
 
@@ -136,7 +138,7 @@ async function runCheck(deps: AutomationDeps, lease: Lease): Promise<boolean> {
     return false;
   }
 
-  const evaluation = await evaluatePriceAlert(JSON.parse(rule.config) as PriceAlertConfig, deps.quotes);
+  const evaluation = await evaluateMonitor(deps, rule.kind, JSON.parse(rule.config));
   const now = deps.now();
   const cooled = rule.last_triggered_at_ms === null || now - rule.last_triggered_at_ms >= rule.cooldown_ms;
   const fire = evaluation.result === 'true' && rule.armed === 1 && cooled;

@@ -6,7 +6,7 @@ import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
 import { executionDeps } from '../execution/store.ts';
 import { automationDeps } from './dispatch.ts';
-import { evaluatePriceAlert } from './evaluate.ts';
+import { evaluateMonitor } from './monitor.ts';
 import { previewRoundtrip, RoundtripSchema } from './roundtrip.ts';
 import {
   type AutomationDeps,
@@ -16,7 +16,6 @@ import {
   deleteRule,
   listRules,
   loadOwnRule,
-  parseConfig,
   pauseRule,
   type RuleRow,
   readRule,
@@ -24,7 +23,7 @@ import {
 } from './rules.ts';
 
 const CreateSchema = z.strictObject({
-  kind: z.literal('price_alert'),
+  kind: z.enum(['price_alert', 'roundtrip_alert']),
   name: z.string().max(80).optional(),
   config: z.unknown(),
 });
@@ -37,7 +36,10 @@ const ActivateSchema = z.strictObject({
   revision: z.number().int().positive(),
   configHash: z.string().regex(/^[0-9a-f]{64}$/),
 });
-const PreviewSchema = z.strictObject({ config: z.unknown() });
+const PreviewSchema = z.strictObject({
+  kind: z.enum(['price_alert', 'roundtrip_alert']).default('price_alert'),
+  config: z.unknown(),
+});
 
 /**
  * Monitoring rules: draft → activate the exact revision → scheduled checks → alerts. Each rule
@@ -62,7 +64,7 @@ export function createAutomationRoutes() {
     const deps = automationDeps(c.env);
     return c.json({
       evaluatedAt: new Date(deps.now()).toISOString(),
-      ...(await evaluatePriceAlert(parseConfig(body.config), deps.quotes)),
+      ...(await evaluateMonitor(deps, body.kind, body.config)),
     });
   });
 
@@ -111,7 +113,7 @@ export function createAutomationRoutes() {
     const { deps, rule } = await owned(c);
     return c.json({
       evaluatedAt: new Date(deps.now()).toISOString(),
-      ...(await evaluatePriceAlert(parseConfig(JSON.parse(rule.config)), deps.quotes)),
+      ...(await evaluateMonitor(deps, rule.kind, JSON.parse(rule.config))),
     });
   });
 

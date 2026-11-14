@@ -3,7 +3,15 @@ import { AppError } from '@harbor/domain/errors';
 import type { Network } from '@harbor/domain/network';
 
 import type { AUTOMATION_STATUSES, EVALUATION_RESULTS } from '../db/schema.ts';
-import { EVALUATION_INTERVAL_MS, type PriceAlertConfig, PriceAlertConfigSchema } from './config.ts';
+import {
+  EVALUATION_INTERVAL_MS,
+  type MonitorConfig,
+  type MonitorKind,
+  type PriceAlertConfig,
+  PriceAlertConfigSchema,
+  type RoundtripAlertConfig,
+  RoundtripAlertConfigSchema,
+} from './config.ts';
 import type { QuoteSource } from './evaluate.ts';
 
 export interface AutomationDeps {
@@ -11,12 +19,13 @@ export interface AutomationDeps {
   network: Network;
   quotes: QuoteSource;
   now(): number;
+  roundtrip?: (config: RoundtripAlertConfig) => Promise<import('./roundtrip.ts').RoundtripPreview>;
 }
 
 export interface RuleRow {
   id: string;
   network: Network;
-  kind: 'price_alert';
+  kind: MonitorKind;
   name: string;
   owner_account: string | null;
   status: (typeof AUTOMATION_STATUSES)[number];
@@ -58,8 +67,11 @@ interface TriggerRow {
 
 const HISTORY_LIMIT = 30;
 
-export function parseConfig(value: unknown): PriceAlertConfig {
-  const parsed = PriceAlertConfigSchema.safeParse(value);
+export function parseConfig(value: unknown): PriceAlertConfig;
+export function parseConfig(value: unknown, kind: MonitorKind): MonitorConfig;
+export function parseConfig(value: unknown, kind: MonitorKind = 'price_alert'): MonitorConfig {
+  const parsed =
+    kind === 'roundtrip_alert' ? RoundtripAlertConfigSchema.safeParse(value) : PriceAlertConfigSchema.safeParse(value);
   if (!parsed.success) {
     throw new AppError('INVALID_REQUEST', parsed.error.issues[0]?.message ?? 'The monitor settings are invalid.');
   }
@@ -69,9 +81,10 @@ export function parseConfig(value: unknown): PriceAlertConfig {
 /** Saves a draft. Nothing is evaluated on a schedule until the user activates this exact revision. */
 export async function createRule(
   deps: AutomationDeps,
-  input: { name?: string | undefined; account?: string | undefined; config: unknown },
+  input: { kind?: MonitorKind; name?: string | undefined; account?: string | undefined; config: unknown },
 ) {
-  const config = parseConfig(input.config);
+  const kind = input.kind ?? 'price_alert';
+  const config = parseConfig(input.config, kind);
   if (input.account && !isNearAccountId(input.account)) {
     throw new AppError('INVALID_REQUEST', 'The account must be a valid account ID.');
   }
@@ -79,7 +92,7 @@ export async function createRule(
   const row: RuleRow = {
     id: crypto.randomUUID(),
     network: deps.network,
-    kind: 'price_alert',
+    kind,
     name: input.name?.trim() || defaultName(config),
     owner_account: input.account ?? null,
     status: 'draft',
@@ -130,8 +143,8 @@ export async function reviseRule(
   id: string,
   input: { expectedRevision: number; name?: string | undefined; config: unknown },
 ) {
-  const config = parseConfig(input.config);
   const current = await loadRule(deps, id);
+  const config = parseConfig(input.config, current.kind);
   if (current.status === 'deleted') throw new AppError('NOT_FOUND', 'No such automation.');
   const revision = current.revision + 1;
   const result = await deps.db
@@ -282,13 +295,14 @@ async function setStatus(
 }
 
 /** Binds activation to the exact settings and revision the user reviewed. */
-async function configHash(config: PriceAlertConfig, revision: number): Promise<string> {
+async function configHash(config: MonitorConfig, revision: number): Promise<string> {
   const text = JSON.stringify({ revision, ...config });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function defaultName(config: PriceAlertConfig): string {
+function defaultName(config: MonitorConfig): string {
+  if ('sellAssetId' in config) return `Round trip ≥ ${config.minSpreadBps} bps`;
   return `${config.sell.amount} ${config.sell.symbol} → ${config.buy.symbol} ≥ ${config.minOutput}`;
 }
 
@@ -302,7 +316,7 @@ function ruleView(row: RuleRow) {
     status: row.status,
     revision: row.revision,
     configHash: row.config_hash,
-    config: JSON.parse(row.config) as PriceAlertConfig,
+    config: JSON.parse(row.config) as MonitorConfig,
     intervalSeconds: row.interval_ms / 1000,
     armed: row.armed === 1,
     nextCheckAt: row.next_due_at_ms === null ? null : iso(row.next_due_at_ms),
