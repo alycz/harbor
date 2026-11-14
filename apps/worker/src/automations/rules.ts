@@ -1,7 +1,6 @@
 import { isNearAccountId } from '@harbor/domain/account';
 import { AppError } from '@harbor/domain/errors';
 import type { Network } from '@harbor/domain/network';
-
 import type { AUTOMATION_STATUSES, EVALUATION_RESULTS } from '../db/schema.ts';
 import {
   EVALUATION_INTERVAL_MS,
@@ -14,6 +13,7 @@ import {
   SpreadAlertConfigSchema,
 } from './config.ts';
 import type { QuoteSource } from './evaluate.ts';
+import type { RoundtripPreview } from './roundtrip.ts';
 
 export interface AutomationDeps {
   db: D1Database;
@@ -21,7 +21,7 @@ export interface AutomationDeps {
   quotes: QuoteSource;
   reference?: QuoteSource;
   now(): number;
-  roundtrip?: (config: RoundtripAlertConfig) => Promise<import('./roundtrip.ts').RoundtripPreview>;
+  roundtrip?: (config: RoundtripAlertConfig) => Promise<RoundtripPreview>;
 }
 
 export interface RuleRow {

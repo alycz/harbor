@@ -49,9 +49,9 @@ export const SpreadAlertConfigSchema = z
 
 export type SpreadAlertConfig = z.infer<typeof SpreadAlertConfigSchema>;
 
-export const AUTOMATION_RULE_KINDS = ['price_alert', 'spread_alert', 'roundtrip_alert'] as const;
-export type AutomationKind = (typeof AUTOMATION_RULE_KINDS)[number];
-export type AutomationConfig = PriceAlertConfig | SpreadAlertConfig | RoundtripAlertConfig;
+const AUTOMATION_RULE_KINDS = ['price_alert', 'spread_alert', 'roundtrip_alert'] as const;
+type AutomationKind = (typeof AUTOMATION_RULE_KINDS)[number];
+type AutomationConfig = PriceAlertConfig | SpreadAlertConfig | RoundtripAlertConfig;
 
 /** Checks run about once a minute: the scheduled handler's cadence. */
 export const EVALUATION_INTERVAL_MS = 60_000;
