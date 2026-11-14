@@ -3,7 +3,7 @@ import { rawFromText } from '@harbor/domain/amount';
 import { AppError } from '@harbor/domain/errors';
 import { ChainReadFailed, checkDeposit, isTxHash, tokenContractOf } from '@harbor/near/chain';
 
-import { verifyDelivery, verifyEvmDeposit } from './delivery.ts';
+import { type OriginDepositCheck, verifyDelivery, verifyEvmDeposit } from './delivery.ts';
 import { readPlan } from './lifecycle.ts';
 import {
   type ExecutionDeps,
@@ -99,12 +99,14 @@ export async function settlePlans(deps: ExecutionDeps) {
 async function checkClaimedDeposit(deps: ExecutionDeps, plan: PlanRow): Promise<{ mismatch?: string }> {
   const intent = await loadIntent(deps, plan.intent_id);
   const quote = await loadQuote(deps, plan.quote_id);
-  const origin = (JSON.parse(plan.result ?? '{}') as {
-    origin?: { chain?: string; address?: string };
-  }).origin;
+  const origin = (
+    JSON.parse(plan.result ?? '{}') as {
+      origin?: { chain?: string; address?: string };
+    }
+  ).origin;
   if (!plan.tx_hash || !plan.deposit_address) return {};
   if (origin?.chain && origin.chain !== 'near') {
-    let check;
+    let check: OriginDepositCheck;
     try {
       check = await verifyEvmDeposit(deps.evm, {
         chain: origin.chain,
