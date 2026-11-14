@@ -405,6 +405,37 @@ describe('1Click client', () => {
     await expect(client.status({ depositAddress: 'deposit.near' })).resolves.toMatchObject({ status: 'SUCCESS' });
   });
 
+  it("accepts NEAR Intents' refund reply, where amountIn and amountOut are null", async () => {
+    const executableQuote = quoteResponse({
+      depositAddress: 'deposit.near',
+      deadline: '2027-01-01T00:00:00.000Z',
+      timeWhenInactive: '2026-12-31T23:00:00.000Z',
+    });
+    executableQuote.quoteRequest = { ...request, dry: false };
+    const client = createOneClickClient({
+      fetch: async () =>
+        jsonResponse({
+          correlationId: 'status-correlation',
+          quoteResponse: executableQuote,
+          status: 'REFUNDED',
+          updatedAt: '2026-10-26T00:01:00.000Z',
+          swapDetails: {
+            intentHashes: [],
+            nearTxHashes: [],
+            originChainTxHashes: [],
+            destinationChainTxHashes: [],
+            amountIn: null,
+            amountOut: null,
+            refundedAmount: '50000000',
+            refundReason: 'QUOTE_EXPIRED',
+          },
+        }),
+      verifyQuoteSignature: () => true,
+    });
+
+    await expect(client.status({ depositAddress: 'deposit.near' })).resolves.toMatchObject({ status: 'REFUNDED' });
+  });
+
   it('rejects insecure or credential-bearing explorer links in status responses', async () => {
     const executableQuote = quoteResponse({
       depositAddress: 'deposit.near',

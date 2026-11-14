@@ -200,12 +200,13 @@ const SwapDetailsSchema = z
     nearTxHashes: z.array(PrintableTextSchema).max(128),
     originChainTxHashes: z.array(TransactionDetailsSchema).max(128),
     destinationChainTxHashes: z.array(TransactionDetailsSchema).max(128),
-    amountIn: AtomicAmountSchema.optional(),
-    amountOut: AtomicAmountSchema.optional(),
-    refundedAmount: AtomicAmountOrZeroSchema.optional(),
-    depositedAmount: AtomicAmountOrZeroSchema.optional(),
+    // A refund reports amountIn and amountOut as null: nothing was swapped.
+    amountIn: AtomicAmountSchema.nullish(),
+    amountOut: AtomicAmountSchema.nullish(),
+    refundedAmount: AtomicAmountOrZeroSchema.nullish(),
+    depositedAmount: AtomicAmountOrZeroSchema.nullish(),
     refundReason: z.string().max(256).nullish(),
-    withdrawFee: AtomicAmountOrZeroSchema.optional(),
+    withdrawFee: AtomicAmountOrZeroSchema.nullish(),
   })
   .strip();
 export const OneClickStatusResponseSchema = z
