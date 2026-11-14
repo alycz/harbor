@@ -298,3 +298,34 @@ fn delayed_failure_does_not_refund_a_new_spend_window() {
     assert_eq!(vault.balance.0, 10_000);
     assert_eq!(vault.spent_today.0, 500);
 }
+
+#[test]
+fn vault_view_resets_elapsed_daily_allowance() {
+    let mut leash = funded();
+    execute(&mut leash, &quote(|_| {}));
+    let mut context = VMContextBuilder::new();
+    context.current_account_id(account("leash.near"))
+        .block_timestamp(NOW_MS * 1_000_000 + super::DAY_NS);
+    testing_env!(context.build());
+    assert_eq!(leash.get_vault(account("alice.near")).unwrap().spent_today.0, 0);
+}
+
+#[test]
+fn failed_withdrawal_restores_original_token_balance() {
+    let mut leash = funded();
+    as_caller("alice.near", NearToken::from_yoctonear(0));
+    let _ = leash.withdraw(U128(10_000));
+    as_caller("leash.near", NearToken::from_yoctonear(0));
+    leash.on_withdraw(account("alice.near"), U128(10_000), Err(PromiseError::Failed));
+    let vault = leash.get_vault(account("alice.near")).unwrap();
+    assert_eq!(vault.balance.0, 10_000);
+    assert_eq!(vault.limits.token, account("wrap.near"));
+    assert_eq!(leash.vaults.get(&account("alice.near")).unwrap().pending_transfers, 0);
+}
+
+#[test]
+#[should_panic(expected = "Only destination-chain delivery")]
+fn rejects_delivery_to_an_intents_balance() {
+    let mut leash = funded();
+    execute(&mut leash, &quote(|value| value["recipientType"] = "INTENTS".into()));
+}
