@@ -1,4 +1,3 @@
-import { TemplarClient } from '@harbor/adapters/templar/client';
 import { AppError } from '@harbor/domain/errors';
 import { createAccessKeyReader, verifySignIn } from '@harbor/near/sign-in';
 import { Hono } from 'hono';
@@ -6,6 +5,7 @@ import { z } from 'zod';
 import type { AppEnv } from '../app.ts';
 import { recipientOf, requireSession } from '../auth/guard.ts';
 import { decodeExecutionConfig } from '../config.ts';
+import { verifyTemplarMarket } from './markets.ts';
 import { reader } from './routes.ts';
 
 const Input = z.strictObject({
@@ -30,17 +30,10 @@ type Row = {
   tx_hash: string | null;
 };
 
-function gate(env: unknown, market: string) {
+function gate(env: unknown) {
   const config = decodeExecutionConfig(env);
-  const allowed = z.object({ TEMPLAR_ALLOWED_MARKETS: z.string().default('') }).parse(env);
   if (config.network !== 'mainnet' || !config.executionEnabled || !config.writeAdapters.has('templar'))
     throw new AppError('EXECUTION_DISABLED', 'Templar execution is disabled.');
-  if (
-    !allowed.TEMPLAR_ALLOWED_MARKETS.split(',')
-      .map((s) => s.trim())
-      .includes(market)
-  )
-    throw new AppError('FORBIDDEN', 'This market is not enabled by the operator.');
   return config;
 }
 async function hash(value: string) {
@@ -77,12 +70,9 @@ export function createTemplarBorrowRoutes() {
       const input = Input.safeParse(await c.req.json().catch(() => null));
       if (!input.success) throw new AppError('INVALID_REQUEST', 'Send marketId and positive atomic amount.');
       const { marketId, amountAtomic } = input.data;
-      const config = gate(c.env, marketId);
+      const config = gate(c.env);
       const view = reader(config.rpcUrl);
-      const deployment = await view('v1.tmplr.near', 'get_deployment', { account_id: marketId });
-      if (!deployment) throw new AppError('FORBIDDEN', 'Market is not in the Templar registry.');
-      const client = new TemplarClient(view, new Set([marketId]));
-      const configuration = await client.configuration(marketId);
+      const { client, configuration } = await verifyTemplarMarket(view, marketId, config.rpcUrl);
       if (await client.registration(marketId, c.get('account')))
         throw new AppError('SETUP_REQUIRED', 'Register on the market before creating a borrow plan.');
       const transaction = await client.borrow(marketId, amountAtomic);
@@ -126,7 +116,7 @@ export function createTemplarBorrowRoutes() {
     .get('/:id', async (c) => c.json(publicPlan(await owned(c.env.DB, c.req.param('id'), c.get('account')))))
     .post('/:id/approve', async (c) => {
       const row = await owned(c.env.DB, c.req.param('id'), c.get('account'));
-      const config = gate(c.env, row.market);
+      const config = gate(c.env);
       const signed = z
         .strictObject({ digest: z.string(), publicKey: z.string().max(128), signature: z.string().max(256) })
         .safeParse(await c.req.json().catch(() => null));
@@ -135,8 +125,8 @@ export function createTemplarBorrowRoutes() {
       if (row.state !== 'prepared' || row.expires <= Date.now())
         throw new AppError('CONFLICT', 'Plan already used or expired. Create a fresh plan.');
       const binding = JSON.parse(row.payload);
-      const client = new TemplarClient(reader(config.rpcUrl), new Set([row.market]));
-      if (JSON.stringify(await client.configuration(row.market)) !== JSON.stringify(binding.configuration))
+      const { configuration } = await verifyTemplarMarket(reader(config.rpcUrl), row.market, config.rpcUrl);
+      if (JSON.stringify(configuration) !== JSON.stringify(binding.configuration))
         throw new AppError('CONFLICT', 'Market configuration changed. Review a new plan.');
       await verifySignIn(
         {

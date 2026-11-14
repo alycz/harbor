@@ -6,9 +6,9 @@ No runtime settings are changed by this PR. Borrowing requires all of:
 - NEAR_NETWORK=mainnet
 - EXECUTION_ENABLED=true
 - ENABLED_WRITE_ADAPTERS contains templar
-- TEMPLAR_ALLOWED_MARKETS contains the specific reviewed active market account.
+- The market appears in Templar's dynamically fetched official active catalogue, belongs to its on-chain registry, has the deployed registry code hash, and returns a supported configuration. No per-market environment allowlist is required.
 
-The registry includes retired deployments. Operator review and explicit market allowlisting are therefore required; registry presence alone does not permit signing.
+The registry includes retired deployments. The official current-market catalogue is therefore checked at plan creation and approval; registry presence alone does not permit signing. Catalogue outages or format changes fail closed. Market listing does not guarantee liquidity or current oracle health.
 
 The borrower must already have market registration and collateral. Borrow asset recipient registration may also be required by the token. The contract enforces collateral/oracle/liquidity conditions; Harbor does not promise execution or quote fixed debt terms.
 
