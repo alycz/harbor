@@ -5,13 +5,15 @@ import { AppError } from '@harbor/domain/errors';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppEnv } from '../app.ts';
-import { requireSession } from '../auth/guard.ts';
+import { recipientOf, requireSession } from '../auth/guard.ts';
 import { decodeExecutionConfig } from '../config.ts';
 import { assetRegistry } from '../execution/assets.ts';
 
+import { createSupply, approveSupply, claimSupply, cancelSupply, readSupply, settleSupply } from './lifecycle.ts';
+
 const Request = z.strictObject({ assetId: z.string().min(1).max(320), amount: z.string().min(1).max(64) });
 
-/** Real contract-backed supply preparation, not a write-enabled lending lifecycle. */
+/** Supply-specific, one-time owner approval. Never reuses swap or autonomous-agent authority. */
 export function createLendingRoutes() {
   const routes = new Hono<AppEnv>();
   routes.use('*', requireSession);
@@ -38,12 +40,27 @@ export function createLendingRoutes() {
       const plan = await createRheaLending(config.rpcUrl).prepareSupply({
         network: 'near:mainnet', accountId: c.get('account'), tokenId: identity.contractId, amount,
       });
-      // Do not expose a send/approve route: swap policies do not authorize lending.
-      return c.json({ plan, asset, executionEnabled: false, status: 'prepared-not-approved',
-        limitation: 'Lending-specific policy approval and settlement verification are not yet implemented. No funds have moved.' });
+      const executionEnabled = config.executionEnabled && config.writeAdapters.has('rhea-lending');
+      const key = c.req.header('idempotency-key');
+      const approval = executionEnabled && key ? await createSupply(c.env, c.get('account'), recipientOf(c), key, plan) : null;
+      return c.json({ plan, asset, executionEnabled, approval, status: 'prepared-not-approved',
+        limitation: executionEnabled ? 'Review the one-time supply approval, then sign the transaction in your wallet. No funds have moved yet.' : 'Rhea execution is disabled by the operator. Preview only; no funds have moved.' });
     } catch {
       throw new AppError('UNAVAILABLE', 'Rhea preparation failed. Check asset deposit availability, wallet balance and Rhea storage registration, then retry.');
     }
+  });
+  routes.get('/rhea/plans/:id', async (c) => c.json(await readSupply(c.env, c.get('account'), c.req.param('id'))));
+  routes.post('/rhea/plans/:id/approve', async (c) => {
+    const body = z.strictObject({ digest:z.string().regex(/^[0-9a-f]{64}$/), publicKey:z.string().max(128), signature:z.string().max(256) }).safeParse(await c.req.json().catch(()=>null));
+    if (!body.success) throw new AppError('INVALID_REQUEST','Send the wallet approval signature.');
+    return c.json(await approveSupply(c.env,c.get('account'),c.req.param('id'),body.data,recipientOf(c)));
+  });
+  routes.post('/rhea/plans/:id/claim', async (c) => c.json(await claimSupply(c.env,c.get('account'),c.req.param('id'))));
+  routes.post('/rhea/plans/:id/cancel', async (c) => c.json(await cancelSupply(c.env,c.get('account'),c.req.param('id'))));
+  routes.post('/rhea/plans/:id/settle', async (c) => {
+    const body = z.strictObject({txHash:z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/)}).safeParse(await c.req.json().catch(()=>null));
+    if (!body.success) throw new AppError('INVALID_REQUEST','Send a transaction hash from your wallet.');
+    return c.json(await settleSupply(c.env,c.get('account'),c.req.param('id'),body.data.txHash));
   });
   return routes;
 }
