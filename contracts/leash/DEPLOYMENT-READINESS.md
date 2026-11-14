@@ -71,3 +71,19 @@ signer and authorization implementation before wiring it to a job or route.
 Final receipt verification matches exact transaction hash, agent, contract, method, gas, deposit,
 arguments and successful finalized receipts. It reports payment only, never destination settlement.
 Independent destination delivery/refund verification is still required before a completed-swap claim.
+
+## External signer and delivery adapters
+
+`createLeashServiceSigner` defines an explicit Cloudflare service-binding protocol:
+`POST https://leash-signer.internal/v1/submit` with idempotency-key and a bounded execute
+request; response contains txHash, signerId and contractId. It is not a claim that any
+existing provider implements this API. The team must deploy/bind a reviewed implementation
+holding only the approved execute authority. No binding or credentials are installed.
+
+`reconcileLeashDelivery` reads exact finalized contract payment then queries the provider
+and independently verifies supported NEAR/EVM delivery through the existing chain readers.
+Provider SUCCESS alone is insufficient; refunds stay unverified and are never success.
+It requires the immutable approved request and pre-execution recipient balance baseline.
+Persisting these alongside claims and wiring reconciliation into the authorized job loop
+remain necessary before enabling real automatic execution. NEAR verification uses balance
+delta, matching Harbor's existing verifier; this is not transaction-level attribution.
