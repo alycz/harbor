@@ -1,4 +1,5 @@
 import { Button } from '@harbor/ui/components/button';
+import { Input } from '@harbor/ui/components/input';
 import { AlertTriangle, ArrowRight, CheckCircle2, LoaderCircle, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -46,6 +47,7 @@ export function SwapProposalCard({
   const [quote, setQuote] = useState<Quote | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [externalHash, setExternalHash] = useState('');
   const secondsLeft = useCountdown(phase === 'quoted' || phase === 'review' ? quote?.expiresAt : undefined);
   useEffect(() => {
     onInteractionLock?.(
@@ -146,8 +148,12 @@ export function SwapProposalCard({
         current = await execution.approve(current);
         setPlan(current);
       }
-      if (current.status !== 'awaiting_signature' || !current.signing) {
+      if (current.status !== 'awaiting_signature') {
         setPhase('stopped');
+        return;
+      }
+      if (!current.signing) {
+        setPhase(current.funding && !current.funding.walletTransactionAvailable ? 'approved' : 'stopped');
         return;
       }
       setPhase('signing');
@@ -160,6 +166,20 @@ export function SwapProposalCard({
       const message = walletProblem(caught);
       if (message) setError(message);
       setPhase(current.status === 'awaiting_signature' ? 'approved' : 'review');
+    }
+  }
+
+  async function recordExternalDeposit() {
+    if (!plan || !/^0x[0-9a-fA-F]{64}$/.test(externalHash)) return;
+    setError(null);
+    setPhase('submitting');
+    try {
+      const current = await execution.deposit(plan.id, externalHash);
+      setPlan(current);
+      setPhase('tracking');
+    } catch (caught) {
+      fail(caught);
+      setPhase('approved');
     }
   }
 
@@ -278,10 +298,31 @@ export function SwapProposalCard({
         {plan && phase === 'stopped' ? <SignedPolicyCheck plan={plan} /> : null}
 
         {phase === 'approved' ? (
-          <p className="flex items-start gap-2.5 rounded-lg border border-success/20 bg-success/6 px-3.5 py-3 text-[13px]">
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" /> Approved. Nothing has
-            moved: sign the deposit in your wallet to start the swap.
-          </p>
+          plan?.funding && !plan.funding.walletTransactionAvailable ? (
+            <div className="space-y-3 rounded-lg border border-warning/25 bg-warning/8 px-3.5 py-3 text-[13px]">
+              <p className="font-medium text-warning">Fund this exact deposit in your {plan.funding.chain} wallet</p>
+              <p>
+                Send exactly <span className="ws-num font-medium">{quote?.sell.amount} {quote?.sell.symbol}</span> to{' '}
+                <span className="break-all font-mono text-[12px]">{plan.funding.address}</span>.
+                {plan.funding.memo ? <> Memo: <span className="font-mono">{plan.funding.memo}</span>.</> : null}
+              </p>
+              <p className="text-[12px] text-muted-foreground">
+                Use the policy-bound origin address. Harbor independently checks sender, chain, token, receiver, amount,
+                receipt and Transfer event before submitting anything to NEAR Intents.
+              </p>
+              <Input
+                aria-label="Origin-chain transaction hash"
+                placeholder="0x transaction hash"
+                value={externalHash}
+                onChange={(event) => setExternalHash(event.currentTarget.value.trim())}
+              />
+            </div>
+          ) : (
+            <p className="flex items-start gap-2.5 rounded-lg border border-success/20 bg-success/6 px-3.5 py-3 text-[13px]">
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" /> Approved. Nothing has
+              moved: sign the deposit in your wallet to start the swap.
+            </p>
+          )
         ) : null}
         {plan && phase === 'tracking' ? <SwapProgress plan={plan} /> : null}
         {phase === 'setup' || phase === 'settingUp' ? (
@@ -338,9 +379,19 @@ export function SwapProposalCard({
             </Button>
           ) : null}
           {phase === 'approved' ? (
-            <Button className="h-10 gap-2 px-4" onClick={approveAndSign}>
-              <Wallet /> Sign the deposit
-            </Button>
+            plan?.funding && !plan.funding.walletTransactionAvailable ? (
+              <Button
+                className="h-10 px-4"
+                onClick={recordExternalDeposit}
+                disabled={!/^0x[0-9a-fA-F]{64}$/.test(externalHash)}
+              >
+                Verify external deposit
+              </Button>
+            ) : (
+              <Button className="h-10 gap-2 px-4" onClick={approveAndSign}>
+                <Wallet /> Sign the deposit
+              </Button>
+            )
           ) : null}
           {phase === 'setup' ? (
             <Button className="h-10 gap-2 px-4" onClick={setUpAccount}>
