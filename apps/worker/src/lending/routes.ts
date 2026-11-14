@@ -22,6 +22,33 @@ export function createLendingRoutes() {
     const config = decodeExecutionConfig(c.env);
     return c.json({ assets: assetRegistry(config.network).list().filter((asset) => asset.chain === 'near') });
   });
+  // Discovery is read-only. Deposit support is verified on-chain, not inferred from a ticker.
+  routes.get('/rhea/opportunities', async (c) => {
+    const config = decodeExecutionConfig(c.env);
+    if (config.network !== 'mainnet') {
+      return c.json({ opportunities: [], unavailable: [], observedAt: new Date().toISOString(), executionEnabled: false });
+    }
+    const candidates = assetRegistry(config.network).list().filter((asset) =>
+      asset.chain === 'near' && parseOneClickAssetId(asset.canonicalId)?.standard === 'nep141');
+    const adapter = createRheaLending(config.rpcUrl);
+    const opportunities: Array<{ assetId: string; tokenId: string; symbol: string; protocol: string; network: string; supplyEnabled: boolean; apy: null }> = [];
+    const unavailable: string[] = [];
+    // Bounded concurrency avoids overwhelming the RPC and preserves partial results.
+    for (let offset = 0; offset < candidates.length; offset += 6) {
+      await Promise.all(candidates.slice(offset, offset + 6).map(async (asset) => {
+        const identity = parseOneClickAssetId(asset.canonicalId);
+        if (!identity || identity.standard !== 'nep141') return;
+        try {
+          const market = await adapter.asset(identity.contractId);
+          if (market.config.can_deposit) opportunities.push({ assetId: asset.canonicalId, tokenId: identity.contractId,
+            symbol: asset.symbol, protocol: 'rhea-lending', network: 'near:mainnet', supplyEnabled: true, apy: null });
+        } catch { unavailable.push(asset.canonicalId); }
+      }));
+    }
+    opportunities.sort((a, b) => a.assetId.localeCompare(b.assetId));
+    return c.json({ opportunities, unavailable, observedAt: new Date().toISOString(),
+      executionEnabled: config.executionEnabled && config.writeAdapters.has('rhea-lending') });
+  });
   routes.post('/rhea/prepare', async (c) => {
     const config = decodeExecutionConfig(c.env);
     if (config.network !== 'mainnet') throw new AppError('UNAVAILABLE', 'Rhea lending has no configured testnet integration.');
