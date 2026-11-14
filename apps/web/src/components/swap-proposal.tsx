@@ -301,7 +301,7 @@ export function SwapProposalCard({
           plan?.funding && !plan.funding.walletTransactionAvailable ? (
             <div className="space-y-3 rounded-lg border border-warning/25 bg-warning/8 px-3.5 py-3 text-[13px]">
               {secondsLeft === 0 ? (
-                <p className="font-medium text-destructive">Do not fund this deposit: the executable quote expired.</p>
+                <p className="font-medium text-destructive">Do not fund this deposit: the executable quote expired. If you already sent it, enter its hash below so Harbor can verify and recover tracking.</p>
               ) : (
                 <>
                   <p className="font-medium text-warning">Fund this exact deposit in your {plan.funding.chain} wallet</p>
@@ -319,14 +319,14 @@ export function SwapProposalCard({
                     Harbor independently checks sender, chain, token, receiver, amount, receipt and Transfer event
                     before recording the deposit as verified in Harbor.
                   </p>
-                  <Input
-                    aria-label="Origin-chain transaction hash"
-                    placeholder="0x transaction hash"
-                    value={externalHash}
-                    onChange={(event) => setExternalHash(event.currentTarget.value.trim())}
-                  />
                 </>
               )}
+              <Input
+                aria-label="Origin-chain transaction hash"
+                placeholder="0x transaction hash"
+                value={externalHash}
+                onChange={(event) => setExternalHash(event.currentTarget.value.trim())}
+              />
             </div>
           ) : (
             <p className="flex items-start gap-2.5 rounded-lg border border-success/20 bg-success/6 px-3.5 py-3 text-[13px]">
@@ -394,7 +394,7 @@ export function SwapProposalCard({
               <Button
                 className="h-10 px-4"
                 onClick={recordExternalDeposit}
-                disabled={secondsLeft === 0 || !/^0x[0-9a-fA-F]{64}$/.test(externalHash)}
+                disabled={!/^0x[0-9a-fA-F]{64}$/.test(externalHash)}
               >
                 Verify external deposit
               </Button>
