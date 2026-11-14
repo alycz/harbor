@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { AssetSelect, chainName } from '../components/asset-select.tsx';
+import { LeashVault } from '../components/leash-vault.tsx';
 import { PriceAlerts } from '../components/price-alerts.tsx';
 import { RoundtripMonitor } from '../components/roundtrip-monitor.tsx';
 import { SpreadMonitors } from '../components/spread-monitors.tsx';
@@ -62,6 +63,7 @@ export function AutomationsPage() {
         title="Automations"
         description="Harbor watches the market every minute while you're away and keeps the evidence of every check. When something moves, it tells you and queues the trade for you to sign."
       />
+      <LeashVault />
       <SpreadMonitors />
       <PriceAlerts />
       <Panel label="Intents round-trip scan" icon={<Radar />} bodyClassName="p-5 @xl/workspace:p-6">

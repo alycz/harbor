@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { type LeashRequest, submitLeash, verifyLeashPayment } from '../src/leash/execution.ts';
 import { leashJournal } from '../src/leash/journal.ts';
 
+vi.hoisted(() => vi.resetModules());
+
 vi.mock('@harbor/adapters/oneclick/signature', () => ({
   verifyOneClickQuoteSignature: async (value: { valid?: boolean }) => value.valid === true,
   oneClickQuotePayload: (value: { payload: unknown }) => JSON.stringify(value.payload),
