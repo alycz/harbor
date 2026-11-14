@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'contracts/leash/**'
-      - '.github/workflows/leash-build.yml'
+      - "contracts/leash/**"
+      - ".github/workflows/leash-build.yml"
   push:
     branches: [main]
     paths:
-      - 'contracts/leash/**'
-      - '.github/workflows/leash-build.yml'
+      - "contracts/leash/**"
+      - ".github/workflows/leash-build.yml"
 
 permissions:
   contents: read
@@ -31,7 +31,7 @@ jobs:
           rustc +stable --version --verbose
       - name: Build locked release WASM (no transactions or tests)
         env:
-          RUSTFLAGS: '-C target-cpu=mvp'
+          RUSTFLAGS: "-C target-cpu=mvp"
         run: cargo +stable build --locked --release --target wasm32-unknown-unknown
       - name: Package contract and checksum
         run: |
