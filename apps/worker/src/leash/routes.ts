@@ -1,3 +1,4 @@
+import { createOneClickClient } from '@harbor/adapters/oneclick/client';
 import { oneClickQuotePayload, verifyOneClickQuoteSignature } from '@harbor/adapters/oneclick/signature';
 import { AppError } from '@harbor/domain/errors';
 import { Hono } from 'hono';
@@ -6,7 +7,9 @@ import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
 import { createLeashDispatchRoutes, leashAvailable } from '../autopilot/leash-dispatch.ts';
 import { decodeExecutionConfig } from '../config.ts';
+import { executionDeps } from '../execution/store.ts';
 import { fitsLeashPreview } from './preview-policy.ts';
+import { leashQuoteRequest } from './quote-request.ts';
 
 const Account = z
   .string()
@@ -176,6 +179,28 @@ export function createLeashRoutes() {
         executionAvailable: leashAvailable(c.env),
         limitation:
           'No funds moved. Review exact caps, recipients and attached NEAR in your own wallet. Storage/registration and contract checks may reject this transaction. Harbor does not sign or submit.',
+      });
+    })
+    .post('/quote', async (c) => {
+      const owner = c.get('account');
+      const { config, vault } = await leashSnapshot(c.env, owner);
+      if (config.network !== 'mainnet' || !config.executionEnabled || !config.writeAdapters.has('oneclick'))
+        throw new AppError('EXECUTION_DISABLED', 'Executable 1Click quote requests are not enabled.');
+      const request = leashQuoteRequest(await c.req.json().catch(() => null), owner, vault);
+      const asset = executionDeps(c.env).assets.byId(request.destinationAsset);
+      if (!asset || !['near', 'eth', 'base', 'arb'].includes(asset.chain))
+        throw new AppError('FORBIDDEN', 'Choose a destination with independently verifiable delivery.');
+      const client = createOneClickClient({
+        allowExecutableQuotes: true,
+        ...(config.oneClickJwt ? { jwt: config.oneClickJwt } : {}),
+      });
+      const { response } = await client.quote(request);
+      const signedQuotePayload = validateLeashQuote(response, owner, vault);
+      return c.json({
+        quoteResponse: response,
+        signedQuotePayload,
+        status: 'preview-not-approved',
+        limitation: 'Provider-signed quote only. No approval, signature or funds transfer has occurred.',
       });
     })
     .post('/preview', async (c) => {
