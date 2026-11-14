@@ -60,4 +60,26 @@ describe('Rhea router', () => {
     expect(await createRheaRouter(down).quote(request)).toBeNull();
     expect(await createRheaRouter(router({}).fetch).quote({ ...request, tokenIn: 'Not A Contract' })).toBeNull();
   });
+
+  it('says why there is no route: no path, an HTTP error, a timeout or an outage', async () => {
+    const request = { tokenIn: 'wrap.near', tokenOut: USDC, amountIn: 10n ** 24n };
+    expect(
+      await createRheaRouter(router({ result_code: 1, result_message: 'No path' }).fetch).explain(request),
+    ).toEqual({
+      reason: 'Rhea has no route for this pair and size right now.',
+    });
+    expect(await createRheaRouter(router({}, 429).fetch).explain(request)).toEqual({
+      reason: 'Rhea answered HTTP 429.',
+    });
+    const slow = (async () => {
+      throw new DOMException('The operation timed out.', 'TimeoutError');
+    }) as typeof fetch;
+    expect(await createRheaRouter(slow).explain(request, { timeoutMs: 8_000 })).toEqual({
+      reason: 'Rhea did not answer within 8s.',
+    });
+    const down = (async () => {
+      throw new TypeError('fetch failed');
+    }) as typeof fetch;
+    expect(await createRheaRouter(down).explain(request)).toEqual({ reason: 'Rhea could not be reached.' });
+  });
 });

@@ -132,7 +132,8 @@ describe('quotes', () => {
   it('adds a Rhea price for comparison only, and never lets it block the quote', async () => {
     const h = createFixture();
     const intent = await createSwapIntent(h.deps, { sell: 'NEAR', buy: 'USDC', amount: '1', source: 'form' });
-    const rhea = { quote: async () => ({ venue: 'rhea' as const, amountOut: 3_650_000n, hops: 1 }) };
+    const found = { venue: 'rhea' as const, amountOut: 3_650_000n, hops: 1 };
+    const rhea = { quote: async () => found, explain: async () => ({ quote: found }) };
     const compared = await compareIntent({ ...h.deps, reference: rhea }, intent.id);
     expect(compared.references).toEqual([
       expect.objectContaining({
@@ -141,7 +142,7 @@ describe('quotes', () => {
         expectedOut: expect.objectContaining({ symbol: 'USDC', amount: '3.65' }),
       }),
     ]);
-    const unreachable = { quote: async () => null };
+    const unreachable = { quote: async () => null, explain: async () => ({ reason: 'Rhea could not be reached.' }) };
     const without = await compareIntent({ ...h.deps, reference: unreachable }, intent.id);
     expect(without.references).toEqual([]);
     expect(without.quotes).toHaveLength(1);
