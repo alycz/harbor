@@ -125,6 +125,7 @@ export function oneClickExecutor(
         protocols: ['NEAR Intents'],
         raw: { quoteHash: verified.quoteHash, response: verified.response },
         deposit: {
+          originChain: request.sell.chain,
           address: quote.depositAddress,
           memo: quote.depositMemo ?? null,
           deadlineMs: Date.parse(quote.deadline),
@@ -137,7 +138,7 @@ export function oneClickExecutor(
       await client.submitDeposit({
         txHash: input.txHash,
         depositAddress: input.depositAddress,
-        nearSenderAccount: input.sender,
+        ...(input.originChain === undefined || input.originChain === 'near' ? { nearSenderAccount: input.sender } : {}),
         ...(input.memo ? { memo: input.memo } : {}),
       });
     },
