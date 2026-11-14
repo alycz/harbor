@@ -75,10 +75,7 @@ export async function verifyEvmDeposit(
   if (!['eth', 'base', 'arb'].includes(input.chain)) {
     return { outcome: 'mismatch', detail: 'The origin chain is not supported for verified deposits.' };
   }
-  if (
-    !/^0x[0-9a-fA-F]{40}$/.test(input.sender) ||
-    !/^0x[0-9a-fA-F]{40}$/.test(input.depositAddress)
-  ) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(input.sender) || !/^0x[0-9a-fA-F]{40}$/.test(input.depositAddress)) {
     return { outcome: 'mismatch', detail: 'The origin or deposit address is invalid.' };
   }
   if (!evm.transaction) return { outcome: 'mismatch', detail: 'No origin-chain transaction reader is configured.' };
