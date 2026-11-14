@@ -72,7 +72,7 @@ export function createTemplarBorrowRoutes() {
       const { marketId, amountAtomic } = input.data;
       const config = gate(c.env);
       const view = reader(config.rpcUrl);
-      const { client, configuration } = await verifyTemplarMarket(view, marketId, config.rpcUrl);
+      const { client, configuration, codeHash } = await verifyTemplarMarket(view, marketId, config.rpcUrl);
       if (await client.registration(marketId, c.get('account')))
         throw new AppError('SETUP_REQUIRED', 'Register on the market before creating a borrow plan.');
       const transaction = await client.borrow(marketId, amountAtomic);
@@ -87,6 +87,7 @@ export function createTemplarBorrowRoutes() {
         amountAtomic,
         expires,
         configuration,
+        codeHash,
         transaction,
       });
       const digest = await hash(payload);
@@ -125,7 +126,8 @@ export function createTemplarBorrowRoutes() {
       if (row.state !== 'prepared' || row.expires <= Date.now())
         throw new AppError('CONFLICT', 'Plan already used or expired. Create a fresh plan.');
       const binding = JSON.parse(row.payload);
-      const { configuration } = await verifyTemplarMarket(reader(config.rpcUrl), row.market, config.rpcUrl);
+      const { configuration, codeHash } = await verifyTemplarMarket(reader(config.rpcUrl), row.market, config.rpcUrl);
+      if (codeHash !== binding.codeHash) throw new AppError('CONFLICT', 'Market contract changed. Review a new plan.');
       if (JSON.stringify(configuration) !== JSON.stringify(binding.configuration))
         throw new AppError('CONFLICT', 'Market configuration changed. Review a new plan.');
       await verifySignIn(
@@ -181,6 +183,33 @@ export function createTemplarBorrowRoutes() {
           txHash: input.data.txHash,
           detail: 'Not confirmed. Inspect wallet activity before retrying; do not resubmit the borrow.',
         });
+      // An old matching borrow must never be used to confirm a freshly approved plan.
+      const evidence = z
+        .object({ transaction_outcome: z.object({ block_hash: z.string().min(1) }) })
+        .safeParse(body.result);
+      if (!evidence.success) throw new AppError('UNAVAILABLE', 'Transaction block evidence unavailable.');
+      const blockResponse = await fetch(config.rpcUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'templar-receipt-block',
+          method: 'block',
+          params: { block_id: evidence.data.transaction_outcome.block_hash },
+        }),
+        signal: AbortSignal.timeout(8000),
+        redirect: 'manual',
+      });
+      if (!blockResponse.ok) throw new AppError('UNAVAILABLE', 'Transaction block lookup unavailable.');
+      const block = z
+        .object({
+          result: z.object({ header: z.object({ hash: z.string(), timestamp_nanosec: z.string().regex(/^[0-9]+$/) }) }),
+        })
+        .safeParse(await blockResponse.json());
+      if (!block.success || block.data.result.header.hash !== evidence.data.transaction_outcome.block_hash)
+        throw new AppError('UNAVAILABLE', 'Transaction block evidence invalid.');
+      if (BigInt(block.data.result.header.timestamp_nanosec) < BigInt(row.expires - 120000) * 1000000n)
+        throw new AppError('CONFLICT', 'Transaction predates this borrow plan.');
       const result = await c.env.DB.prepare(
         "UPDATE templar_borrow_plans SET state='confirmed',tx_hash=? WHERE id=? AND state IN ('issued','confirmed') AND (tx_hash IS NULL OR tx_hash=?)",
       )

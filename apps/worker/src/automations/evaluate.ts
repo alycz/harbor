@@ -148,9 +148,12 @@ export async function evaluateSpreadAlert(
   };
   // Sequential: the two trips share both venues, and parallel bursts invite rate limits.
   const trips = [await trip('intents_then_rhea'), await trip('rhea_then_intents')];
-  const priced = trips.filter((entry): entry is RoundTrip & { edgePct: number } => entry.edgePct !== null);
-  const best = priced.reduce<(RoundTrip & { edgePct: number }) | null>(
-    (leader, entry) => (leader === null || entry.edgePct > leader.edgePct ? entry : leader),
+  const priced = trips.filter(
+    (entry): entry is RoundTrip & { edgePct: number; returned: string } =>
+      entry.edgePct !== null && entry.returned !== null,
+  );
+  const best = priced.reduce<(RoundTrip & { edgePct: number; returned: string }) | null>(
+    (leader, entry) => (leader === null || compareDecimal(entry.returned, leader.returned) > 0 ? entry : leader),
     null,
   );
   const evidence: SpreadEvaluation['evidence'] = {
@@ -167,13 +170,37 @@ export async function evaluateSpreadAlert(
     };
   }
   const [buyOn, sellOn] = VENUE_NAMES[best.route];
-  const met = best.edgePct >= config.thresholdPct;
+  const met = meetsSpread(config.size, best.returned, config.thresholdPct);
+  if (!met && priced.length !== trips.length) {
+    return {
+      result: 'unknown',
+      reason:
+        'One route could not be priced and the other does not meet the threshold. No complete comparison is available.',
+      evidence,
+    };
+  }
   const reason =
     `Best round trip: buy ${config.base.symbol} on ${buyOn}, sell on ${sellOn}. ` +
     `${config.size} ${config.quote.symbol} returns ${best.returned} ${config.quote.symbol} ` +
     `(${best.edgePct >= 0 ? '+' : ''}${best.edgePct.toFixed(2)}%), ${met ? 'at or above' : 'below'} the ` +
     `${config.thresholdPct}% threshold. Venue fees included, network gas not.`;
   return { result: met ? 'true' : 'false', reason, evidence };
+}
+
+/** Compare unrounded amounts; the displayed percentage must never drive an alert. */
+function meetsSpread(size: string, returned: string, thresholdPct: number): boolean {
+  const scale = Math.max(fractionLength(size), fractionLength(returned));
+  const start = scaled(size, scale);
+  const delta = scaled(returned, scale) - start;
+  if (start <= 0n || delta <= 0n) return false;
+  // JS can render a small validated threshold in scientific notation. Convert its decimal
+  // representation to a rational without floating-point comparison or rounding to zero.
+  const [mantissa = '0', exponentText = '0'] = String(thresholdPct).split('e');
+  const exponent = Number(exponentText) - fractionLength(mantissa);
+  const digits = BigInt(mantissa.replace('.', ''));
+  const numerator = exponent >= 0 ? digits * 10n ** BigInt(exponent) : digits;
+  const denominator = exponent < 0 ? 10n ** BigInt(-exponent) : 1n;
+  return delta * 100n * denominator >= start * numerator;
 }
 
 /** (returned − size) / size, in percent to four places, from exact decimals. */

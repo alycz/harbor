@@ -72,7 +72,7 @@ export async function verifyTemplarMarket(view: TemplarView, marketId: string, r
     throw new AppError('FORBIDDEN', 'This market runs a contract version Templar has withdrawn.');
   const client = new TemplarClient(view, new Set([marketId]));
   const configuration = await client.configuration(marketId);
-  return { deployment, configuration, client };
+  return { deployment, configuration, client, codeHash: account.result.code_hash };
 }
 
 let withdrawnCache: ReturnType<typeof cached<Set<string>>> | null = null;
@@ -88,9 +88,15 @@ function withdrawnVersions(view: TemplarView): Promise<Set<string>> {
       versions.map(async (key) =>
         z
           // `availability` is "Removed", "Global", or { Stored: { code_len } }.
-          .object({ code_hash: z.string(), availability: z.unknown() })
+          .object({
+            code_hash: z.string().min(1),
+            availability: z.union([
+              z.literal('Removed'),
+              z.literal('Global'),
+              z.object({ Stored: z.object({ code_len: z.number().int().nonnegative() }) }),
+            ]),
+          })
           .nullable()
-          .catch(null)
           .parse(await view(REGISTRY, 'get_version', { version_key: key })),
       ),
     );
