@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { DepositDialog, NotYetDialog, VAULTS, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { RheaOpportunities } from '../components/rhea-opportunities.tsx';
-import { KaioOpportunities } from '../components/kaio-opportunities.tsx';
 import { TemplarBorrow } from '../components/templar-borrow.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
@@ -49,7 +48,6 @@ export function EarnPage() {
       />
       <RheaOpportunities />
       <TemplarBorrow />
-      <KaioOpportunities />
       {best.length === 0 ? (
         <Panel>
           <EmptyState
