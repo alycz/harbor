@@ -25,7 +25,7 @@ The signed policy shows what has been spent against each limit, and **Freeze the
 
 The same path runs in the test suite with a model scripted to obey the post (`apps/worker/test/poisoned.test.ts`).
 
-## 4. The agent on its own (30 s)
+## 4. Scheduled proposals, not unattended trading (30 s)
 
 1. On **Policy**, add a strategy: spend 0.5 NEAR to buy USDC every 24 hours.
 2. On the next cron tick the agent queues it, but only because the policy is active. It appears on **Portfolio** under *Queued by your agent*, ready to sign in one tap.
@@ -36,3 +36,15 @@ The same path runs in the test suite with a model scripted to obey the post (`ap
 - `pnpm check` is green.
 - The server has `EXECUTION_ENABLED=true`, `ENABLED_WRITE_ADAPTERS=oneclick` and a model key; the wallet holds about 2 NEAR.
 - Someone signs the swap in their own wallet: Harbor never holds keys.
+
+## Optional: Automations
+
+Open **Automations**, choose a supported route and monitoring conditions, then save
+and activate a monitor. The deployed minute cron checks due rules and records
+observations/opportunities. Pause it to stop future checks. Reviewing an opportunity
+opens a separate wallet-approved trade; it does not execute both arbitrage legs.
+Quote spreads exclude unknown external costs and are not guaranteed net profits.
+
+This is a recording script, not evidence that these wallet transactions have already
+been executed successfully. Record the actual result; do not narrate a delivery until
+its receipt verifies. Do not present sample-feed data or scripted chat as live research.

@@ -1,13 +1,15 @@
 # Harbor
 
-A cross-chain DeFi agent that acts on its own, but only inside limits you signed.
+A cross-chain DeFi assistant with live quotes, policy checks, wallet-approved execution and periodic opportunity monitoring.
 
-- You ask in plain language.
-- Harbor compares real venues across chains, proposes a plan, and you sign one policy: budget, allowed assets, your own addresses only, schedule and expiry.
-- The agent executes through [NEAR Intents](https://docs.near-intents.org) and records a verified receipt for each action.
-- Anything outside the policy comes back to you for approval, and you can freeze the agent at any time.
+- Ask in plain language, compare venues and review a typed transaction plan.
+- Sign policies to define budgets, assets, destinations, schedule and expiry.
+- Review and sign transactions in your own wallet. Monitoring is automatic; trading is not currently unattended.
+- Policy conflicts require owner review. Harbor's checks do not restrict transactions made outside Harbor.
 
 ## The demo
+
+[Open Harbor](https://harbor.r13n.workers.dev/chat). Hosted configuration and deployed revision may differ from this branch. See the [submission checklist](docs/submission-checklist.md) for the remaining evidence and deployment checks.
 
 A poisoned post tells the agent to send all funds to another account. The agent reads it, but outside text is data, never an instruction. Even a model that obeys it gets nowhere: the destination isn't one you signed, so the plan is blocked (`DESTINATION_NOT_OWN`), your policy check says `block`, and nothing reaches 1Click. See [docs/demo.md](docs/demo.md).
 
@@ -17,16 +19,18 @@ Harbor is being built for the NEAR hackathon. This is what runs today. "Tested" 
 
 | Area | State |
 |---|---|
-| Wallet sign-in (NEP-413 through NEAR Connect, full-access key check) | Built and tested. Not yet run with a real wallet. |
+| Wallet sign-in (NEP-413 through NEAR Connect, full-access key check) | Built and tested. Real-wallet end-to-end verification is not documented here. |
 | Accounts own their data | Plans, alerts, policies and strategies are scoped to the signed-in account. |
 | Signed policy: per-asset spend limits, assets, own destinations, slippage, schedule, expiry; freeze and revoke | Built and tested with an independent NEP-413 signer. Signing needs a real wallet. |
-| Real swaps: executable 1Click quote for your own addresses, one wallet transaction, on-chain deposit check | Built and tested; executable quotes checked live. A real signed deposit has not been made yet. |
+| Real swaps: executable 1Click quote for your own addresses, one wallet transaction, on-chain deposit check | Built and tested; executable quotes checked live. A completed real signed deposit is not documented here. |
 | Settlement: verified 1Click status, delivery measured on the destination chain, refunds and unknowns kept apart | Built and tested with recorded-shape status answers. |
-| Agent acting on its own: recurring buys queued under the signed policy, signed by you in one tap | Built and tested. |
-| Leash contract: the agent spends a vault only on 1Click-signed deposits to your own addresses, within caps (`contracts/leash`) | Built, 18 contract tests. Not deployed, and the Worker does not call it yet. |
+| Scheduled proposals: recurring buys queued under the signed policy, signed by you | Built and tested. |
+| Leash contract: the agent spends a vault only on 1Click-signed deposits to your own addresses, within caps (`contracts/leash`) | Contract and Worker integration building blocks are implemented. Deployment, bounded signer configuration and end-to-end unattended execution are not verified; see the contract README. |
 | Poisoned-post block | Built and tested through the real agent loop with a model scripted to obey the post. |
 | Models: OpenRouter, GLM 5.3 Flash by default (NEAR AI Cloud attested TEE models also supported) | Built. Needs a key; without one, chat is scripted. Earlier chats are kept in your browser and reopen from the sidebar. |
 | Research and Earn | Built, on a dated snapshot that shows its source and capture time. Earn deposits into Gauntlet USDC Prime (Base) and Taler USDC (Ethereum) through 1Click Earn, from about 50 USDC, with the same checks as any swap. |
+| Periodic Automations | Server-side scheduled quote monitoring, stored observations and opportunities. Review/sign a proposed trade separately; no guaranteed profit or autonomous trading. |
+| Rhea lending and Templar borrowing | Wallet-approved protocol transaction paths are implemented. Availability depends on deployed adapter flags, supported markets, account prerequisites and liquidity; not a claim of live end-to-end verification. |
 | Venue comparison | Rhea's route price is shown next to 1Click's for pairs on NEAR, for comparison only. |
 | Price alerts | Built, quoting the venue; set and managed on Trade. |
 
