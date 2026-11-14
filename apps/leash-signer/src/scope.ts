@@ -5,7 +5,7 @@ const account = z
   .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/)
   .min(2)
   .max(64);
-export const requestSchema = z
+const requestSchema = z
   .object({
     network: z.literal('mainnet'),
     signerId: account,
