@@ -138,8 +138,9 @@ export async function missingRegistrations(
   recipient: Destination | null,
 ) {
   const needs: { tokenContract: string; account: string }[] = [];
+  const sell = assetOf(deps, intent.sell_asset);
   const sold = tokenContractOf(intent.sell_asset);
-  if (sold) needs.push({ tokenContract: sold, account });
+  if (sell.chain === 'near' && sold) needs.push({ tokenContract: sold, account });
   const bought = tokenContractOf(intent.buy_asset);
   if (bought && recipient?.chain === 'near') needs.push({ tokenContract: bought, account: recipient.address });
   try {
@@ -218,17 +219,28 @@ interface SwapPlanFacts {
   /** The owner's own addresses: their NEAR account and the destinations they signed. */
   own: readonly Destination[];
   sellChain: string;
+  /** Policy-bound address that funds the origin-chain deposit. */
+  origin: Destination | null;
 }
 
 /** The plan's own checks. A block here stops the plan for everyone; no approval can override it. */
 const SWAP_RULES: readonly Rule<SwapPlanFacts>[] = [
   {
-    id: 'origin_near',
+    id: 'origin_supported',
     severity: 'block',
     check: (facts) => ({
-      pass: facts.sellChain === 'near',
-      code: 'ORIGIN_NOT_NEAR',
-      detail: 'Harbor sends only from your NEAR account. Choose an asset held on NEAR to sell.',
+      pass: ['near', 'eth', 'base', 'arb'].includes(facts.sellChain),
+      code: 'ORIGIN_UNSUPPORTED',
+      detail: `Harbor cannot independently verify deposits from ${facts.sellChain} yet.`,
+    }),
+  },
+  {
+    id: 'origin_owned',
+    severity: 'block',
+    check: (facts) => ({
+      pass: facts.origin !== null && isOwnAddress(facts.own, facts.origin),
+      code: 'ORIGIN_ADDRESS_MISSING',
+      detail: `Add exactly one of your own ${facts.sellChain} addresses to your signed policy to fund this swap.`,
     }),
   },
   {
@@ -301,7 +313,12 @@ export async function swapPlanPolicy(
   quote: QuoteRow,
   accountId: string,
   now: number,
-  destination: { recipient: Destination | null; own: readonly Destination[]; deposit: Deposit | null },
+  destination: {
+    recipient: Destination | null;
+    origin: Destination | null;
+    own: readonly Destination[];
+    deposit: Deposit | null;
+  },
 ): Promise<{ decision: Decision; digest: string }> {
   const decision = evaluate(SWAP_RULES, {
     nowMs: now,
@@ -314,6 +331,7 @@ export async function swapPlanPolicy(
     buyChain: assetOf(deps, intent.buy_asset).chain,
     own: destination.own,
     sellChain: assetOf(deps, intent.sell_asset).chain,
+    origin: destination.origin,
   });
   const digest = await sha256Hex(
     canonicalJson({
@@ -328,7 +346,9 @@ export async function swapPlanPolicy(
       slippageBps: quote.slippage_bps,
       recipient: destination.recipient?.address ?? '',
       recipientChain: destination.recipient?.chain ?? '',
-      refundTo: accountId,
+      refundTo: destination.origin?.address ?? '',
+      refundChain: destination.origin?.chain ?? '',
+      depositOriginChain: destination.deposit?.originChain ?? '',
       depositAddress: destination.deposit?.address ?? '',
       depositMemo: destination.deposit?.memo ?? '',
       quoteHash: destination.deposit?.quoteHash ?? '',
@@ -342,6 +362,20 @@ export async function swapPlanPolicy(
  * Where a swap delivers: the address asked for, or else the owner's own address on the bought
  * asset's chain (their NEAR account, or the one destination they signed on that chain).
  */
+export function swapOrigin(
+  deps: ExecutionDeps,
+  intent: IntentRow,
+  account: string,
+  own: readonly Destination[],
+): Destination | null {
+  const chain = assetOf(deps, intent.sell_asset).chain;
+  if (chain === 'near') return { chain, address: account };
+  const onChain = own.filter(
+    (entry) => entry.chain === chain && /^0x[0-9a-fA-F]{40}$/.test(entry.address),
+  );
+  return onChain.length === 1 && onChain[0] ? onChain[0] : null;
+}
+
 export function swapRecipient(
   deps: ExecutionDeps,
   intent: IntentRow,
@@ -393,7 +427,8 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
     ...basePlanView(row),
     kind: 'swap' as const,
     quote: swapQuoteView(deps, quote, intent),
-    signing: signingRequest(row, intent, quote),
+    funding: fundingRequest(deps, row, intent, quote),
+    signing: signingRequest(deps, row, intent, quote),
   };
 }
 
@@ -401,7 +436,21 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
  * The one transaction the owner's wallet signs for an approved plan, built here from Harbor's own
  * records so what the wallet shows is exactly what the deposit check later accepts.
  */
-function signingRequest(row: PlanRow, intent: IntentRow, quote: QuoteRow) {
+function fundingRequest(deps: ExecutionDeps, row: PlanRow, intent: IntentRow, quote: QuoteRow) {
+  if (row.status !== 'awaiting_signature' || row.tx_hash !== null || !row.deposit_address) return null;
+  const chain = assetOf(deps, intent.sell_asset).chain;
+  return {
+    chain,
+    asset: intent.sell_asset,
+    amountRaw: quote.amount_in_raw,
+    address: row.deposit_address,
+    memo: row.deposit_memo || null,
+    walletTransactionAvailable: chain === 'near',
+  };
+}
+
+function signingRequest(deps: ExecutionDeps, row: PlanRow, intent: IntentRow, quote: QuoteRow) {
+  if (assetOf(deps, intent.sell_asset).chain !== 'near') return null;
   const tokenContract = tokenContractOf(intent.sell_asset);
   if (row.status !== 'awaiting_signature' || row.tx_hash !== null || !row.deposit_address || !tokenContract) {
     return null;
