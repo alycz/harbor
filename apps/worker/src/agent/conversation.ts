@@ -178,11 +178,11 @@ export class ConversationAgent extends DurableObject<Env> {
     try {
       const source = createModelSource(decodeAgentConfig(this.env));
       const tools = createTools({ proposals: createProposalService(this.env) }).filter(
-        (tool) => !researchOnly || tool.name !== 'propose_intent',
+        (tool) => !researchOnly || (tool.name !== 'propose_intent' && tool.name !== 'review_protocol_action'),
       );
       assertExactTools(
         tools,
-        APPROVED_TOOLS.filter((name) => !researchOnly || name !== 'propose_intent'),
+        APPROVED_TOOLS.filter((name) => !researchOnly || (name !== 'propose_intent' && name !== 'review_protocol_action')),
       );
       const agent = createHarborAgent({
         model: source.model,
@@ -280,6 +280,19 @@ function terminalEvent(outcome: TurnOutcome, stopRequested: boolean): PublicAgen
 
 /** The intent ID comes from the application's tool result, so the card shows Harbor's record, not model text. */
 export function proposalOf(event: AgentEvent): PublicAgentEvent | null {
+  if (event.type === 'tool_execution_end' && event.toolName === 'review_protocol_action' && !event.isError) {
+    const action: unknown = event.result?.details?.protocolAction;
+    if (action && typeof action === 'object') {
+      const a = action as Record<string, unknown>;
+      if (a.protocol === 'rhea-lending' && typeof a.assetId === 'string' && a.assetId.length <= 256 && typeof a.amount === 'string' && /^[0-9]+([.][0-9]+)?$/.test(a.amount) && a.amount.length <= 80) {
+        return { type: 'protocol_action', actionId: event.toolCallId, action: { protocol: 'rhea-lending', assetId: a.assetId, amount: a.amount } };
+      }
+      if (a.protocol === 'templar' && typeof a.marketId === 'string' && /^[a-z0-9._-]{2,64}$/.test(a.marketId) && typeof a.amountAtomic === 'string' && /^[1-9][0-9]{0,38}$/.test(a.amountAtomic)) {
+        return { type: 'protocol_action', actionId: event.toolCallId, action: { protocol: 'templar', marketId: a.marketId, amountAtomic: a.amountAtomic } };
+      }
+    }
+    return null;
+  }
   if (event.type !== 'tool_execution_end' || event.toolName !== 'propose_intent' || event.isError) return null;
   const intentId: unknown = event.result?.details?.intentId;
   const kind: unknown = event.result?.details?.kind ?? 'swap';

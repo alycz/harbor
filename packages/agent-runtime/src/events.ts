@@ -4,6 +4,10 @@ import type { AgentEvent } from '@earendil-works/pi-agent-core';
 export const PROPOSAL_KINDS = ['swap'] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 
+export type ProtocolAction =
+  | { protocol: 'rhea-lending'; assetId: string; amount: string }
+  | { protocol: 'templar'; marketId: string; amountAtomic: string };
+
 /** The only agent events that reach the browser. Hidden reasoning, prompts and raw arguments never do. */
 export type PublicAgentEvent =
   | { type: 'text_delta'; delta: string }
@@ -11,6 +15,7 @@ export type PublicAgentEvent =
   | { type: 'tool_completed'; toolCallId: string; name: string; isError: boolean }
   /** An application-created proposal the browser renders from its own records, never from model text. */
   | { type: 'proposal'; kind: ProposalKind; intentId: string }
+  | { type: 'protocol_action'; actionId: string; action: ProtocolAction }
   | { type: 'settled' }
   /** `stopped`: the user stopped it. `lost`: the process running it went away. */
   | { type: 'interrupted'; reason: 'stopped' | 'lost' }

@@ -6,7 +6,7 @@ import { Type } from 'typebox';
 import snapshotJson from '../../../../research/data/research-snapshot.json' with { type: 'json' };
 import { DEMO_FEED } from './feed.ts';
 
-export const APPROVED_TOOLS = ['list_markets', 'read_feed', 'propose_intent'] as const;
+export const APPROVED_TOOLS = ['list_markets', 'read_feed', 'propose_intent', 'review_protocol_action'] as const;
 
 interface SwapProposal {
   intentId: string;
@@ -35,6 +35,17 @@ const research = parseResearchSnapshot(snapshotJson);
 
 export function createTools(deps: { proposals: ProposalService }): AgentTool[] {
   return [
+    defineTool({
+      name: 'review_protocol_action',
+      label: 'Preparing protocol review',
+      description: 'Show a real Rhea supply or Templar borrow review in chat only when the user explicitly asks to queue it. This is an unsigned recommendation, not a durable submitted transaction. User clicks prepare and signs separately. Use exact canonical assetId or marketId from opportunity context; ask for missing identifiers or amount. Templar requires amountAtomic in smallest token units; never guess decimals. KAIO cannot be submitted because investor authentication is not configured.',
+      parameters: Type.Union([
+        Type.Object({ protocol: Type.Literal('rhea-lending'), assetId: Type.String({ minLength: 1, maxLength: 256 }), amount: Type.String({ pattern: '^[0-9]+([.][0-9]+)?$', maxLength: 80 }) }),
+        Type.Object({ protocol: Type.Literal('templar'), marketId: Type.String({ pattern: '^[a-z0-9._-]{2,64}$' }), amountAtomic: Type.String({ pattern: '^[1-9][0-9]{0,38}$' }) }),
+      ]),
+      replay: 'safe',
+      run: async (action) => ({ text: 'An unsigned protocol review card is shown. No approval, signing, submission or settlement has occurred. The user must review and explicitly prepare it; live backend checks may reject unavailable assets or markets.', details: { protocolAction: action } }),
+    }),
     defineTool({
       name: 'list_markets',
       label: 'Reading the research snapshot',

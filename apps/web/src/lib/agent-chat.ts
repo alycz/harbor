@@ -1,4 +1,4 @@
-import type { ProposalKind, PublicAgentEvent } from '@harbor/agent-runtime/events';
+import type { ProposalKind, ProtocolAction, PublicAgentEvent } from '@harbor/agent-runtime/events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface PreparationStep {
@@ -16,6 +16,7 @@ interface ConversationMessage {
   /** The user stopped this answer; what arrived before the stop stays. */
   stopped?: boolean;
   /** Intents Harbor created for this answer; each renders as a proposal card. */
+  protocolActions?: { actionId: string; action: ProtocolAction }[];
   proposals?: { intentId: string; kind: ProposalKind }[];
 }
 
@@ -88,6 +89,7 @@ const TOOL_LABELS: Record<string, string> = {
   list_markets: 'Read the dated research snapshot',
   read_feed: 'Read recent posts as untrusted data',
   propose_intent: 'Prepared a proposal for your review',
+  review_protocol_action: 'Prepared unsigned protocol review',
 };
 
 export class ChatRequestError extends Error {
@@ -277,6 +279,8 @@ function apply(message: ConversationMessage, event: PublicAgentEvent): Conversat
       return event.reason === 'stopped'
         ? { ...message, stopped: true }
         : { ...message, error: 'The answer was interrupted. Send the message again.' };
+    case 'protocol_action':
+      return { ...message, protocolActions: [...(message.protocolActions ?? []).filter((item) => item.actionId !== event.actionId), { actionId: event.actionId, action: event.action }] };
     case 'proposal':
       return {
         ...message,
