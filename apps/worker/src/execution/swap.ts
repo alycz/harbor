@@ -43,6 +43,8 @@ export async function createSwapIntent(
   }
   const sell = resolve(deps, input.sell);
   const buy = resolve(deps, input.buy);
+  if (sell.canonicalId === buy.canonicalId)
+    throw new AppError('INVALID_REQUEST', 'Choose two different assets to swap.');
   let raw: bigint;
   try {
     raw = parseDecimalAmount(input.amount, sell.decimals, MAX_U128_RAW);
@@ -465,7 +467,7 @@ function signingRequest(deps: ExecutionDeps, row: PlanRow, intent: IntentRow, qu
 }
 
 function resolve(deps: ExecutionDeps, symbol: string): AssetRef {
-  const asset = deps.assets.bySymbol(symbol);
+  const asset = deps.assets.byId(symbol) ?? deps.assets.bySymbol(symbol);
   if (!asset) throw new AppError('INVALID_REQUEST', `${symbol.slice(0, 16)} is not a supported asset on this network.`);
   return asset;
 }

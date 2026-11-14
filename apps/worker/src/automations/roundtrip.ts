@@ -39,13 +39,18 @@ export async function previewRoundtrip(deps: ExecutionDeps, input: z.infer<typeo
     expirySource: 'local_freshness_window' as const,
     netProfit: null,
     feesIncluded: false,
-    feeNote: 'Provider quotes include their own route pricing; external funding gas and all execution costs are not independently accounted for.',
+    feeNote:
+      'Provider quotes include their own route pricing; external funding gas and all execution costs are not independently accounted for.',
     executionAvailable: false,
     atomic: false,
   };
   const legs: Array<{
-    amountIn: string; amountOut: string; minAmountOut: string; venue: string;
-    observedAt: string; expiresAt: string;
+    amountIn: string;
+    amountOut: string;
+    minAmountOut: string;
+    venue: string;
+    observedAt: string;
+    expiresAt: string;
   }> = [];
   try {
     const venue = deps.venue;
@@ -71,24 +76,39 @@ export async function previewRoundtrip(deps: ExecutionDeps, input: z.infer<typeo
     const delta = inbound.minAmountOut - amount;
     const meets = delta > 0n && delta * 10_000n >= amount * BigInt(input.minSpreadBps);
     // Decimal strings preserve large raw amounts without Number rounding.
-    const bpsHundredths = delta * 1_000_000n / amount;
+    const bpsHundredths = (delta * 1_000_000n) / amount;
     const abs = bpsHundredths < 0n ? -bpsHundredths : bpsHundredths;
     const grossSpreadBps = `${bpsHundredths < 0n ? '-' : ''}${abs / 100n}.${(abs % 100n).toString().padStart(2, '0')}`;
     return {
-      ...base, status: meets ? 'opportunity' as const : 'below_threshold' as const,
-      amountReturned: formatRawAmount(inbound.minAmountOut, sell.decimals), grossSpreadBps, legs,
+      ...base,
+      status: meets ? ('opportunity' as const) : ('below_threshold' as const),
+      amountReturned: formatRawAmount(inbound.minAmountOut, sell.decimals),
+      grossSpreadBps,
+      legs,
       reason: meets
         ? 'Indicative round-trip spread meets the threshold before external costs. Legs are sequential, not atomic; the return quote may change before funds arrive. Not executable or guaranteed profit.'
         : 'The conservative quoted round trip does not exceed the configured spread threshold. This is monitoring only; nothing was submitted.',
     };
   } catch {
-    return { ...base, status: 'unknown' as const, amountReturned: null, grossSpreadBps: null, legs,
-      reason: 'A live route could not be quoted, returned invalid data, or became stale. No opportunity is inferred and nothing was submitted.' };
+    return {
+      ...base,
+      status: 'unknown' as const,
+      amountReturned: null,
+      grossSpreadBps: null,
+      legs,
+      reason:
+        'A live route could not be quoted, returned invalid data, or became stale. No opportunity is inferred and nothing was submitted.',
+    };
   }
 }
 
 function validateQuote(quote: VenueQuote, expectedInput: bigint) {
-  if (quote.amountIn !== expectedInput || quote.minAmountOut <= 0n || quote.minAmountOut > quote.amountOut || quote.amountOut > MAX_U128_RAW) {
+  if (
+    quote.amountIn !== expectedInput ||
+    quote.minAmountOut <= 0n ||
+    quote.minAmountOut > quote.amountOut ||
+    quote.amountOut > MAX_U128_RAW
+  ) {
     throw new Error('Invalid route quote.');
   }
 }
