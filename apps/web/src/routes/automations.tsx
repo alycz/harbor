@@ -1,12 +1,12 @@
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { PriceAlerts } from '../components/price-alerts.tsx';
-import { useCountdown } from '../components/swap-proposal.tsx';
+import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
 import { Chip, PageHeader, Panel } from '../components/workspace.tsx';
+import { outboundReviewRequest, roundtripDraftValid } from '../lib/automation-draft.ts';
 import { call, execution } from '../lib/execution.ts';
 import { formatUtc } from '../lib/format.ts';
 
@@ -39,18 +39,14 @@ export function AutomationsPage() {
   const options = assets.data?.assets ?? [];
   const originAsset = options.find((asset) => asset.canonicalId === origin);
   const viaAsset = options.find((asset) => asset.canonicalId === via);
-  const valid =
-    origin &&
-    via &&
-    origin !== via &&
-    /^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(amount) &&
-    /[1-9]/.test(amount) &&
-    /^\d+$/.test(threshold) &&
-    Number(threshold) <= 10000;
+  const valid = roundtripDraftValid(origin, via, amount, threshold);
+  const [reviewLocked, setReviewLocked] = useState(false);
+  const review = useMutation({ mutationFn: () => execution.createSwap(outboundReviewRequest(origin, via, amount)) });
   const result = preview.data;
   const freshness = useCountdown(result?.expiresAt ?? undefined);
   function clearResult() {
     preview.reset();
+    review.reset();
   }
   return (
     <div className="space-y-6 ws-stagger">
@@ -99,7 +95,7 @@ export function AutomationsPage() {
                 id="roundtrip-origin"
                 className={SELECT}
                 value={origin}
-                disabled={preview.isPending}
+                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
                 onChange={(event) => {
                   setOrigin(event.target.value);
                   clearResult();
@@ -120,7 +116,7 @@ export function AutomationsPage() {
                 id="roundtrip-via"
                 className={SELECT}
                 value={via}
-                disabled={preview.isPending}
+                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
                 onChange={(event) => {
                   setVia(event.target.value);
                   clearResult();
@@ -144,7 +140,7 @@ export function AutomationsPage() {
                 id="roundtrip-amount"
                 value={amount}
                 inputMode="decimal"
-                disabled={preview.isPending}
+                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
                 onChange={(event) => {
                   setAmount(event.target.value);
                   clearResult();
@@ -157,14 +153,18 @@ export function AutomationsPage() {
                 id="roundtrip-threshold"
                 value={threshold}
                 inputMode="numeric"
-                disabled={preview.isPending}
+                disabled={preview.isPending || review.isPending || reviewLocked || Boolean(review.data)}
                 onChange={(event) => {
                   setThreshold(event.target.value);
                   clearResult();
                 }}
               />
             </label>
-            <Button type="submit" className="h-10 px-5" disabled={!valid || preview.isPending}>
+            <Button
+              type="submit"
+              className="h-10 px-5"
+              disabled={!valid || preview.isPending || review.isPending || Boolean(review.data)}
+            >
               <RefreshCw className={preview.isPending ? 'animate-spin' : ''} />
               {preview.isPending ? 'Reading quotes…' : 'Scan route'}
             </Button>
@@ -218,12 +218,34 @@ export function AutomationsPage() {
               {result.expiresAt ? ` · Local freshness deadline ${formatUtc(result.expiresAt)}` : ''}. Quotes can expire
               or change. External costs are not included; sequential legs are not atomic and profit is not guaranteed.
             </p>
-            <Button nativeButton={false} variant="outline" className="mt-4" render={<Link to="/trade" />}>
-              Open Trade for a fresh quote <ArrowRight />
+            <Button
+              variant="outline"
+              className="mt-4"
+              disabled={review.isPending || Boolean(review.data) || result.status === 'unknown' || freshness === 0}
+              onClick={() => review.mutate()}
+            >
+              {review.isPending ? 'Preparing review…' : 'Review outbound swap'} <ArrowRight />
             </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Only the outbound leg is proposed. Review fresh terms and sign in your own wallet. The return leg is not
+              scheduled or executed.
+            </p>
           </section>
         ) : null}
       </Panel>
+      {review.isError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {review.error.message}
+        </p>
+      ) : null}
+      {review.data ? (
+        <section className="space-y-3" aria-label="Outbound swap review">
+          <SwapProposalCard key={review.data.id} intentId={review.data.id} onInteractionLock={setReviewLocked} />
+          <Button variant="outline" disabled={reviewLocked} onClick={() => review.reset()}>
+            Close review
+          </Button>
+        </section>
+      ) : null}
       <PriceAlerts />
     </div>
   );
