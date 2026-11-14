@@ -7,6 +7,8 @@ import { requireSession } from '../auth/guard.ts';
 import { createTemplarBorrowRoutes } from './borrow.ts';
 import { decodeExecutionConfig } from '../config.ts';
 
+import { activeTemplarMarkets, verifyTemplarMarket } from './markets.ts';
+
 const REGISTRY = 'v1.tmplr.near';
 const Market = z.string().max(64).regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*\.v1\.tmplr\.near$/);
 const Request = z.strictObject({
@@ -26,23 +28,20 @@ export function createTemplarRoutes() {
       if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10000) throw new AppError('INVALID_REQUEST', 'Invalid offset.');
       const view = reader(config.rpcUrl);
       const deployments = z.array(z.string()).parse(await view(REGISTRY, 'list_deployments', { offset, count: 100 }));
-      const markets = deployments.filter((id) => Market.safeParse(id).success && !id.startsWith('proxy-'));
+      const active = await activeTemplarMarkets();
+      const markets = deployments.filter((id) => Market.safeParse(id).success && active.has(id));
       return c.json({ markets, network: config.network, nextOffset: deployments.length === 100 ? offset + 100 : null,
-        note: 'Registry deployments include retired markets. Membership is not a recommendation or evidence of current liquidity.' });
+        note: 'Currently offered Templar markets, intersected with the on-chain registry. Availability does not guarantee liquidity.' });
     })
     .get('/markets/:id', async (c) => {
       const marketId = Market.parse(c.req.param('id'));
       const config = decodeExecutionConfig(c.env);
       if (config.network !== 'mainnet') throw new AppError('UNAVAILABLE', 'Templar discovery requires mainnet.');
       const view = reader(config.rpcUrl);
-      const deployment = await view(REGISTRY, 'get_deployment', { account_id: marketId });
-      if (!deployment) throw new AppError('NOT_FOUND', 'Market not found in Templar registry.');
-      const configuration = await new TemplarClient(view, new Set([marketId])).configuration(marketId);
-      const allowed = z.object({ TEMPLAR_ALLOWED_MARKETS: z.string().default('') }).parse(c.env)
-        .TEMPLAR_ALLOWED_MARKETS.split(',').map(s => s.trim()).includes(marketId);
+      const { configuration } = await verifyTemplarMarket(view,marketId,config.rpcUrl);
       return c.json({ marketId, network: 'mainnet', protocol: 'templar', configuration,
         observedAt: new Date().toISOString(), source: 'finalized NEAR contract read',
-        borrowingEnabled: config.executionEnabled && config.writeAdapters.has('templar') && allowed,
+        borrowingEnabled: config.executionEnabled && config.writeAdapters.has('templar'),
         note: 'Credit market, not an earn APY. Registry can include retired markets. Rates, liquidity and collateral health must be reviewed before borrowing.' });
     })
     .post('/prepare', requireSession, async (c) => {
