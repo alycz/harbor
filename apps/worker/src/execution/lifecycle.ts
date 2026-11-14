@@ -27,9 +27,9 @@ import {
   executableQuote,
   missingRegistrations,
   swapIntentView,
+  swapOrigin,
   swapPlanPolicy,
   swapPlanView,
-  swapOrigin,
   swapRecipient,
 } from './swap.ts';
 
