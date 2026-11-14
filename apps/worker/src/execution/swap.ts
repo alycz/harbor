@@ -329,6 +329,7 @@ export async function swapPlanPolicy(
       recipient: destination.recipient?.address ?? '',
       recipientChain: destination.recipient?.chain ?? '',
       refundTo: accountId,
+      depositOriginChain: destination.deposit?.originChain ?? assetOf(deps, intent.sell_asset).chain,
       depositAddress: destination.deposit?.address ?? '',
       depositMemo: destination.deposit?.memo ?? '',
       quoteHash: destination.deposit?.quoteHash ?? '',
@@ -393,6 +394,7 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
     ...basePlanView(row),
     kind: 'swap' as const,
     quote: swapQuoteView(deps, quote, intent),
+    funding: fundingRequest(deps, row, intent, quote),
     signing: signingRequest(row, intent, quote),
   };
 }
@@ -401,6 +403,19 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
  * The one transaction the owner's wallet signs for an approved plan, built here from Harbor's own
  * records so what the wallet shows is exactly what the deposit check later accepts.
  */
+function fundingRequest(deps: ExecutionDeps, row: PlanRow, intent: IntentRow, quote: QuoteRow) {
+  if (row.status !== 'awaiting_signature' || row.tx_hash !== null || !row.deposit_address) return null;
+  const chain = assetOf(deps, intent.sell_asset).chain;
+  return {
+    chain,
+    asset: intent.sell_asset,
+    amountRaw: quote.amount_in_raw,
+    address: row.deposit_address,
+    memo: row.deposit_memo || null,
+    walletTransactionAvailable: chain === 'near',
+  };
+}
+
 function signingRequest(row: PlanRow, intent: IntentRow, quote: QuoteRow) {
   const tokenContract = tokenContractOf(intent.sell_asset);
   if (row.status !== 'awaiting_signature' || row.tx_hash !== null || !row.deposit_address || !tokenContract) {

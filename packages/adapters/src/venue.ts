@@ -34,6 +34,8 @@ export interface SwapVenue {
 /** An executable quote: a fresh deposit address that settles to the owner's own recipient and refund address. */
 export interface DepositQuote extends VenueQuote {
   deposit: {
+    /** Chain on which the owner must fund this deposit. */
+    originChain?: string;
     address: string;
     memo: string | null;
     /** After this the provider refunds instead of swapping. */

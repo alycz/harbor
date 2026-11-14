@@ -125,6 +125,7 @@ export function oneClickExecutor(
         protocols: ['NEAR Intents'],
         raw: { quoteHash: verified.quoteHash, response: verified.response },
         deposit: {
+          originChain: request.sell.chain,
           address: quote.depositAddress,
           memo: quote.depositMemo ?? null,
           deadlineMs: Date.parse(quote.deadline),
