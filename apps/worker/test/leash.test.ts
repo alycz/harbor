@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../src/app.ts';
+import { ownerRegistrations } from '../src/leash/setup.ts';
 import { sessionCookie } from './session.ts';
 
 function call(path: string, cookie = '', body?: unknown) {
@@ -100,5 +101,42 @@ describe('Leash owner transaction construction', () => {
     expect(result.transaction.actions[0]?.params.deposit).toBe('0');
     expect(rpc).toHaveBeenCalledTimes(2);
     for (const [, init] of rpc.mock.calls) expect(JSON.parse(String(init?.body)).method).toBe('query');
+  });
+});
+
+describe('ownerRegistrations', () => {
+  const chain = (registered: string[]) => ({
+    storageRegistered: async (token: string) => registered.includes(token),
+    storageMinimum: async () => 1_250_000_000_000_000_000_000n,
+  });
+
+  it('asks only for the tokens the owner is not yet registered on, once each', async () => {
+    const missing = await ownerRegistrations(chain(['usdc.near']), 'alice.near', [
+      'usdc.near',
+      'wrap.near',
+      'wrap.near',
+    ]);
+    expect(missing).toEqual([
+      {
+        receiverId: 'wrap.near',
+        actions: [
+          {
+            type: 'FunctionCall',
+            params: {
+              methodName: 'storage_deposit',
+              args: { account_id: 'alice.near', registration_only: true },
+              gas: '30000000000000',
+              deposit: '1250000000000000000000',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('asks for nothing when every token is already registered', async () => {
+    expect(
+      await ownerRegistrations(chain(['usdc.near', 'wrap.near']), 'alice.near', ['usdc.near', 'wrap.near']),
+    ).toEqual([]);
   });
 });
