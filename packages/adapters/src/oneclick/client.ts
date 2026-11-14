@@ -114,30 +114,41 @@ const QuoteSchema = z
   })
   .strip();
 
+const QuoteResponseFields = {
+  timestamp: DateTimeSchema,
+  signature: PrintableTextSchema,
+  quoteRequest: QuoteRequestSchema,
+  quote: QuoteSchema,
+};
+
+function checkQuoteShape(
+  response: { quoteRequest: z.output<typeof QuoteRequestSchema>; quote: z.output<typeof QuoteSchema> },
+  context: z.RefinementCtx,
+) {
+  if (response.quoteRequest.dry) {
+    for (const field of ['depositAddress', 'depositMemo', 'deadline', 'timeWhenInactive'] as const) {
+      if (response.quote[field] !== undefined) {
+        context.addIssue({ code: 'custom', path: ['quote', field], message: `dry quote must not contain ${field}` });
+      }
+    }
+    return;
+  }
+  for (const field of ['depositAddress', 'deadline', 'timeWhenInactive'] as const) {
+    if (response.quote[field] === undefined) {
+      context.addIssue({ code: 'custom', path: ['quote', field], message: `executable quote must contain ${field}` });
+    }
+  }
+}
+
 export const OneClickQuoteResponseSchema = z
-  .object({
-    correlationId: CorrelationIdSchema,
-    timestamp: DateTimeSchema,
-    signature: PrintableTextSchema,
-    quoteRequest: QuoteRequestSchema,
-    quote: QuoteSchema,
-  })
+  .object({ correlationId: CorrelationIdSchema, ...QuoteResponseFields })
   .strip()
-  .superRefine((response, context) => {
-    if (response.quoteRequest.dry) {
-      for (const field of ['depositAddress', 'depositMemo', 'deadline', 'timeWhenInactive'] as const) {
-        if (response.quote[field] !== undefined) {
-          context.addIssue({ code: 'custom', path: ['quote', field], message: `dry quote must not contain ${field}` });
-        }
-      }
-      return;
-    }
-    for (const field of ['depositAddress', 'deadline', 'timeWhenInactive'] as const) {
-      if (response.quote[field] === undefined) {
-        context.addIssue({ code: 'custom', path: ['quote', field], message: `executable quote must contain ${field}` });
-      }
-    }
-  });
+  .superRefine(checkQuoteShape);
+// The quote echoed in a status reply has no correlation id of its own; its signature and hash still identify it.
+const StatusQuoteResponseSchema = z
+  .object({ correlationId: CorrelationIdSchema.optional(), ...QuoteResponseFields })
+  .strip()
+  .superRefine(checkQuoteShape);
 
 export type OneClickQuoteRequest = z.input<typeof QuoteRequestSchema>;
 export type OneClickQuoteResponse = z.output<typeof OneClickQuoteResponseSchema>;
@@ -179,7 +190,8 @@ export const OneClickProviderStatusSchema = z.enum([
 const TransactionDetailsSchema = z
   .object({
     hash: PrintableTextSchema,
-    explorerUrl: HttpsUrlSchema,
+    // NEAR Intents sends an empty string for a transaction on NEAR itself; Harbor never reads this field.
+    explorerUrl: z.union([HttpsUrlSchema, z.literal('')]),
   })
   .strip();
 const SwapDetailsSchema = z
@@ -192,14 +204,14 @@ const SwapDetailsSchema = z
     amountOut: AtomicAmountSchema.optional(),
     refundedAmount: AtomicAmountOrZeroSchema.optional(),
     depositedAmount: AtomicAmountOrZeroSchema.optional(),
-    refundReason: z.string().max(256).optional(),
+    refundReason: z.string().max(256).nullish(),
     withdrawFee: AtomicAmountOrZeroSchema.optional(),
   })
   .strip();
 export const OneClickStatusResponseSchema = z
   .object({
     correlationId: CorrelationIdSchema,
-    quoteResponse: OneClickQuoteResponseSchema,
+    quoteResponse: StatusQuoteResponseSchema,
     status: OneClickProviderStatusSchema,
     updatedAt: DateTimeSchema,
     swapDetails: SwapDetailsSchema,
@@ -571,13 +583,13 @@ export class OneClickClient {
     const actualQuoteHash = await quoteHash(rawQuote);
     const parsed = OneClickStatusResponseSchema.safeParse(raw);
     if (!parsed.success) throw new OneClickClientError('INVALID_RESPONSE', 'NEAR Intents returned an invalid status');
-    if (parsed.data.correlationId !== parsed.data.quoteResponse.correlationId) {
-      throw new OneClickClientError(
-        'REQUEST_MISMATCH',
-        'NEAR Intents status correlation did not match the verified quote',
-      );
-    }
-    if (expectedCorrelationId !== undefined && parsed.data.quoteResponse.correlationId !== expectedCorrelationId) {
+    // The status reply's own correlation id is not the quote's, so only the quote hash and the deposit address
+    // tie it to the quote; an expected id is checked when the echoed quote carries one.
+    if (
+      expectedCorrelationId !== undefined &&
+      parsed.data.quoteResponse.correlationId !== undefined &&
+      parsed.data.quoteResponse.correlationId !== expectedCorrelationId
+    ) {
       throw new OneClickClientError(
         'REQUEST_MISMATCH',
         'NEAR Intents status did not match the expected quote correlation',

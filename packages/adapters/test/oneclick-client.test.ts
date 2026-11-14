@@ -377,6 +377,34 @@ describe('1Click client', () => {
     });
   });
 
+  it("accepts NEAR Intents' real status shape: an empty explorer link and a null refund reason", async () => {
+    const executableQuote = quoteResponse({
+      depositAddress: 'deposit.near',
+      deadline: '2027-01-01T00:00:00.000Z',
+      timeWhenInactive: '2026-12-31T23:00:00.000Z',
+    });
+    executableQuote.quoteRequest = { ...request, dry: false };
+    const client = createOneClickClient({
+      fetch: async () =>
+        jsonResponse({
+          correlationId: 'quote-correlation',
+          quoteResponse: executableQuote,
+          status: 'SUCCESS',
+          updatedAt: '2026-10-26T00:01:00.000Z',
+          swapDetails: {
+            intentHashes: [],
+            nearTxHashes: [],
+            originChainTxHashes: [{ hash: 'origin-tx', explorerUrl: '' }],
+            destinationChainTxHashes: [{ hash: 'dest-tx', explorerUrl: 'https://nearblocks.io/txns/dest-tx' }],
+            refundReason: null,
+          },
+        }),
+      verifyQuoteSignature: () => true,
+    });
+
+    await expect(client.status({ depositAddress: 'deposit.near' })).resolves.toMatchObject({ status: 'SUCCESS' });
+  });
+
   it('rejects insecure or credential-bearing explorer links in status responses', async () => {
     const executableQuote = quoteResponse({
       depositAddress: 'deposit.near',
