@@ -1,4 +1,5 @@
 import type { AgentTool } from '@earendil-works/pi-agent-core';
+import type { DataCard } from '@harbor/agent-runtime/events';
 import { defineTool, type ToolOutput, untrusted } from '@harbor/agent-runtime/tools';
 import { parseResearchSnapshot } from '@harbor/data/research';
 import { Type } from 'typebox';
@@ -54,7 +55,22 @@ export function createTools(deps: { proposals: ProposalService; opportunities: O
         const body = await deps.opportunities.deposits();
         return {
           text: untrusted('live deposit rates', JSON.stringify({ live: true, ...body })),
-          details: { rows: body.opportunities.length },
+          details: {
+            rows: body.opportunities.length,
+            card: {
+              kind: 'deposits',
+              fetchedAt: body.fetchedAt,
+              items: body.opportunities.map(({ name, protocol, chain, asset, ratePct, rateKind, sizeUsd }) => ({
+                name,
+                protocol,
+                chain,
+                asset,
+                ratePct,
+                rateKind,
+                sizeUsd,
+              })),
+            } satisfies DataCard,
+          },
         };
       },
     }),
@@ -69,7 +85,17 @@ export function createTools(deps: { proposals: ProposalService; opportunities: O
         const body = await deps.opportunities.borrowMarkets();
         return {
           text: untrusted('Templar markets', JSON.stringify({ live: true, ...body })),
-          details: { rows: body.markets.length },
+          details: {
+            rows: body.markets.length,
+            card: {
+              kind: 'borrow_markets',
+              items: body.markets.slice(0, 12).map((market) => ({
+                marketId: market.marketId,
+                borrow: { symbol: market.borrow.symbol, chain: market.borrow.blockchain },
+                collateral: { symbol: market.collateral.symbol, chain: market.collateral.blockchain },
+              })),
+            } satisfies DataCard,
+          },
         };
       },
     }),
@@ -155,7 +181,34 @@ export function createTools(deps: { proposals: ProposalService; opportunities: O
                 }));
         const sources = research.sources.map((source) => ({ name: source.attribution, capturedAt: source.capturedAt }));
         const body = JSON.stringify({ sources, live: false, rows });
-        return { text: untrusted('research snapshot', body), details: { kind, rows: rows.length } };
+        const card: DataCard | undefined =
+          kind === 'yield_pools'
+            ? {
+                kind: 'yield_pools',
+                capturedAt: research.sources[0]?.capturedAt ?? null,
+                items: (
+                  rows as {
+                    project: string;
+                    chain: string;
+                    asset: string;
+                    tvlUsd: number | null;
+                    totalApyPct: number | null;
+                  }[]
+                )
+                  .slice(0, 8)
+                  .map((row) => ({
+                    project: row.project,
+                    chain: row.chain,
+                    asset: row.asset,
+                    apyPct: row.totalApyPct,
+                    tvlUsd: row.tvlUsd,
+                  })),
+              }
+            : undefined;
+        return {
+          text: untrusted('research snapshot', body),
+          details: { kind, rows: rows.length, ...(card ? { card } : {}) },
+        };
       },
     }),
     defineTool({
