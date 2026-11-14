@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
+import { createTemplarBorrowRoutes } from './borrow.ts';
 import { decodeExecutionConfig } from '../config.ts';
 
 const REGISTRY = 'v1.tmplr.near';
@@ -17,6 +18,7 @@ const Request = z.strictObject({
 /** Live preparation only: no submission endpoint and no wallet signing request is returned. */
 export function createTemplarRoutes() {
   return new Hono<AppEnv>()
+    .route('/borrow-plans', createTemplarBorrowRoutes())
     .get('/markets', async (c) => {
       const config = decodeExecutionConfig(c.env);
       if (config.network !== 'mainnet') return c.json({ markets: [], network: config.network });
@@ -49,7 +51,7 @@ export function createTemplarRoutes() {
     });
 }
 
-function reader(rpcUrl: string) {
+export function reader(rpcUrl: string) {
   return async (accountId: string, methodName: string, args: Record<string, unknown>): Promise<unknown> => {
     const encoded = new TextEncoder().encode(JSON.stringify(args));
     const response = await fetch(rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' },
