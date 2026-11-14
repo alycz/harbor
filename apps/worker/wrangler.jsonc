@@ -1,7 +1,8 @@
 // Harbor's application Worker: same-origin /api/*, SSE and the scheduled handler.
 // D1 resources come from infra/cloudflare/d1-resources.json. The default environment binds
-// mainnet; `--env testnet` binds the Testnet database. Mainnet owner-approved write
-// adapters are selected below; testnet remains disabled. This file does not deploy itself.
+// mainnet; `--env testnet` binds the Testnet database. Financial writes stay off here, so local
+// dev and tests never move real funds. Production turns them on per deploy with
+// `scripts/prepare-deployment.mjs --enable-execution --write-adapters=...`.
 // A one-minute cron wakes the automation dispatcher (src/automations/dispatch.ts); due rules,
 // jobs and leases live in D1, so the cron is only a wake-up signal.
 // Each agent conversation is a SQLite-backed Durable Object (src/agent/conversation.ts).
@@ -28,8 +29,8 @@
   },
   "vars": {
     "NEAR_NETWORK": "mainnet",
-    "EXECUTION_ENABLED": "true",
-    "ENABLED_WRITE_ADAPTERS": "oneclick,rhea-lending,templar",
+    "EXECUTION_ENABLED": "false",
+    "ENABLED_WRITE_ADAPTERS": "",
     "PI_PROVIDER": "openrouter",
     "PI_MODEL_ID": "z-ai/glm-5.3-flash",
     "AGENT_GUEST_TURNS_PER_15_MIN": "5",
