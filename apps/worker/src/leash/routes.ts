@@ -83,7 +83,7 @@ async function snapshot(env: unknown, owner: string) {
   return { config, vault };
 }
 
-/** Owner-scoped read and preview only. Deliberately no execute/submit/signing endpoint. */
+/** Owner-scoped reads and unsigned wallet preparation. No submit or server signing endpoint. */
 export function createLeashRoutes() {
   return new Hono<AppEnv>()
     .use('*', requireSession)
@@ -102,6 +102,76 @@ export function createLeashRoutes() {
         observedAt: new Date().toISOString(),
         executionAvailable: false,
         limitation: 'Read-only integration. No authorized agent signer or transaction submission is configured.',
+      });
+    })
+    .post('/prepare-owner-action', async (c) => {
+      const Limits = z.strictObject({
+        token: Account,
+        per_action: Amount,
+        per_day: Amount,
+        buy_assets: z.array(z.string().min(1).max(320)).min(1).max(32),
+        recipients: z.array(z.string().min(1).max(256)).min(1).max(16),
+        max_slippage_bps: z.number().int().min(0).max(10000),
+        expires_at_ms: z.number().int().positive(),
+      });
+      const input = z
+        .discriminatedUnion('operation', [
+          z.strictObject({ operation: z.literal('set_limits'), limits: Limits, storageDepositYocto: Amount }),
+          z.strictObject({ operation: z.literal('freeze') }),
+          z.strictObject({ operation: z.literal('unfreeze') }),
+          z.strictObject({ operation: z.literal('withdraw'), amount: Amount }),
+          z.strictObject({ operation: z.literal('fund'), amount: Amount }),
+        ])
+        .safeParse(await c.req.json().catch(() => null));
+      if (!input.success)
+        throw new AppError('INVALID_REQUEST', 'Send an explicit vault operation with canonical atomic amounts.');
+      const owner = c.get('account');
+      const { config, vault } = await snapshot(c.env, owner);
+      const action = input.data;
+      let receiverId = config.contract;
+      let methodName: string = action.operation;
+      let args: Record<string, unknown> = {};
+      let deposit = '0';
+      if (action.operation === 'set_limits') {
+        if (
+          action.limits.expires_at_ms <= Date.now() ||
+          BigInt(action.limits.per_action) === 0n ||
+          BigInt(action.limits.per_action) > BigInt(action.limits.per_day)
+        ) {
+          throw new AppError('INVALID_REQUEST', 'Choose positive spending caps and a future expiry.');
+        }
+        if (vault && BigInt(vault.balance) > 0n && vault.limits.token !== action.limits.token) {
+          throw new AppError('FORBIDDEN', 'Withdraw the existing token before changing it.');
+        }
+        args = { limits: action.limits };
+        deposit = action.storageDepositYocto;
+      } else {
+        if (!vault) throw new AppError('FORBIDDEN', 'Set vault limits before this operation.');
+        if (action.operation === 'withdraw' || action.operation === 'fund') {
+          if (BigInt(action.amount) === 0n) throw new AppError('INVALID_REQUEST', 'Amount must be positive.');
+          if (action.operation === 'withdraw') {
+            if (BigInt(action.amount) > BigInt(vault.balance))
+              throw new AppError('FORBIDDEN', 'Amount exceeds observed vault balance.');
+            args = { amount: action.amount };
+          } else {
+            receiverId = vault.limits.token;
+            methodName = 'ft_transfer_call';
+            deposit = '1';
+            args = { receiver_id: config.contract, amount: action.amount, msg: '' };
+          }
+        }
+      }
+      return c.json({
+        status: 'unsigned-owner-transaction',
+        signerId: owner,
+        network: config.network,
+        transaction: {
+          receiverId,
+          actions: [{ type: 'FunctionCall', params: { methodName, args, gas: '100000000000000', deposit } }],
+        },
+        executionAvailable: false,
+        limitation:
+          'No funds moved. Review exact caps, recipients and attached NEAR in your own wallet. Storage/registration and contract checks may reject this transaction. Harbor does not sign or submit.',
       });
     })
     .post('/preview', async (c) => {
@@ -152,6 +222,25 @@ export function createLeashRoutes() {
         owner,
         contractId: config.contract,
         signedQuotePayload: payload,
+        agentTransaction: {
+          signerId: config.agent,
+          receiverId: config.contract,
+          actions: [
+            {
+              type: 'FunctionCall',
+              params: {
+                methodName: 'execute',
+                args: {
+                  owner,
+                  quote: payload,
+                  signature: (input.data.quoteResponse as { signature: string }).signature,
+                },
+                gas: '100000000000000',
+                deposit: '0',
+              },
+            },
+          ],
+        },
         executionAvailable: false,
         observedAt: new Date().toISOString(),
         limitation:

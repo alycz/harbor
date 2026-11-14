@@ -45,3 +45,45 @@ Both remain read/preview-only with `executionAvailable: false`; no signer or sub
 Configure `LEASH_CONTRACT_ID` and `LEASH_AGENT_ACCOUNT_ID` only after selecting the deployment.
 Pending-callback accounting fixes add persisted state: this build is for a fresh deployment,
 not an in-place upgrade of an existing contract without a separately reviewed migration.
+
+## Unsigned wallet wiring
+
+`POST /api/leash/prepare-owner-action` now constructs owner-wallet calls for `set_limits`,
+`fund`, `freeze`, `unfreeze`, and `withdraw`. Amounts and storage deposit are explicit atomic
+strings, not inferred spending permission. The session owner is the required signer. It
+performs identity/vault reads but no signing, broadcast, or guarantee of execution. Token
+storage registration and balance checks still belong to the wallet/contract workflow.
+`POST /api/leash/preview` additionally returns the exact unsigned agent `execute` call after
+provider-signature and limit checks. Its `signerId` is the configured agent, not the owner.
+No secret signing service or automatic submission exists. `executionAvailable: false` remains
+intentional until an authorized external signer and receipt lifecycle are connected.
+
+## Submission coordinator (unbound)
+
+`src/leash/execution.ts` provides an internal injected bounded-signer coordinator. It verifies
+provider signatures, identity scopes, expiry and a required fresh-authorization callback,
+then atomically claims an execution in D1 before requesting submission. Ambiguous failures
+remain locked and are never retried automatically. Apply migration 0007 only to the selected
+database through the normal reviewed deployment process. No endpoint invokes this coordinator
+and no signer implementation/secret is supplied. Operator must provide a reviewed execute-only
+signer and authorization implementation before wiring it to a job or route.
+
+Final receipt verification matches exact transaction hash, agent, contract, method, gas, deposit,
+arguments and successful finalized receipts. It reports payment only, never destination settlement.
+Independent destination delivery/refund verification is still required before a completed-swap claim.
+
+## External signer and delivery adapters
+
+`createLeashServiceSigner` defines an explicit Cloudflare service-binding protocol:
+`POST https://leash-signer.internal/v1/submit` with idempotency-key and a bounded execute
+request; response contains txHash, signerId and contractId. It is not a claim that any
+existing provider implements this API. The team must deploy/bind a reviewed implementation
+holding only the approved execute authority. No binding or credentials are installed.
+
+`reconcileLeashDelivery` reads exact finalized contract payment then queries the provider
+and independently verifies supported NEAR/EVM delivery through the existing chain readers.
+Provider SUCCESS alone is insufficient; refunds stay unverified and are never success.
+It requires the immutable approved request and pre-execution recipient balance baseline.
+Persisting these alongside claims and wiring reconciliation into the authorized job loop
+remain necessary before enabling real automatic execution. NEAR verification uses balance
+delta, matching Harbor's existing verifier; this is not transaction-level attribution.
