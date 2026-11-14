@@ -17,8 +17,8 @@ export class QuoteSignatureError extends Error {
   override name = 'QuoteSignatureError';
 }
 
-/** The provider's canonical hash of a quote response, as base58. Throws on a malformed response. */
-export async function oneClickQuoteHash(response: unknown): Promise<string> {
+/** Exact provider-signed JSON bytes required by Leash.execute. This does not approve or submit. */
+export function oneClickQuotePayload(response: unknown): string {
   const record = asRecord(response, 'response');
   const request = asRecord(record.quoteRequest, 'quoteRequest');
   const quote = asRecord(record.quote, 'quote');
@@ -27,7 +27,12 @@ export async function oneClickQuoteHash(response: unknown): Promise<string> {
     ...signedQuote(quote, request.dry === true),
     timestamp: record.timestamp,
   };
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(stableStringify(payload)));
+  return stableStringify(payload);
+}
+
+/** The provider's canonical hash of a quote response, as base58. Throws on a malformed response. */
+export async function oneClickQuoteHash(response: unknown): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(oneClickQuotePayload(response)));
   return base58Encode(new Uint8Array(digest));
 }
 
