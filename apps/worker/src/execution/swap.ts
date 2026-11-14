@@ -370,9 +370,7 @@ export function swapOrigin(
 ): Destination | null {
   const chain = assetOf(deps, intent.sell_asset).chain;
   if (chain === 'near') return { chain, address: account };
-  const onChain = own.filter(
-    (entry) => entry.chain === chain && /^0x[0-9a-fA-F]{40}$/.test(entry.address),
-  );
+  const onChain = own.filter((entry) => entry.chain === chain && /^0x[0-9a-fA-F]{40}$/.test(entry.address));
   return onChain.length === 1 && onChain[0] ? onChain[0] : null;
 }
 
