@@ -60,11 +60,13 @@ function rheaQuotes(deps: ExecutionDeps): QuoteSource {
       if (sell.chain !== 'near' || buy.chain !== 'near' || !tokenIn || !tokenOut) {
         throw new Error('Rhea prices NEAR tokens only.');
       }
-      const quote = await router.quote({
-        tokenIn,
-        tokenOut,
-        amountIn: parseDecimalAmount(request.amount, sell.decimals, MAX_U128_RAW),
-      });
+      const amountIn = parseDecimalAmount(request.amount, sell.decimals, MAX_U128_RAW);
+      // Rhea's router now and then answers without a route; one quick retry keeps that out of the record.
+      const quote =
+        (await router.quote({ tokenIn, tokenOut, amountIn })) ??
+        (await new Promise((resolve) => setTimeout(resolve, 400)).then(() =>
+          router.quote({ tokenIn, tokenOut, amountIn }),
+        ));
       if (!quote) throw new Error('Rhea has no route for this pair and size right now.');
       return { amountOut: formatRawAmount(quote.amountOut, buy.decimals), venue: 'rhea', observedAtMs: deps.now() };
     },
