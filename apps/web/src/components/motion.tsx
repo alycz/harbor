@@ -27,16 +27,19 @@ export function RollingNumber({ value, className = '' }: { value: string; classN
           }
           return (
             <span key={`d${fromEnd}`} className="ws-roll-digit">
-              <span
-                className="ws-roll-column"
-                style={{
-                  transform: `translateY(-${digit * 10}%)`,
-                  ['--ws-roll-delay' as string]: `${Math.min(fromEnd, 6) * 28}ms`,
-                }}
-              >
-                {DIGITS.map((d) => (
-                  <span key={d}>{d}</span>
-                ))}
+              <span className="ws-roll-anchor">{char}</span>
+              <span className="ws-roll-window">
+                <span
+                  className="ws-roll-column"
+                  style={{
+                    transform: `translateY(-${digit * 10}%)`,
+                    ['--ws-roll-delay' as string]: `${Math.min(fromEnd, 6) * 28}ms`,
+                  }}
+                >
+                  {DIGITS.map((d) => (
+                    <span key={d}>{d}</span>
+                  ))}
+                </span>
               </span>
             </span>
           );
