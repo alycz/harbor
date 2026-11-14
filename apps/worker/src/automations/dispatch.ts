@@ -25,6 +25,9 @@ const TICK_BUDGET_MS = 25_000;
  * tick runs on it, so jitter can never push a once-a-minute check to every other minute.
  */
 const DUE_GRACE_MS = 30_000;
+/** A scheduled Rhea read waits longer than a page's, and tries three times in all. */
+const RHEA_TIMEOUT_MS = 8_000;
+const RHEA_RETRY_PAUSES_MS = [0, 500, 1_500];
 
 const JobPayloadSchema = z.strictObject({
   ruleId: z.uuid(),
@@ -61,14 +64,22 @@ function rheaQuotes(deps: ExecutionDeps): QuoteSource {
         throw new Error('Rhea prices NEAR tokens only.');
       }
       const amountIn = parseDecimalAmount(request.amount, sell.decimals, MAX_U128_RAW);
-      // Rhea's router now and then answers without a route; one quick retry keeps that out of the record.
-      const quote =
-        (await router.quote({ tokenIn, tokenOut, amountIn })) ??
-        (await new Promise((resolve) => setTimeout(resolve, 400)).then(() =>
-          router.quote({ tokenIn, tokenOut, amountIn }),
-        ));
-      if (!quote) throw new Error('Rhea has no route for this pair and size right now.');
-      return { amountOut: formatRawAmount(quote.amountOut, buy.decimals), venue: 'rhea', observedAtMs: deps.now() };
+      // Rhea's router now and then times out or answers without a route from Cloudflare's network. A
+      // scheduled check has time to spare, so it waits longer and retries twice before recording why.
+      let reason = 'Rhea did not answer.';
+      for (const pauseMs of RHEA_RETRY_PAUSES_MS) {
+        if (pauseMs > 0) await new Promise((resolve) => setTimeout(resolve, pauseMs));
+        const answer = await router.explain({ tokenIn, tokenOut, amountIn }, { timeoutMs: RHEA_TIMEOUT_MS });
+        if ('quote' in answer) {
+          return {
+            amountOut: formatRawAmount(answer.quote.amountOut, buy.decimals),
+            venue: 'rhea',
+            observedAtMs: deps.now(),
+          };
+        }
+        reason = answer.reason;
+      }
+      throw new Error(`${reason} Retried twice.`);
     },
   };
 }
