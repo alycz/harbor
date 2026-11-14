@@ -91,6 +91,10 @@ export function EarnPage() {
     })),
   ];
   const pools = stablePools(research.yieldPools);
+  // Pools Harbor can deposit into lead the table; the rest keep their yield order (the sort is stable).
+  const depositableFirst = [...pools].sort(
+    (a, b) => Number(targetForPool(b) !== null) - Number(targetForPool(a) !== null),
+  );
   const best = bestPerChain(pools);
   const top = best.reduce<YieldPoolRow | null>(
     (leader, pool) => (leader === null || (pool.totalApyPct ?? 0) > (leader.totalApyPct ?? 0) ? pool : leader),
@@ -168,7 +172,7 @@ export function EarnPage() {
             <ResearchDataTable<YieldPoolRow>
               tableKey="earn-stable"
               label="Stablecoin pools"
-              rows={pools}
+              rows={depositableFirst}
               getRowId={(row) => row.id}
               columns={[
                 {
@@ -216,11 +220,15 @@ export function EarnPage() {
                   numeric: true,
                   cell: (row) => {
                     const rowTarget = targetForPool(row);
-                    return rowTarget ? (
-                      <Button size="sm" className="h-8 px-3" onClick={() => setTarget(rowTarget)}>
+                    return (
+                      <Button
+                        size="sm"
+                        className="h-8 px-3"
+                        onClick={() => (rowTarget ? setTarget(rowTarget) : setNotYet(row))}
+                      >
                         Deposit
                       </Button>
-                    ) : null;
+                    );
                   },
                 },
               ]}

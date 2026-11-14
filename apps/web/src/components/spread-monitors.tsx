@@ -468,7 +468,11 @@ function MonitorList() {
                     </span>
                   </span>
                 </button>
-                {rule.unacknowledgedAlerts ? <Chip tone="accent">{rule.unacknowledgedAlerts} new</Chip> : null}
+                {rule.unacknowledgedAlerts ? (
+                  <Chip tone="accent" className="h-8 px-3 text-[13px]">
+                    {rule.unacknowledgedAlerts} new
+                  </Chip>
+                ) : null}
                 <StatusChip rule={rule} />
                 <div className="flex gap-1.5">
                   {rule.status === 'active' ? (
@@ -516,20 +520,22 @@ function MonitorList() {
 function StatusChip({ rule }: { rule: Automation }) {
   if (rule.status === 'active' && !rule.armed) {
     return (
-      <Chip tone="accent" dot>
+      <Chip tone="accent" dot className="h-8 px-3 text-[13px]">
         Alerted, re-arms when the gap closes
       </Chip>
     );
   }
   if (rule.status === 'active') {
     return (
-      <Chip tone={rule.lastResult === 'unknown' ? 'warning' : 'success'} dot>
+      <Chip tone={rule.lastResult === 'unknown' ? 'warning' : 'success'} dot className="h-8 px-3 text-[13px]">
         {rule.lastResult === 'unknown' ? 'Watching, last check unpriced' : 'Watching'}
       </Chip>
     );
   }
   return (
-    <Chip tone="neutral">{rule.status === 'completed' ? 'Done' : rule.status === 'paused' ? 'Paused' : 'Draft'}</Chip>
+    <Chip tone="neutral" className="h-8 px-3 text-[13px]">
+      {rule.status === 'completed' ? 'Done' : rule.status === 'paused' ? 'Paused' : 'Draft'}
+    </Chip>
   );
 }
 

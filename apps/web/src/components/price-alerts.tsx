@@ -184,21 +184,24 @@ export function PriceAlerts() {
               <span className="flex items-center gap-1.5">
                 <Button
                   variant="outline"
+                  className="h-8 px-3 text-[13px]"
                   aria-expanded={expanded === alert.id}
                   onClick={() => setExpanded(expanded === alert.id ? null : alert.id)}
                 >
                   History
                 </Button>
                 {alert.unacknowledgedAlerts > 0 ? (
-                  <Chip tone="success" dot>
+                  <Chip tone="success" dot className="h-8 px-3 text-[13px]">
                     {alert.unacknowledgedAlerts} new
                   </Chip>
                 ) : null}
-                <Chip tone={alert.status === 'active' ? 'accent' : 'neutral'}>{alert.status}</Chip>
+                <Chip tone={alert.status === 'active' ? 'accent' : 'neutral'} className="h-8 px-3 text-[13px]">
+                  {alert.status}
+                </Chip>
                 {alert.status === 'active' ? (
                   <Button
                     variant="ghost"
-                    className="h-9 w-9 p-0"
+                    className="size-8 p-0"
                     disabled={change.isPending}
                     aria-label="Pause"
                     onClick={() => change.mutate({ action: 'pause', alert })}
@@ -208,7 +211,7 @@ export function PriceAlerts() {
                 ) : (
                   <Button
                     variant="ghost"
-                    className="h-9 w-9 p-0"
+                    className="size-8 p-0"
                     disabled={change.isPending}
                     aria-label="Resume"
                     onClick={() => change.mutate({ action: 'activate', alert })}
@@ -218,7 +221,7 @@ export function PriceAlerts() {
                 )}
                 <Button
                   variant="ghost"
-                  className="h-9 w-9 p-0"
+                  className="size-8 p-0"
                   disabled={change.isPending}
                   aria-label="Delete"
                   onClick={() => change.mutate({ action: 'remove', alert })}
