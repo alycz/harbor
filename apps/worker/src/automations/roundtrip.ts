@@ -112,3 +112,5 @@ function validateQuote(quote: VenueQuote, expectedInput: bigint) {
     throw new Error('Invalid route quote.');
   }
 }
+
+export type RoundtripPreview = Awaited<ReturnType<typeof previewRoundtrip>>;
