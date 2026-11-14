@@ -29,6 +29,7 @@ import {
   swapIntentView,
   swapPlanPolicy,
   swapPlanView,
+  swapOrigin,
   swapRecipient,
 } from './swap.ts';
 
@@ -75,8 +76,9 @@ export async function createPlan(
   const signed = await loadSignedPolicy(deps.db, deps.config.network, input.accountId);
   const own = ownAddresses(signed?.body ?? null, input.accountId);
   const recipient = swapRecipient(deps, intent, input.accountId, own);
+  const origin = swapOrigin(deps, intent, input.accountId, own);
   let deposit: Deposit | null = null;
-  let checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own, deposit });
+  let checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, origin, own, deposit });
   // With execution on, the owner reviews the executable quote itself: its deposit address, made out to
   // their own recipient and refund address. A plan its own checks block never gets one.
   if (checked.decision.verdict !== 'block' && deps.executor && recipient) {
@@ -86,11 +88,12 @@ export async function createPlan(
         'Your account needs to be set up for these tokens first: a small, refundable storage deposit.',
       );
     }
-    const executable = await executableQuote(deps, intent, input.accountId, recipient);
+    if (!origin) throw new AppError('INVALID_REQUEST', 'Add your origin-chain address to your signed policy.');
+    const executable = await executableQuote(deps, intent, origin.address, recipient);
     quote = executable.row;
     deposit = executable.deposit;
     now = deps.now();
-    checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, own, deposit });
+    checked = await swapPlanPolicy(deps, intent, quote, input.accountId, now, { recipient, origin, own, deposit });
   }
   const { decision, digest } = checked;
   const spent = await spentOf(
@@ -126,6 +129,7 @@ export async function createPlan(
     policyId: signed?.id ?? null,
     source,
     recipient,
+    origin,
     deposit,
     errorCode: firstBlock(decision),
     now,
@@ -180,7 +184,8 @@ export async function listActivity(deps: ExecutionDeps, account: string) {
 export async function intentSetup(deps: ExecutionDeps, intentId: string, account: string) {
   const intent = await loadIntent(deps, intentId);
   const signed = await loadSignedPolicy(deps.db, deps.config.network, account);
-  const recipient = swapRecipient(deps, intent, account, ownAddresses(signed?.body ?? null, account));
+  const own = ownAddresses(signed?.body ?? null, account);
+  const recipient = swapRecipient(deps, intent, account, own);
   return { transactions: await missingRegistrations(deps, intent, account, recipient) };
 }
 
@@ -221,7 +226,10 @@ export async function approvePlan(deps: ExecutionDeps, planId: string, account: 
     {
       approved_at_ms: now,
       valid_until_ms: Math.min(now + APPROVAL_WINDOW_MS, quote.expires_at_ms),
-      result: JSON.stringify({ recipientBalanceBeforeRaw: baseline }),
+      result: JSON.stringify({
+        ...(plan.result ? JSON.parse(plan.result) : {}),
+        recipientBalanceBeforeRaw: baseline,
+      }),
     },
     'user',
     'Reviewed and approved',
