@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, LoaderCircle, Plus, X } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
+import { toast } from 'sonner';
 
 import { execution } from '../lib/execution.ts';
 import { draftFrom, type PolicyDraft, policies, type SignedPolicyView } from '../lib/policy.ts';
@@ -70,7 +71,14 @@ function Field({
  * The policy editor. Saving drafts the policy on the server, which returns the exact message the wallet
  * shows; the owner signs it there, and only then does it take effect.
  */
-export function PolicyEditor({ current }: { current: SignedPolicyView | null }) {
+export function PolicyEditor({
+  current,
+  onSigned,
+}: {
+  current: SignedPolicyView | null;
+  /** Called once the signed revision is in force, with that revision. */
+  onSigned: (policy: SignedPolicyView) => void;
+}) {
   const id = useId();
   const wallet = useWallet();
   const queryClient = useQueryClient();
@@ -103,6 +111,15 @@ export function PolicyEditor({ current }: { current: SignedPolicyView | null }) 
       const signed = await wallet.signMessage(drafted);
       const result = await policies.sign(drafted.id, signed);
       queryClient.setQueryData(['policy', wallet.address], result);
+      if (result.policy) {
+        toast.success(`Revision ${result.policy.revision} signed`, {
+          description:
+            result.policy.revision > 1
+              ? `It replaces revision ${result.policy.revision - 1}. Your new limits are in force.`
+              : 'Your limits are in force.',
+        });
+        onSigned(result.policy);
+      }
       await queryClient.invalidateQueries({ queryKey: ['plan'] });
     } catch (caught) {
       setError(walletProblem(caught));

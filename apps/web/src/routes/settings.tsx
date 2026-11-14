@@ -1,7 +1,9 @@
 import { Button } from '@harbor/ui/components/button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Check, OctagonX, ShieldCheck, Snowflake, Wallet } from 'lucide-react';
+import { Check, CircleCheck, OctagonX, ShieldCheck, Snowflake, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { StrategiesPanel } from '../components/autopilot.tsx';
 import { PolicyEditor } from '../components/policy-editor.tsx';
@@ -27,6 +29,23 @@ export function PolicyPage() {
   });
   const policy = current.data?.policy ?? null;
   const live = policy && policy.status !== 'revoked' ? policy : null;
+  // The revision the owner just signed: the page scrolls up to it, so they see what changed.
+  const [justSigned, setJustSigned] = useState<number | null>(null);
+  const [flash, setFlash] = useState(false);
+  const liveRevision = live?.revision;
+  useEffect(() => {
+    // Wait for the signed revision itself to render; the query cache can update a tick after the callback.
+    if (justSigned === null || justSigned !== liveRevision) return;
+    const heading = document.getElementById('signed-policy');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    heading?.closest('section')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    // Move focus with the view, so a screen reader announces the signed policy too.
+    heading?.setAttribute('tabindex', '-1');
+    heading?.focus({ preventScroll: true });
+    setFlash(true);
+    const timer = window.setTimeout(() => setFlash(false), 2400);
+    return () => window.clearTimeout(timer);
+  }, [justSigned, liveRevision]);
 
   return (
     <div className="ws-stagger flex flex-col gap-7">
@@ -56,7 +75,7 @@ export function PolicyPage() {
               </EmptyState>
             </Panel>
           ) : null}
-          {live ? <SignedPolicy policy={live} /> : null}
+          {live ? <SignedPolicy policy={live} justSigned={justSigned === live.revision} flash={flash} /> : null}
           {live ? <StrategiesPanel /> : null}
           {wallet.address && current.isSuccess ? (
             <Panel
@@ -70,7 +89,11 @@ export function PolicyPage() {
               labelId="policy-draft"
               bodyClassName="p-5 @xl/workspace:p-6"
             >
-              <PolicyEditor key={live?.id ?? 'none'} current={live} />
+              <PolicyEditor
+                key={live?.id ?? 'none'}
+                current={live}
+                onSigned={(signed) => setJustSigned(signed.revision)}
+              />
             </Panel>
           ) : null}
         </div>
@@ -103,16 +126,32 @@ export function PolicyPage() {
 }
 
 /** The policy in force: its limits, what is already committed against them, and the freeze. */
-function SignedPolicy({ policy }: { policy: SignedPolicyView }) {
+function SignedPolicy({
+  policy,
+  justSigned,
+  flash,
+}: {
+  policy: SignedPolicyView;
+  justSigned: boolean;
+  flash: boolean;
+}) {
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const change = useMutation({
     mutationFn: (action: 'freeze' | 'revoke') => (action === 'freeze' ? policies.freeze() : policies.revoke()),
-    onSuccess: (result) => queryClient.setQueryData(['policy', wallet.address], result),
+    onSuccess: (result, action) => {
+      queryClient.setQueryData(['policy', wallet.address], result);
+      toast.success(
+        action === 'freeze' ? 'Frozen. The agent cannot act on its own.' : 'Revoked. This policy no longer applies.',
+      );
+    },
   });
   const frozen = policy.status === 'frozen';
   return (
     <Panel
+      className={`scroll-mt-6 transition-shadow duration-700 motion-reduce:transition-none ${
+        flash && justSigned ? 'ring-2 ring-[var(--harbor-accent)] ring-offset-2 ring-offset-background' : ''
+      }`}
       label={`Signed policy · revision ${policy.revision}`}
       icon={<ShieldCheck />}
       aside={
@@ -123,6 +162,21 @@ function SignedPolicy({ policy }: { policy: SignedPolicyView }) {
       labelId="signed-policy"
       bodyClassName="p-5 @xl/workspace:p-6"
     >
+      {justSigned && !frozen ? (
+        <p
+          role="status"
+          className="mb-4 flex items-start gap-2.5 rounded-lg border border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] px-3.5 py-3 text-[13px]"
+        >
+          <CircleCheck className="mt-px size-4 shrink-0 text-success" aria-hidden="true" />
+          <span>
+            Signed just now.{' '}
+            {policy.revision > 1
+              ? `Revision ${policy.revision} replaces revision ${policy.revision - 1}, and these limits are in force.`
+              : 'These limits are in force.'}{' '}
+            To change them again, edit the draft below and sign the next revision.
+          </span>
+        </p>
+      ) : null}
       {frozen ? (
         <p className="mb-4 rounded-lg border border-destructive/20 bg-destructive/6 px-3.5 py-3 text-[13px]">
           Frozen {policy.frozenAt ? formatUtc(policy.frozenAt) : ''}. The agent cannot act on its own. Sign a new
