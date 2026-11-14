@@ -530,10 +530,17 @@ header.ws-chrome {
 .ws-roll-digit {
   position: relative;
   display: inline-block;
-  height: 1lh;
+  /* Keep a real text baseline; clipping this box synthesizes a bottom baseline. */
+}
+
+.ws-roll-anchor {
+  visibility: hidden;
+}
+
+.ws-roll-window {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  vertical-align: bottom;
-  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
 }
 
 .ws-roll-column {
@@ -545,6 +552,7 @@ header.ws-chrome {
 
 .ws-roll-column > span {
   height: 1lh;
+  flex-shrink: 0;
 }
 
 .ws-roll-static {
