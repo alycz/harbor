@@ -1,160 +1,169 @@
 import { describe, expect, it } from 'vitest';
 
-import { createRheaLending, RHEA_LENDING_CONTRACT, RheaRegistrationRequired } from '../src/rhea/lending.ts';
+import {
+  checkSupplyReceipt,
+  createRheaReader,
+  RHEA_LENDING_CONTRACT,
+  RheaReadFailed,
+  registrationCall,
+  supplyCall,
+} from '../src/rhea/lending.ts';
+import supplyTx from './fixtures/rhea-supply-tx.json' with { type: 'json' };
+import usdcAsset from './fixtures/rhea-usdc-asset.json' with { type: 'json' };
 
 const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
-const OWNER = 'alice.near';
-const RPC = 'https://rpc.mainnet.near.org';
+const RPC = 'https://rpc.test';
 
-/** The shape `get_asset` returned for USDC on 2026-11-15, trimmed to what Harbor reads. */
-const USDC_ASSET = {
-  token_id: USDC,
-  supplied: { shares: '1', balance: '12175654532026803451228896' },
-  supply_apr: '0.117260931641168647809485079',
-  config: { can_deposit: true, can_withdraw: true, extra_decimals: 12 },
+/** A real supply on mainnet: 11.171634 USDC, empty msg, 100 Tgas. */
+const REAL = {
+  txHash: 'CX3nCVEtyTH7k3fhn3NruvYJmb6XXVDMyw4YMHU1dKNh',
+  accountId: '12fcdd4683f9cbf36a008f619cf36b56eed5058887125b0355b4fc2d4e714cd1',
+  tokenId: USDC,
+  amountRaw: 11_171_634n,
+  extraDecimals: 12,
 };
 
-interface Call {
-  accountId: string;
-  method: string;
-  args: Record<string, unknown>;
-  init: RequestInit;
-}
-
-/** A NEAR RPC that answers view calls from a table, and records every call it was asked. */
-function rpc(answers: Record<string, unknown>) {
-  const calls: Call[] = [];
-  const fetcher = (async (_input: string | URL | Request, init?: RequestInit) => {
+/** Answers view calls the way NEAR RPC does: the JSON result as a byte array. */
+function rpc(views: Record<string, unknown>) {
+  const calls: { method: string; args: unknown }[] = [];
+  const fetcher = (async (_input: unknown, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as {
-      params: { account_id: string; method_name: string; args_base64: string };
+      method: string;
+      params: { method_name?: string; args_base64?: string };
     };
-    const call = {
-      accountId: body.params.account_id,
-      method: body.params.method_name,
-      args: JSON.parse(atob(body.params.args_base64)) as Record<string, unknown>,
-      init: init ?? {},
-    };
-    calls.push(call);
-    const key = `${call.accountId}:${call.method}`;
-    if (!(key in answers)) return new Response(JSON.stringify({ error: { message: `no answer for ${key}` } }));
-    const bytes = [...new TextEncoder().encode(JSON.stringify(answers[key]))];
-    return new Response(JSON.stringify({ result: { result: bytes } }));
+    if (body.method !== 'query') return Response.json({ result: views[body.method] ?? null });
+    const name = body.params.method_name ?? '';
+    calls.push({ method: name, args: JSON.parse(atob(body.params.args_base64 ?? '')) });
+    if (!(name in views)) return Response.json({ result: { error: 'wasm execution failed' } });
+    const bytes = [...new TextEncoder().encode(JSON.stringify(views[name]))];
+    return Response.json({ result: { result: bytes } });
   }) as typeof fetch;
   return { calls, fetcher };
 }
 
-const registered = { total: '100000000000000000000000', available: '0' };
-
-describe('Rhea lending', () => {
-  it('reads a market with the contract argument name it requires, without following redirects', async () => {
-    const fake = rpc({ [`${RHEA_LENDING_CONTRACT}:get_asset`]: USDC_ASSET });
-    const market = await createRheaLending(RPC, fake.fetcher).market(USDC);
-    expect(fake.calls[0]?.args).toEqual({ token_id: USDC });
-    // Workers reject redirect: 'error', so every chain read must use 'manual'.
-    expect(fake.calls[0]?.init.redirect).toBe('manual');
-    expect(market).toEqual({
-      tokenId: USDC,
-      supplyAprPct: expect.closeTo(11.726, 3),
-      suppliedRaw: '12175654532026803451228896',
-      extraDecimals: 12,
-      canDeposit: true,
-      canWithdraw: true,
-    });
+describe('Rhea reader', () => {
+  it('reads a market with the token_id argument the contract expects', async () => {
+    const fake = rpc({ get_asset: usdcAsset });
+    const market = await createRheaReader(RPC, fake.fetcher).market(USDC);
+    expect(fake.calls[0]).toEqual({ method: 'get_asset', args: { token_id: USDC } });
+    expect(market).toMatchObject({ tokenId: USDC, canDeposit: true, canWithdraw: true, extraDecimals: 12 });
+    expect(market.supplyAprPct).toBeGreaterThan(0);
+    expect(market.supplyAprPct).toBeLessThan(100);
+    // The fixture's cap is 60M USDC with about 12M supplied.
+    expect(market.remainingCapRaw).toBeGreaterThan(40_000_000n * 10n ** 6n);
   });
 
-  it('prepares a supply-only transfer once balance and registration check out', async () => {
-    const fake = rpc({
-      [`${RHEA_LENDING_CONTRACT}:get_asset`]: USDC_ASSET,
-      [`${USDC}:ft_balance_of`]: '50000000',
-      [`${RHEA_LENDING_CONTRACT}:storage_balance_of`]: registered,
-    });
-    const plan = await createRheaLending(RPC, fake.fetcher).prepareSupply({
-      network: 'near:mainnet',
-      accountId: OWNER,
-      tokenId: USDC,
-      amount: 25_000_000n,
-    });
-    expect(plan.transaction).toEqual({
+  it('treats a market at or over its cap as full', async () => {
+    const full = structuredClone(usdcAsset);
+    full.config.supplied_limit = full.supplied.balance;
+    const market = await createRheaReader(RPC, rpc({ get_asset: full }).fetcher).market(USDC);
+    expect(market.remainingCapRaw).toBe(0n);
+  });
+
+  it('refuses a token Rhea does not list instead of guessing', async () => {
+    await expect(createRheaReader(RPC, rpc({}).fetcher).market('nope.near')).rejects.toBeInstanceOf(RheaReadFailed);
+  });
+
+  it('reads registration, the registration deposit, balances and the supplied position', async () => {
+    const reader = createRheaReader(
+      RPC,
+      rpc({
+        storage_balance_of: { total: '100000000000000000000000', available: '0' },
+        storage_balance_bounds: { min: '100000000000000000000000', max: null },
+        ft_balance_of: '25000000',
+        get_account: {
+          supplied: [{ token_id: USDC, balance: '30300102886386726882', shares: '1', apr: '0.12' }],
+        },
+      }).fetcher,
+    );
+    expect(await reader.registered('alice.near')).toBe(true);
+    expect(await reader.registrationDeposit()).toBe(10n ** 23n);
+    expect(await reader.tokenBalance(USDC, 'alice.near')).toBe(25_000_000n);
+    expect(await reader.supplied('alice.near', USDC, 12)).toBe(30_300_102n);
+  });
+
+  it('knows an account Rhea has never seen is not registered and has supplied nothing', async () => {
+    const reader = createRheaReader(RPC, rpc({ storage_balance_of: null, get_account: null }).fetcher);
+    expect(await reader.registered('new.near')).toBe(false);
+    expect(await reader.supplied('new.near', USDC, 12)).toBe(0n);
+  });
+});
+
+describe('Rhea calls', () => {
+  it('supplies with an empty msg, so nothing is posted as collateral', () => {
+    expect(supplyCall(USDC, 5_000_000n)).toEqual({
       receiverId: USDC,
       actions: [
         {
           type: 'FunctionCall',
           params: {
             methodName: 'ft_transfer_call',
-            args: { receiver_id: RHEA_LENDING_CONTRACT, amount: '25000000', msg: '' },
+            args: { receiver_id: RHEA_LENDING_CONTRACT, amount: '5000000', msg: '' },
             gas: '100000000000000',
             deposit: '1',
           },
         },
       ],
     });
+    expect(() => supplyCall(USDC, 0n)).toThrow(RangeError);
   });
 
-  it('refuses a supply larger than the balance, and asks an unregistered account to register first', async () => {
-    const poor = rpc({
-      [`${RHEA_LENDING_CONTRACT}:get_asset`]: USDC_ASSET,
-      [`${USDC}:ft_balance_of`]: '1000',
-      [`${RHEA_LENDING_CONTRACT}:storage_balance_of`]: registered,
+  it('registers with Rhea for registration only, so extra NEAR is refunded', () => {
+    const call = registrationCall('alice.near', 10n ** 23n);
+    expect(call.receiverId).toBe(RHEA_LENDING_CONTRACT);
+    expect(call.actions[0].params).toMatchObject({
+      methodName: 'storage_deposit',
+      args: { account_id: 'alice.near', registration_only: true },
+      deposit: '100000000000000000000000',
     });
-    await expect(
-      createRheaLending(RPC, poor.fetcher).prepareSupply({
-        network: 'near:mainnet',
-        accountId: OWNER,
-        tokenId: USDC,
-        amount: 25_000_000n,
+  });
+});
+
+describe('checkSupplyReceipt', () => {
+  it('confirms a real mainnet supply', () => {
+    expect(checkSupplyReceipt(supplyTx, REAL)).toBe('confirmed');
+  });
+
+  it('refuses the transaction for any other plan', () => {
+    expect(checkSupplyReceipt(supplyTx, { ...REAL, amountRaw: 11_171_635n })).toBe('mismatch');
+    expect(checkSupplyReceipt(supplyTx, { ...REAL, accountId: 'alice.near' })).toBe('mismatch');
+    expect(checkSupplyReceipt(supplyTx, { ...REAL, tokenId: 'usdt.tether-token.near' })).toBe('mismatch');
+    expect(checkSupplyReceipt(supplyTx, { ...REAL, txHash: 'other' })).toBe('mismatch');
+  });
+
+  it('refuses a transfer that posts the tokens as collateral', () => {
+    const collateral = structuredClone(supplyTx);
+    const action = collateral.transaction.actions[0] as { FunctionCall: { args: string } };
+    action.FunctionCall.args = btoa(
+      JSON.stringify({
+        receiver_id: RHEA_LENDING_CONTRACT,
+        amount: '11171634',
+        msg: JSON.stringify({ Execute: { actions: [{ IncreaseCollateral: { token_id: USDC } }] } }),
       }),
-    ).rejects.toThrow('Insufficient token balance');
-
-    const fresh = rpc({
-      [`${RHEA_LENDING_CONTRACT}:get_asset`]: USDC_ASSET,
-      [`${USDC}:ft_balance_of`]: '50000000',
-      [`${RHEA_LENDING_CONTRACT}:storage_balance_of`]: null,
-    });
-    await expect(
-      createRheaLending(RPC, fresh.fetcher).prepareSupply({
-        network: 'near:mainnet',
-        accountId: OWNER,
-        tokenId: USDC,
-        amount: 25_000_000n,
-      }),
-    ).rejects.toBeInstanceOf(RheaRegistrationRequired);
+    );
+    expect(checkSupplyReceipt(collateral, REAL)).toBe('mismatch');
   });
 
-  it('registers with exactly the contract minimum, and only when the account has no storage', async () => {
-    const fresh = rpc({
-      [`${RHEA_LENDING_CONTRACT}:storage_balance_of`]: null,
-      [`${RHEA_LENDING_CONTRACT}:storage_balance_bounds`]: { min: '100000000000000000000000', max: null },
-    });
-    expect(await createRheaLending(RPC, fresh.fetcher).registration(OWNER)).toEqual({
-      registered: false,
-      transaction: {
-        receiverId: RHEA_LENDING_CONTRACT,
-        actions: [
-          {
-            type: 'FunctionCall',
-            params: {
-              methodName: 'storage_deposit',
-              args: { account_id: OWNER },
-              gas: '30000000000000',
-              deposit: '100000000000000000000000',
-            },
-          },
-        ],
-      },
-    });
-
-    const existing = rpc({
-      [`${RHEA_LENDING_CONTRACT}:storage_balance_of`]: registered,
-      [`${RHEA_LENDING_CONTRACT}:storage_balance_bounds`]: { min: '100000000000000000000000', max: null },
-    });
-    expect(await createRheaLending(RPC, existing.fetcher).registration(OWNER)).toEqual({
-      registered: true,
-      transaction: null,
-    });
+  it('reports tokens Rhea handed back as refunded', () => {
+    const refunded = structuredClone(supplyTx);
+    refunded.status = { SuccessValue: btoa('"0"') };
+    expect(checkSupplyReceipt(refunded, REAL)).toBe('refunded');
   });
 
-  it('refuses an RPC endpoint that is not plain HTTPS', () => {
-    expect(() => createRheaLending('http://rpc.example')).toThrow();
-    expect(() => createRheaLending('https://user:pass@rpc.example')).toThrow();
+  it('reports a failed receipt as failed', () => {
+    const failed = structuredClone(supplyTx);
+    (failed.receipts_outcome[1] as { outcome: { status: unknown } }).outcome.status = { Failure: {} };
+    expect(checkSupplyReceipt(failed, REAL)).toBe('failed');
+  });
+
+  it('waits while the transaction is not final', () => {
+    expect(checkSupplyReceipt({ ...supplyTx, final_execution_status: 'EXECUTED_OPTIMISTIC' }, REAL)).toBe('pending');
+    expect(checkSupplyReceipt(null, REAL)).toBe('pending');
+  });
+
+  it('needs Rhea to have logged the deposit for this account', () => {
+    const silent = structuredClone(supplyTx);
+    for (const receipt of silent.receipts_outcome) receipt.outcome.logs = [];
+    expect(checkSupplyReceipt(silent, REAL)).toBe('mismatch');
   });
 });
