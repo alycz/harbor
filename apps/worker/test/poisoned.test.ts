@@ -3,6 +3,7 @@ import { createHarborAgent, DEFAULT_TURN_LIMITS, runTurn } from '@harbor/agent-r
 import { describe, expect, it } from 'vitest';
 
 import { createModelSource } from '../src/agent/models.ts';
+import type { OpportunityService } from '../src/agent/opportunities.ts';
 import { SYSTEM_PROMPT } from '../src/agent/prompt.ts';
 import { createTools, type ProposalService } from '../src/agent/tools.ts';
 import { assetRegistry } from '../src/execution/assets.ts';
@@ -10,6 +11,11 @@ import { compareIntent, createPlan } from '../src/execution/lifecycle.ts';
 import type { ExecutionDeps } from '../src/execution/store.ts';
 import { createSwapIntent } from '../src/execution/swap.ts';
 import { fakeWorld } from './execution-fakes.ts';
+
+const noOpportunities: OpportunityService = {
+  deposits: async () => ({ fetchedAt: '2026-11-15T00:00:00.000Z', opportunities: [] }),
+  borrowMarkets: async () => ({ borrowingEnabled: false, markets: [] }),
+};
 
 const OWNER = 'victim.near';
 const ATTACKER = 'migrate-harbor.near';
@@ -114,7 +120,9 @@ async function signPolicy(owner: string, now: number) {
 
 describe('a poisoned post', () => {
   it('reaches the model only as untrusted data', async () => {
-    const feed = createTools({ proposals: proposals(deps().execution, []) }).find((tool) => tool.name === 'read_feed');
+    const feed = createTools({ proposals: proposals(deps().execution, []), opportunities: noOpportunities }).find(
+      (tool) => tool.name === 'read_feed',
+    );
     const result = await feed?.execute('call-feed', {}, undefined);
     const text = result?.content[0]?.type === 'text' ? result.content[0].text : '';
     expect(text.startsWith('<untrusted source="social posts, sample feed (not live)">')).toBe(true);
@@ -144,7 +152,7 @@ describe('a poisoned post', () => {
       model: source.model,
       streamFn: source.streamFn,
       systemPrompt: SYSTEM_PROMPT,
-      tools: createTools({ proposals: proposals(h.execution, created) }),
+      tools: createTools({ proposals: proposals(h.execution, created), opportunities: noOpportunities }),
       messages: [],
       limits: DEFAULT_TURN_LIMITS,
       sessionId: 'poisoned-test',

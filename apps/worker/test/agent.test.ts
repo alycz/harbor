@@ -5,9 +5,15 @@ import { describe, expect, it } from 'vitest';
 
 import type { ConversationAgent } from '../src/agent/conversation.ts';
 import { proposalOf } from '../src/agent/conversation.ts';
+import type { OpportunityService } from '../src/agent/opportunities.ts';
 import { createTools, type ProposalService } from '../src/agent/tools.ts';
 import { createApp } from '../src/app.ts';
 import { sessionCookie } from './session.ts';
+
+const noOpportunities: OpportunityService = {
+  deposits: async () => ({ fetchedAt: '2026-11-15T00:00:00.000Z', opportunities: [] }),
+  borrowMarkets: async () => ({ borrowingEnabled: false, markets: [] }),
+};
 
 const ORIGIN = 'https://harbor.test';
 const noProposals: ProposalService = {
@@ -349,7 +355,9 @@ describe('admission', () => {
 
 describe('list_markets', () => {
   it('sorts yield pools by APY when asked', async () => {
-    const tool = createTools({ proposals: noProposals }).find((candidate) => candidate.name === 'list_markets');
+    const tool = createTools({ proposals: noProposals, opportunities: noOpportunities }).find(
+      (candidate) => candidate.name === 'list_markets',
+    );
     const result = await tool?.execute('call-2', { kind: 'yield_pools', sort: 'apy', limit: 5 }, undefined);
     const text = result?.content[0]?.type === 'text' ? result.content[0].text : '';
     const { rows } = JSON.parse(text.slice(text.indexOf('\n') + 1, text.lastIndexOf('\n')));
@@ -358,7 +366,9 @@ describe('list_markets', () => {
   });
 
   it('returns dated snapshot rows inside an untrusted envelope', async () => {
-    const tool = createTools({ proposals: noProposals }).find((candidate) => candidate.name === 'list_markets');
+    const tool = createTools({ proposals: noProposals, opportunities: noOpportunities }).find(
+      (candidate) => candidate.name === 'list_markets',
+    );
     const result = await tool?.execute('call-1', { kind: 'protocols', category: 'lending', limit: 2 }, undefined);
     const text = result?.content[0]?.type === 'text' ? result.content[0].text : '';
 
@@ -372,7 +382,7 @@ describe('list_markets', () => {
 
 describe('propose_intent', () => {
   const proposeTool = (proposals: ProposalService) =>
-    createTools({ proposals }).find((tool) => tool.name === 'propose_intent');
+    createTools({ proposals, opportunities: noOpportunities }).find((tool) => tool.name === 'propose_intent');
 
   it('creates a proposal and explains the application quote, not its own numbers', async () => {
     const calls: unknown[] = [];
@@ -428,5 +438,54 @@ describe('propose_intent', () => {
     expect(proposalOf(end('list_markets', false, { intentId: 'intent-1' }))).toBeNull();
     expect(proposalOf(end('propose_intent', false, {}))).toBeNull();
     expect(proposalOf(end('propose_intent', false, { intentId: 'intent-2', kind: 'flash_loan' }))).toBeNull();
+  });
+});
+
+describe('live opportunity tools', () => {
+  const opportunities: OpportunityService = {
+    deposits: async () => ({
+      fetchedAt: '2026-11-15T00:00:00.000Z',
+      opportunities: [
+        {
+          protocol: 'rhea-lending',
+          name: 'Rhea Lend USDC',
+          chain: 'NEAR',
+          asset: 'USDC',
+          ratePct: 12.59,
+          rateKind: 'APR',
+          sizeUsd: 12_092_763,
+          queueWith: 'review_protocol_action { protocol: "rhea-lending", assetId: "USDC", amount: "<USDC amount>" }',
+        },
+      ],
+    }),
+    borrowMarkets: async () => ({
+      borrowingEnabled: true,
+      markets: [
+        {
+          marketId: 'ibtc-iethusdc-1.v1.tmplr.near',
+          borrow: { assetId: 'nep141:eth-0xa0b8.omft.near', symbol: 'USDC', blockchain: 'eth', decimals: 6 },
+          collateral: { assetId: 'nep141:btc.omft.near', symbol: 'BTC', blockchain: 'btc', decimals: 8 },
+        },
+      ],
+    }),
+  };
+  const tools = createTools({ proposals: noProposals, opportunities });
+  const body = (text: string) => JSON.parse(text.slice(text.indexOf('\n') + 1, text.lastIndexOf('\n')));
+
+  it('lists live deposits with exactly how to queue each, inside an untrusted envelope', async () => {
+    const result = await tools.find((tool) => tool.name === 'list_deposit_opportunities')?.execute('d', {}, undefined);
+    const text = result?.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text.startsWith('<untrusted source="')).toBe(true);
+    expect(body(text)).toMatchObject({ live: true, opportunities: [{ asset: 'USDC', ratePct: 12.59 }] });
+    expect(body(text).opportunities[0].queueWith).toContain('assetId: "USDC"');
+  });
+
+  it('lists Templar markets with the decimals a borrow amount needs', async () => {
+    const result = await tools.find((tool) => tool.name === 'list_borrow_markets')?.execute('b', {}, undefined);
+    const text = result?.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(body(text)).toMatchObject({
+      borrowingEnabled: true,
+      markets: [{ marketId: 'ibtc-iethusdc-1.v1.tmplr.near', borrow: { symbol: 'USDC', decimals: 6 } }],
+    });
   });
 });

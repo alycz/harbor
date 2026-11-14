@@ -5,8 +5,16 @@ import { Type } from 'typebox';
 
 import snapshotJson from '../../../../research/data/research-snapshot.json' with { type: 'json' };
 import { DEMO_FEED } from './feed.ts';
+import type { OpportunityService } from './opportunities.ts';
 
-export const APPROVED_TOOLS = ['list_markets', 'read_feed', 'propose_intent', 'review_protocol_action'] as const;
+export const APPROVED_TOOLS = [
+  'list_markets',
+  'read_feed',
+  'propose_intent',
+  'review_protocol_action',
+  'list_deposit_opportunities',
+  'list_borrow_markets',
+] as const;
 
 interface SwapProposal {
   intentId: string;
@@ -33,13 +41,43 @@ const DEFAULT_LIMIT = 10;
 const SYMBOL_PATTERN = '^[A-Za-z0-9.$-]{1,16}$';
 const research = parseResearchSnapshot(snapshotJson);
 
-export function createTools(deps: { proposals: ProposalService }): AgentTool[] {
+export function createTools(deps: { proposals: ProposalService; opportunities: OpportunityService }): AgentTool[] {
   return [
+    defineTool({
+      name: 'list_deposit_opportunities',
+      label: 'Reading live deposit rates',
+      description:
+        'List what Harbor can deposit into right now, with live rates: Rhea Lend (USDC, USDT on NEAR) read from its contract, and the 1Click vaults (Gauntlet USDC Prime, Taler USDC). Each row says exactly how to queue it. Use this for lending, earning or deposit questions instead of the snapshot.',
+      parameters: Type.Object({}),
+      replay: 'safe',
+      run: async () => {
+        const body = await deps.opportunities.deposits();
+        return {
+          text: untrusted('live deposit rates', JSON.stringify({ live: true, ...body })),
+          details: { rows: body.opportunities.length },
+        };
+      },
+    }),
+    defineTool({
+      name: 'list_borrow_markets',
+      label: 'Reading Templar markets',
+      description:
+        "List Templar's active borrowing markets: each market's id, the asset you borrow and the collateral it needs, with symbol, chain and decimals. A borrow amount in smallest units is the token amount times 10^decimals. Borrowing creates debt and needs collateral already posted on that market.",
+      parameters: Type.Object({}),
+      replay: 'safe',
+      run: async () => {
+        const body = await deps.opportunities.borrowMarkets();
+        return {
+          text: untrusted('Templar markets', JSON.stringify({ live: true, ...body })),
+          details: { rows: body.markets.length },
+        };
+      },
+    }),
     defineTool({
       name: 'review_protocol_action',
       label: 'Preparing protocol review',
       description:
-        'Show a real Rhea supply or Templar borrow review in chat only when the user explicitly asks to queue it. This is an unsigned recommendation, not a durable submitted transaction. User clicks prepare and signs separately. Use exact canonical assetId or marketId from opportunity context; ask for missing identifiers or amount. Templar requires amountAtomic in smallest token units; never guess decimals.',
+        'Show a real Rhea supply or Templar borrow review in chat only when the user explicitly asks to queue it. This is an unsigned recommendation, not a submitted transaction: the user reviews and signs it in their wallet. For Rhea, assetId is "USDC" or "USDT" and amount is in whole tokens. For Templar, use a marketId from list_borrow_markets and amountAtomic = amount × 10^decimals of its borrow asset; ask for the amount if missing and never guess decimals.',
       parameters: Type.Union([
         Type.Object({
           protocol: Type.Literal('rhea-lending'),

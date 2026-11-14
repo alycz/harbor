@@ -8,6 +8,7 @@ import { assertExactTools } from '@harbor/agent-runtime/tools';
 import { type AdmissionLimits, ConfigError, decodeAgentConfig } from '../config.ts';
 import { ADMISSION_SCOPE } from './admission.ts';
 import { createModelSource } from './models.ts';
+import { createOpportunityService } from './opportunities.ts';
 import { SYSTEM_PROMPT } from './prompt.ts';
 import { createProposalService } from './proposals.ts';
 import { APPROVED_TOOLS, createTools } from './tools.ts';
@@ -177,9 +178,10 @@ export class ConversationAgent extends DurableObject<Env> {
     let outcome: TurnOutcome;
     try {
       const source = createModelSource(decodeAgentConfig(this.env));
-      const tools = createTools({ proposals: createProposalService(this.env) }).filter(
-        (tool) => !researchOnly || (tool.name !== 'propose_intent' && tool.name !== 'review_protocol_action'),
-      );
+      const tools = createTools({
+        proposals: createProposalService(this.env),
+        opportunities: createOpportunityService(this.env),
+      }).filter((tool) => !researchOnly || (tool.name !== 'propose_intent' && tool.name !== 'review_protocol_action'));
       assertExactTools(
         tools,
         APPROVED_TOOLS.filter(
