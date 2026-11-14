@@ -410,6 +410,41 @@ export function LandingSkeleton() {
   );
 }
 
+/** Agent: the page title, the budget panel, then the three safeguards. */
+export function AgentSkeleton() {
+  return (
+    <Loading label="Loading agent" className="flex flex-col gap-7">
+      <div className="max-w-2xl space-y-3">
+        <SkeletonBox width={120} height={30} radius={7} />
+        <SkeletonBox width="90%" height={12} />
+        <SkeletonBox width="70%" height={12} />
+      </div>
+      <div className="ws-card grid gap-8 p-6 @3xl/workspace:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+        <div className="space-y-3">
+          <SkeletonBox width="92%" height={26} radius={6} />
+          <SkeletonBox width="84%" height={26} radius={6} />
+          <SkeletonBox width="60%" height={26} radius={6} />
+        </div>
+        <div className="space-y-4">
+          <SkeletonBox width="100%" height={40} radius={8} />
+          <SkeletonBox width="100%" height={40} radius={8} />
+          <SkeletonBox width="100%" height={44} radius={8} />
+        </div>
+      </div>
+      <div className="grid gap-3 @3xl/workspace:grid-cols-3">
+        {[0, 1, 2].map((card) => (
+          <div key={card} className="ws-card space-y-3 p-5">
+            <SkeletonBox width="45%" height={14} />
+            <SkeletonBox width="60%" height={20} radius={10} />
+            <SkeletonBox width="95%" height={11} />
+            <SkeletonBox width="80%" height={11} />
+          </div>
+        ))}
+      </div>
+    </Loading>
+  );
+}
+
 /** The skeleton for a workspace path, for the Suspense that waits on a page's code. */
 export function SkeletonForPath({ pathname }: { pathname: string }) {
   if (pathname === '/research') return <ResearchSkeleton />;
@@ -419,5 +454,6 @@ export function SkeletonForPath({ pathname }: { pathname: string }) {
   if (pathname.startsWith('/plans/')) return <PlanSkeleton />;
   if (pathname === '/settings/policy') return <PolicySkeleton />;
   if (pathname === '/chat') return <ChatSkeleton />;
+  if (pathname === '/agent') return <AgentSkeleton />;
   return <PageSkeleton />;
 }

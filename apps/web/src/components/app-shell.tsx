@@ -21,6 +21,7 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   BookOpen,
+  Bot,
   Check,
   ChevronDown,
   Copy,
@@ -53,7 +54,8 @@ const ROUTES = [
   { to: '/research', label: 'Research', icon: Telescope },
   { to: '/earn', label: 'Earn', icon: PiggyBank },
   { to: '/trade', label: 'Trade', icon: ArrowLeftRight },
-  { to: '/automations', label: 'Automations', icon: Activity },
+  { to: '/automations', label: 'Automations', short: 'Monitor', icon: Activity },
+  { to: '/agent', label: 'Agent', icon: Bot },
   { to: '/portfolio', label: 'Portfolio', icon: WalletCards },
 ] as const;
 
@@ -350,7 +352,7 @@ function BottomNav({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-background/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 grid auto-cols-fr grid-flow-col border-t border-border bg-background/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
     >
       {ROUTES.map((route) => {
         const active = isActiveGroup(pathname, route.to);
@@ -360,10 +362,10 @@ function BottomNav({ pathname }: { pathname: string }) {
             key={route.to}
             to={route.to}
             aria-current={active ? 'page' : undefined}
-            className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-0.5 text-[10.5px] font-medium transition-colors ${active ? 'text-foreground' : 'text-muted-foreground'}`}
           >
             <Icon aria-hidden="true" strokeWidth={1.75} className={`size-5 ${active ? 'text-primary' : ''}`} />
-            {route.label}
+            <span className="max-w-full truncate">{'short' in route ? route.short : route.label}</span>
           </Link>
         );
       })}

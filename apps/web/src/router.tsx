@@ -13,6 +13,7 @@ import { lazy } from 'react';
 import { AppShell } from './components/app-shell.tsx';
 
 import {
+  AgentSkeleton,
   ChatSkeleton,
   EarnSkeleton,
   LandingSkeleton,
@@ -66,6 +67,12 @@ const tradeRoute = createRoute({
   path: '/trade',
   pendingComponent: TradeSkeleton,
   component: lazy(() => import('./routes/trade.tsx').then((module) => ({ default: module.TradePage }))),
+});
+const agentRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: '/agent',
+  pendingComponent: AgentSkeleton,
+  component: lazy(() => import('./routes/agent.tsx').then((module) => ({ default: module.AgentPage }))),
 });
 const automationsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
@@ -122,6 +129,7 @@ export const router = createRouter({
       tradeRoute,
       earnRoute,
       automationsRoute,
+      agentRoute,
       portfolioRoute,
       planRoute,
       policyRoute,

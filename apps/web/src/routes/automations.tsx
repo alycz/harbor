@@ -1,9 +1,9 @@
 import { Button } from '@harbor/ui/components/button';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { AssetSelect, chainName } from '../components/asset-select.tsx';
-import { LeashVault } from '../components/leash-vault.tsx';
 import { PriceAlerts } from '../components/price-alerts.tsx';
 import { RoundtripMonitor } from '../components/roundtrip-monitor.tsx';
 import { SpreadMonitors } from '../components/spread-monitors.tsx';
@@ -62,6 +62,14 @@ export function AutomationsPage() {
       <PageHeader
         title="Automations"
         description="Harbor watches the market every minute while you're away and keeps the evidence of every check. When something moves, it tells you and queues the trade for you to sign."
+        actions={
+          <Link
+            to="/agent"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3.5 text-[13px] font-medium transition-colors hover:bg-secondary/60"
+          >
+            Agent budget
+          </Link>
+        }
       />
       <SpreadMonitors />
       <PriceAlerts />
@@ -232,7 +240,6 @@ export function AutomationsPage() {
           </Button>
         </section>
       ) : null}
-      <LeashVault />
     </div>
   );
 }

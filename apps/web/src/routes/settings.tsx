@@ -1,5 +1,6 @@
 import { Button } from '@harbor/ui/components/button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Check, OctagonX, ShieldCheck, Snowflake, Wallet } from 'lucide-react';
 
 import { StrategiesPanel } from '../components/autopilot.tsx';
@@ -29,7 +30,17 @@ export function PolicyPage() {
 
   return (
     <div className="ws-stagger flex flex-col gap-7">
-      <PageHeader title="Your policy" />
+      <PageHeader
+        title="Your policy"
+        actions={
+          <Link
+            to="/agent"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3.5 text-[13px] font-medium transition-colors hover:bg-secondary/60"
+          >
+            Agent budget
+          </Link>
+        }
+      />
       <div className="grid items-start gap-5 @3xl/workspace:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-5">
           {!wallet.address && !wallet.restoring ? (
