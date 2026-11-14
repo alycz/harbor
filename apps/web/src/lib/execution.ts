@@ -70,6 +70,15 @@ export interface Plan {
   policyCheck: Decision | null;
   source: 'user' | 'autopilot';
   recipient: { chain: string; address: string } | null;
+  /** Exact provider deposit terms. Non-NEAR origins require an origin-chain wallet integration. */
+  funding: {
+    chain: string;
+    asset: string;
+    amountRaw: string;
+    address: string;
+    memo: string | null;
+    walletTransactionAvailable: boolean;
+  } | null;
   /** The one transaction the wallet signs, once the plan is approved and before its deposit is sent. */
   signing: WalletTransaction | null;
   validUntil: string | null;
