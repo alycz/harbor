@@ -301,19 +301,41 @@ export function SwapProposalCard({
           plan?.funding && !plan.funding.walletTransactionAvailable ? (
             <div className="space-y-3 rounded-lg border border-warning/25 bg-warning/8 px-3.5 py-3 text-[13px]">
               {secondsLeft === 0 ? (
-                <p className="font-medium text-destructive">Do not fund this deposit: the executable quote expired. If you already sent it, enter its hash below so Harbor can verify and recover tracking.</p>
+                <p className="font-medium text-destructive">
+                  Do not fund this deposit: the executable quote expired. If you already sent it, enter its hash below
+                  so Harbor can verify and recover tracking.
+                </p>
               ) : (
                 <>
-                  <p className="font-medium text-warning">Fund this exact deposit in your {plan.funding.chain} wallet</p>
+                  <p className="font-medium text-warning">
+                    Fund this exact deposit in your {plan.funding.chain} wallet
+                  </p>
                   <p>
-                    Send exactly <span className="ws-num font-medium">{quote?.sell.amount} {quote?.sell.symbol}</span> to{' '}
-                    <span className="break-all font-mono text-[12px]">{plan.funding.address}</span>.
-                    {plan.funding.memo ? <> Memo: <span className="font-mono">{plan.funding.memo}</span>.</> : null}
+                    Send exactly{' '}
+                    <span className="ws-num font-medium">
+                      {quote?.sell.amount} {quote?.sell.symbol}
+                    </span>{' '}
+                    to <span className="break-all font-mono text-[12px]">{plan.funding.address}</span>.
+                    {plan.funding.memo ? (
+                      <>
+                        {' '}
+                        Memo: <span className="font-mono">{plan.funding.memo}</span>.
+                      </>
+                    ) : null}
                   </p>
                   <dl className="space-y-1 text-[12px]">
-                    <div><dt className="inline text-muted-foreground">Asset ID: </dt><dd className="inline break-all font-mono">{plan.funding.asset}</dd></div>
-                    <div><dt className="inline text-muted-foreground">Send from: </dt><dd className="inline break-all font-mono">{plan.funding.sender}</dd></div>
-                    <div><dt className="inline text-muted-foreground">Fund before: </dt><dd className="inline">{new Date(plan.funding.deadline).toLocaleString()}</dd></div>
+                    <div>
+                      <dt className="inline text-muted-foreground">Asset ID: </dt>
+                      <dd className="inline break-all font-mono">{plan.funding.asset}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline text-muted-foreground">Send from: </dt>
+                      <dd className="inline break-all font-mono">{plan.funding.sender}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline text-muted-foreground">Fund before: </dt>
+                      <dd className="inline">{new Date(plan.funding.deadline).toLocaleString()}</dd>
+                    </div>
                   </dl>
                   <p className="text-[12px] text-muted-foreground">
                     Harbor independently checks sender, chain, token, receiver, amount, receipt and Transfer event
