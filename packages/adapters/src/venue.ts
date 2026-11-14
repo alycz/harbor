@@ -34,6 +34,8 @@ export interface SwapVenue {
 /** An executable quote: a fresh deposit address that settles to the owner's own recipient and refund address. */
 export interface DepositQuote extends VenueQuote {
   deposit: {
+    /** Chain on which this exact deposit must be funded. */
+    originChain: string;
     address: string;
     memo: string | null;
     /** After this the provider refunds instead of swapping. */
@@ -75,7 +77,13 @@ export interface SwapExecutor {
     refundTo: string;
     recipient: string;
   }): Promise<DepositQuote>;
-  submitDeposit(input: { txHash: string; depositAddress: string; memo: string | null; sender: string }): Promise<void>;
+  submitDeposit(input: {
+    txHash: string;
+    depositAddress: string;
+    memo: string | null;
+    sender: string;
+    originChain?: string;
+  }): Promise<void>;
   status(input: { depositAddress: string; memo: string | null; quoteHash: string }): Promise<SettlementReport>;
 }
 
