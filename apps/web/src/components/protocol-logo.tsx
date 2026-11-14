@@ -92,10 +92,10 @@ export function LogoPair({
   className?: string;
 }) {
   return (
-    <span aria-hidden="true" className={`relative inline-block shrink-0 ${className}`}>
+    <span aria-hidden="true" className={`relative inline-flex shrink-0 ${className}`}>
       <ProtocolLogo name={primary.name} fallback={primary.url} className="size-full" />
       {secondary ? (
-        <span className="absolute -right-1 -bottom-1 size-[52%] rounded-full bg-card p-px">
+        <span className="absolute -right-[3px] -bottom-[3px] size-[52%] rounded-full bg-card p-px">
           <ProtocolLogo name={secondary.name} fallback={secondary.url} className="size-full" />
         </span>
       ) : null}
