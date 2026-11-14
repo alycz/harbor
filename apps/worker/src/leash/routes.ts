@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
 import { decodeExecutionConfig } from '../config.ts';
+import { fitsLeashPreview } from './preview-policy.ts';
 
 const Account = z
   .string()
@@ -186,35 +187,7 @@ export function createLeashRoutes() {
       if (!vault || vault.frozen) throw new AppError('FORBIDDEN', 'Owner vault is absent or frozen.');
       const payload = oneClickQuotePayload(input.data.quoteResponse);
       const q = JSON.parse(payload) as Record<string, unknown>;
-      const amount = Amount.safeParse(q.amountIn);
-      const deadline = typeof q.deadline === 'string' ? Date.parse(q.deadline) : NaN;
-      if (
-        !amount.success ||
-        BigInt(amount.data) === 0n ||
-        q.amount !== amount.data ||
-        q.dry !== false ||
-        q.swapType !== 'EXACT_INPUT' ||
-        q.depositType !== 'ORIGIN_CHAIN' ||
-        q.refundType !== 'ORIGIN_CHAIN' ||
-        q.originAsset !== `nep141:${vault.limits.token}` ||
-        q.refundTo !== owner ||
-        typeof q.destinationAsset !== 'string' ||
-        !vault.limits.buy_assets.includes(q.destinationAsset) ||
-        typeof q.recipient !== 'string' ||
-        !vault.limits.recipients.includes(q.recipient) ||
-        typeof q.depositAddress !== 'string' ||
-        !/^[a-f0-9]{64}$/.test(q.depositAddress) ||
-        typeof q.slippageTolerance !== 'number' ||
-        !Number.isInteger(q.slippageTolerance) ||
-        q.slippageTolerance < 0 ||
-        q.slippageTolerance > vault.limits.max_slippage_bps ||
-        !Number.isFinite(deadline) ||
-        deadline <= Date.now() ||
-        vault.limits.expires_at_ms <= Date.now() ||
-        BigInt(amount.data) > BigInt(vault.balance) ||
-        BigInt(amount.data) > BigInt(vault.limits.per_action) ||
-        BigInt(amount.data) > BigInt(vault.limits.per_day)
-      ) {
+      if (!fitsLeashPreview(q, owner, vault)) {
         throw new AppError('FORBIDDEN', 'Quote does not fit the observed owner vault limits.');
       }
       return c.json({
