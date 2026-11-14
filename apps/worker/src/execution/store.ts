@@ -259,7 +259,7 @@ export function newPlanRow(input: {
   policyId: string | null;
   source: PlanRow['source'];
   recipient: { chain: string; address: string } | null;
-  origin: { chain: string; address: string } | null;
+  origin?: { chain: string; address: string } | null;
   deposit: { address: string; memo: string | null; quoteHash: string } | null;
   errorCode: string | null;
   now: number;
