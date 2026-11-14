@@ -20,6 +20,11 @@ const RETRY_DELAY_MS = 15_000;
 const MAX_RULES_PER_TICK = 25;
 const MAX_EVALUATIONS_PER_TICK = 25;
 const TICK_BUDGET_MS = 25_000;
+/**
+ * Cron ticks start a few seconds late, by a varying amount. A rule falling due within this much of a
+ * tick runs on it, so jitter can never push a once-a-minute check to every other minute.
+ */
+const DUE_GRACE_MS = 30_000;
 
 const JobPayloadSchema = z.strictObject({
   ruleId: z.uuid(),
@@ -107,7 +112,7 @@ export async function runAutomations(deps: AutomationDeps) {
        WHERE network = ? AND status = 'active' AND next_due_at_ms <= ?
        ORDER BY next_due_at_ms LIMIT ?`,
     )
-    .bind(deps.network, startedAtMs, MAX_RULES_PER_TICK)
+    .bind(deps.network, startedAtMs + DUE_GRACE_MS, MAX_RULES_PER_TICK)
     .all<Pick<RuleRow, 'id' | 'revision' | 'interval_ms'> & { next_due_at_ms: number }>();
   for (const rule of due) {
     await enqueue(

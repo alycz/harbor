@@ -323,6 +323,22 @@ function venue(name: string, state: { usdPerNear: number | null; feePct: number 
   };
 }
 
+describe('scheduling', () => {
+  it('checks every minute even when a cron tick starts a few seconds early', async () => {
+    const h = createFixture(1_930_000_000_000);
+    const rule = await activeRule(h);
+    // First tick runs 8 seconds into the minute; the next one starts on the minute, 52 seconds later.
+    h.clock.now += 8_000;
+    expect(await runAutomations(h.deps)).toMatchObject({ evaluated: 1 });
+    h.clock.now += 52_000;
+    expect(await runAutomations(h.deps)).toMatchObject({ evaluated: 1 });
+    // A second tick inside the same minute finds nothing due.
+    h.clock.now += 5_000;
+    expect(await runAutomations(h.deps)).toMatchObject({ evaluated: 0 });
+    await deleteRule(h.deps, rule.id);
+  });
+});
+
 describe('spread monitors', () => {
   it('measures the edge of a round trip exactly, in percent', () => {
     expect(edgePct('100', '101.5')).toBe(1.5);

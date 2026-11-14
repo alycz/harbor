@@ -51,33 +51,13 @@ export function AutomationsPage() {
     review.reset();
   }
   return (
-    <div className="space-y-6 ws-stagger">
+    <div className="ws-stagger flex flex-col gap-7">
       <PageHeader
         title="Automations"
-        description="Watch the market. Act on your terms. Monitor Intents quotes and investigate cross-chain routes, without handing over your wallet."
-        meta={
-          <Chip tone="accent" dot>
-            Monitoring only · You sign every trade
-          </Chip>
-        }
+        description="Harbor watches the market every minute while you're away and keeps the evidence of every check. When something moves, it tells you and queues the trade for you to sign."
       />
-      <div className="grid gap-4 @xl/workspace:grid-cols-3">
-        {[
-          ['01', 'Choose a route', 'Use verified assets and their exact chain, not ticker guesses.'],
-          ['02', 'Observe the quotes', 'Compare a round trip now, or save a recurring price alert below.'],
-          [
-            '03',
-            'Review before acting',
-            'A quote signal is not a trade. Open Trade for a fresh owner-signed proposal.',
-          ],
-        ].map(([step, title, description]) => (
-          <section key={step} className="ws-card p-5">
-            <span className="font-mono text-xs text-muted-foreground">{step}</span>
-            <h2 className="mt-3 font-medium">{title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-          </section>
-        ))}
-      </div>
+      <SpreadMonitors />
+      <PriceAlerts />
       <Panel label="Intents-only round-trip scanner" icon={<Radar />} bodyClassName="p-5">
         <p className="mb-5 text-sm text-muted-foreground">
           Compare A → B → A using two sequential, read-only Intents quotes. Scan now, then save this route for recurring
@@ -257,8 +237,6 @@ export function AutomationsPage() {
           </Button>
         </section>
       ) : null}
-      <SpreadMonitors />
-      <PriceAlerts />
     </div>
   );
 }
