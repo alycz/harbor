@@ -374,6 +374,38 @@ describe('spread monitors', () => {
     expect(down.reason).toContain('rhea is unreachable');
   });
 
+  it('does not fire at zero threshold for breakeven or losses rounded to zero', async () => {
+    for (const returned of ['100', '99.999999999999999999']) {
+      const source: QuoteSource = { read: async () => ({ amountOut: returned, venue: 'fixture', observedAtMs: 0 }) };
+      const result = await evaluateSpreadAlert({ ...SPREAD, thresholdPct: 0 }, { intents: source, rhea: source });
+      expect(result.result).toBe('false');
+    }
+  });
+
+  it('uses exact unrounded spread and supports scientific-notation thresholds', async () => {
+    const source: QuoteSource = {
+      read: async () => ({ amountOut: '100.00000001', venue: 'fixture', observedAtMs: 0 }),
+    };
+    const result = await evaluateSpreadAlert({ ...SPREAD, thresholdPct: 1e-9 }, { intents: source, rhea: source });
+    expect(result.result).toBe('true');
+    expect(result.evidence.trips[0]?.edgePct).toBe(0); // display rounding is not an alert decision
+    const higher = await evaluateSpreadAlert({ ...SPREAD, thresholdPct: 1e-7 }, { intents: source, rhea: source });
+    expect(higher.result).toBe('false');
+  });
+
+  it('keeps a partially unavailable comparison unknown rather than rearming an alert', async () => {
+    let calls = 0;
+    const intents: QuoteSource = {
+      read: async () => {
+        calls++;
+        if (calls === 2) throw new Error('unavailable');
+        return { amountOut: '99', venue: 'fixture', observedAtMs: 0 };
+      },
+    };
+    const rhea: QuoteSource = { read: async () => ({ amountOut: '99', venue: 'fixture', observedAtMs: 0 }) };
+    expect((await evaluateSpreadAlert(SPREAD, { intents, rhea })).result).toBe('unknown');
+  });
+
   it('runs on the schedule like any rule: alerts once, then waits out the cooldown', async () => {
     const h = createFixture(1_910_000_000_000);
     const intents = { usdPerNear: 2.5, feePct: 0.1 };
