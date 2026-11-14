@@ -423,7 +423,6 @@ export function basePlanView(row: PlanRow) {
   };
 }
 
-
 function originExplorerUrl(network: Network, chain: string, hash: string): string | null {
   if (chain === 'near') return txExplorerUrl(network, hash);
   if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) return null;
