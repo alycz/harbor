@@ -131,3 +131,42 @@ function VaultCard({ vault }: { vault: Vault }) {
     </div>
   );
 }
+
+/**
+ * A pool Harbor has no deposit path into yet. Says so plainly, and offers what does work: depositing
+ * into a vault Harbor supports.
+ */
+export function NotYetDialog({
+  pool,
+  onOpenChange,
+  onDeposit,
+}: {
+  pool: YieldPoolRow | null;
+  onOpenChange: (open: boolean) => void;
+  onDeposit: (vault: Vault) => void;
+}) {
+  return (
+    <Dialog open={pool !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[520px] gap-4">
+        {pool ? (
+          <>
+            <DialogTitle className="font-display text-[22px] leading-tight">
+              Deposits into {pool.symbol} on {pool.chain} are not live yet
+            </DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed">
+              Harbor only moves funds where it can check every step: your policy, your signature and the delivery on
+              chain. This pool does not have that path yet. You can deposit into these vaults today:
+            </DialogDescription>
+            <div className="flex flex-wrap gap-2.5">
+              {VAULTS.map((vault) => (
+                <Button key={vault.receipt} className="h-10 gap-2 px-4" onClick={() => onDeposit(vault)}>
+                  {vault.name} <ArrowRight />
+                </Button>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}

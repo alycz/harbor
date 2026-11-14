@@ -3,7 +3,7 @@ import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
-import { DepositDialog, VAULTS, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
+import { DepositDialog, NotYetDialog, VAULTS, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
@@ -16,6 +16,7 @@ const MIN_TVL_USD = 1_000_000;
 
 export function EarnPage() {
   const [depositVault, setDepositVault] = useState<Vault | null>(null);
+  const [notYet, setNotYet] = useState<YieldPoolRow | null>(null);
   const pools = stablePools(research.yieldPools);
   const best = bestPerChain(pools);
   const top = best.reduce<YieldPoolRow | null>(
@@ -63,12 +64,9 @@ export function EarnPage() {
           </section>
           <section aria-labelledby="earn-best" className="flex flex-col gap-3.5">
             <SectionTitle id="earn-best" title="Best rate by chain" />
-            <p className="-mt-1.5 text-[13px] text-muted-foreground">
-              Research only for now: Harbor deposits into the vaults above.
-            </p>
             <ol className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">
               {best.map((pool) => (
-                <RateCard key={pool.id} pool={pool} onDeposit={setDepositVault} />
+                <RateCard key={pool.id} pool={pool} onDeposit={setDepositVault} onNotYet={setNotYet} />
               ))}
             </ol>
           </section>
@@ -136,6 +134,14 @@ export function EarnPage() {
             />
           </section>
           <DepositDialog vault={depositVault} onOpenChange={(open) => (open ? null : setDepositVault(null))} />
+          <NotYetDialog
+            pool={notYet}
+            onOpenChange={(open) => (open ? null : setNotYet(null))}
+            onDeposit={(vault) => {
+              setNotYet(null);
+              setDepositVault(vault);
+            }}
+          />
         </>
       )}
     </div>
@@ -143,7 +149,15 @@ export function EarnPage() {
 }
 
 /** One chain's best stablecoin rate: the rate is the one big number, the pool and its context below. */
-function RateCard({ pool, onDeposit }: { pool: YieldPoolRow; onDeposit: (vault: Vault) => void }) {
+function RateCard({
+  pool,
+  onDeposit,
+  onNotYet,
+}: {
+  pool: YieldPoolRow;
+  onDeposit: (vault: Vault) => void;
+  onNotYet: (pool: YieldPoolRow) => void;
+}) {
   const vault = vaultForPool(pool);
   const drift = apyDrift(pool);
   const home = pool.chain === HOME_CHAIN;
@@ -186,11 +200,11 @@ function RateCard({ pool, onDeposit }: { pool: YieldPoolRow; onDeposit: (vault: 
         <Figure label="30d mean" value={formatApy(pool.mean30dApyPct)} />
         <Figure label="Rewards" value={formatApy(pool.rewardApyPct)} />
       </dl>
-      <div className={`mt-4 grid border-t border-border text-[13px] font-medium ${vault ? 'grid-cols-2' : ''}`}>
+      <div className="mt-4 grid grid-cols-2 border-t border-border text-[13px] font-medium">
         <Link
           to="/chat"
           search={{ ask: askAbout(pool) }}
-          className={`flex items-center justify-center gap-1.5 border-border px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)] ${vault ? 'rounded-bl-[11px] border-r' : 'rounded-b-[11px]'}`}
+          className="flex items-center justify-center gap-1.5 rounded-bl-[11px] border-r border-border px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
         >
           Research on Harbor
           <ArrowUpRight
@@ -198,15 +212,13 @@ function RateCard({ pool, onDeposit }: { pool: YieldPoolRow; onDeposit: (vault: 
             aria-hidden="true"
           />
         </Link>
-        {vault ? (
-          <button
-            type="button"
-            onClick={() => onDeposit(vault)}
-            className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
-          >
-            Deposit
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => (vault ? onDeposit(vault) : onNotYet(pool))}
+          className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
+        >
+          Deposit
+        </button>
       </div>
     </li>
   );
@@ -225,7 +237,6 @@ function VaultCard({ vault, onDeposit }: { vault: Vault; onDeposit: (vault: Vaul
           <ChainLogo chain={vault.chain} className="size-5" />
           {vault.name}
         </p>
-        <Chip tone="accent">Harbor can deposit</Chip>
       </div>
       <div className="px-5 pt-5">
         <p className="flex items-baseline gap-2.5">
@@ -240,7 +251,11 @@ function VaultCard({ vault, onDeposit }: { vault: Vault; onDeposit: (vault: Vaul
       </div>
       <dl className="mx-5 mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3.5 text-[12.5px]">
         <Figure label="TVL" value={lead ? formatUsd(lead.tvlUsd) : '—'} />
-        <Figure label="30d mean" value={lead ? formatApy(lead.mean30dApyPct) : '—'} />
+        {lead?.mean30dApyPct != null ? (
+          <Figure label="30d mean" value={formatApy(lead.mean30dApyPct)} />
+        ) : (
+          <Figure label="Source" value={lead?.source === 'portals-explorer' ? 'Portals' : 'DefiLlama'} />
+        )}
         <Figure label="Minimum" value="~50 USDC" />
       </dl>
       <div className="mt-4 grid grid-cols-2 border-t border-border text-[13px] font-medium">
