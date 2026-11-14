@@ -3,7 +3,7 @@ import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
-import { DepositDialog, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
+import { DepositDialog, VAULTS, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
@@ -53,8 +53,19 @@ export function EarnPage() {
         </Panel>
       ) : (
         <>
+          <section aria-labelledby="earn-vaults" className="flex flex-col gap-3.5">
+            <SectionTitle id="earn-vaults" title="Deposit now" />
+            <ul className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2">
+              {VAULTS.map((vault) => (
+                <VaultCard key={vault.receipt} vault={vault} onDeposit={setDepositVault} />
+              ))}
+            </ul>
+          </section>
           <section aria-labelledby="earn-best" className="flex flex-col gap-3.5">
             <SectionTitle id="earn-best" title="Best rate by chain" />
+            <p className="-mt-1.5 text-[13px] text-muted-foreground">
+              Research only for now: Harbor deposits into the vaults above.
+            </p>
             <ol className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">
               {best.map((pool) => (
                 <RateCard key={pool.id} pool={pool} onDeposit={setDepositVault} />
@@ -175,11 +186,11 @@ function RateCard({ pool, onDeposit }: { pool: YieldPoolRow; onDeposit: (vault: 
         <Figure label="30d mean" value={formatApy(pool.mean30dApyPct)} />
         <Figure label="Rewards" value={formatApy(pool.rewardApyPct)} />
       </dl>
-      <div className="mt-4 grid grid-cols-2 border-t border-border text-[13px] font-medium">
+      <div className={`mt-4 grid border-t border-border text-[13px] font-medium ${vault ? 'grid-cols-2' : ''}`}>
         <Link
           to="/chat"
           search={{ ask: askAbout(pool) }}
-          className="flex items-center justify-center gap-1.5 rounded-bl-[11px] border-r border-border px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
+          className={`flex items-center justify-center gap-1.5 border-border px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)] ${vault ? 'rounded-bl-[11px] border-r' : 'rounded-b-[11px]'}`}
         >
           Research on Harbor
           <ArrowUpRight
@@ -187,12 +198,65 @@ function RateCard({ pool, onDeposit }: { pool: YieldPoolRow; onDeposit: (vault: 
             aria-hidden="true"
           />
         </Link>
+        {vault ? (
+          <button
+            type="button"
+            onClick={() => onDeposit(vault)}
+            className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
+          >
+            Deposit
+          </button>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+/** A vault Harbor can deposit into: its best rate in the snapshot when listed, the chain, and both actions. */
+function VaultCard({ vault, onDeposit }: { vault: Vault; onDeposit: (vault: Vault) => void }) {
+  const listed = research.yieldPools
+    .filter((pool) => pool.chain === vault.snapshot.chain && pool.symbol.toUpperCase() === vault.snapshot.symbol)
+    .sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
+  const lead = listed[0];
+  return (
+    <li className="ws-card flex flex-col">
+      <div className="flex items-center justify-between gap-3 px-5 pt-4">
+        <p className="flex items-center gap-2 text-[13.5px] font-medium">
+          <ChainLogo chain={vault.chain} className="size-5" />
+          {vault.name}
+        </p>
+        <Chip tone="accent">Harbor can deposit</Chip>
+      </div>
+      <div className="px-5 pt-5">
+        <p className="flex items-baseline gap-2.5">
+          <span className="text-[38px] leading-none font-medium tracking-[-0.035em] [font-variant-numeric:proportional-nums]">
+            {lead ? formatApy(lead.totalApyPct) : '—'}
+          </span>
+          <span className="text-[12.5px] text-muted-foreground">APY</span>
+        </p>
+        <p className="mt-3.5 text-[13.5px] text-muted-foreground">
+          {vault.protocol} on {vault.chain} · pay USDC on NEAR, receive {vault.receipt}
+        </p>
+      </div>
+      <dl className="mx-5 mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3.5 text-[12.5px]">
+        <Figure label="TVL" value={lead ? formatUsd(lead.tvlUsd) : '—'} />
+        <Figure label="30d mean" value={lead ? formatApy(lead.mean30dApyPct) : '—'} />
+        <Figure label="Minimum" value="~50 USDC" />
+      </dl>
+      <div className="mt-4 grid grid-cols-2 border-t border-border text-[13px] font-medium">
+        <Link
+          to="/chat"
+          search={{
+            ask: `Tell me about ${vault.name} (${vault.protocol} on ${vault.chain}): the risks, fees and how I would exit.`,
+          }}
+          className="flex items-center justify-center gap-1.5 rounded-bl-[11px] border-r border-border px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
+        >
+          Research on Harbor <ArrowUpRight className="size-3.5" aria-hidden="true" />
+        </Link>
         <button
           type="button"
-          disabled={!vault}
-          onClick={vault ? () => onDeposit(vault) : undefined}
-          title={vault ? undefined : 'Harbor can deposit into Gauntlet USDC Prime and Taler USDC so far'}
-          className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)] disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-60 disabled:hover:bg-transparent"
+          onClick={() => onDeposit(vault)}
+          className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
         >
           Deposit
         </button>

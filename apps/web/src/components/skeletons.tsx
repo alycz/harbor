@@ -175,11 +175,28 @@ export function ResearchSkeleton() {
   );
 }
 
-/** Earn: the hero with its action, a grid of chain rate cards and the pools table. */
+/** Earn: the hero with its action, the vaults, a grid of chain rate cards and the pools table. */
 export function EarnSkeleton() {
   return (
     <Loading label="Loading earn" className="flex flex-col gap-8">
       <HeroSkeleton action />
+      <div className="flex flex-col gap-3.5">
+        <SectionTitleSkeleton />
+        <div className="grid gap-3 @xl/workspace:grid-cols-2">
+          {[0, 1].map((card) => (
+            <div key={card} className="ws-card space-y-4 p-5">
+              <SkeletonBox width="50%" height={13} />
+              <SkeletonBox width="40%" height={38} radius={7} />
+              <SkeletonBox width="72%" height={13} />
+              <div className="grid grid-cols-3 gap-3 border-t border-border pt-3.5">
+                {[0, 1, 2].map((figure) => (
+                  <SkeletonBox key={figure} width="80%" height={22} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="flex flex-col gap-3.5">
         <SectionTitleSkeleton />
         <div className="grid gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">
