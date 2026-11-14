@@ -38,7 +38,8 @@ export const SpreadAlertConfigSchema = z
     /** How much of the quote asset each round trip starts with. */
     size: DECIMAL,
     /** Alert when the better round trip gains at least this, in percent of `size`. */
-    thresholdPct: z.number().min(0.01).max(50),
+    /** 0 means any round trip that ends ahead after venue fees. */
+    thresholdPct: z.number().min(0).max(50),
     cooldownMinutes: z.number().int().min(1).max(1_440),
     mode: z.enum(['once', 'repeat']),
   })
