@@ -48,11 +48,14 @@ export function spokenList(items: readonly string[]): string {
   return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 }
 
+/** One piece of the rules sentence; `value` marks a part the owner sets, empty while it is unset. */
+export type SentencePart = { text: string; value?: boolean };
+
 /**
  * The vault's rules as one sentence, so an owner reads what they grant rather than a form:
  * "Harbor's agent may spend up to 2 USDC a day, only to buy NEAR for your own account, until Fri 21 Nov."
  */
-export function allowanceSentence(input: {
+export function allowanceParts(input: {
   daily: string;
   perTrade: string;
   symbol: string;
@@ -60,11 +63,39 @@ export function allowanceSentence(input: {
   toOwnAccount: boolean;
   recipients: number;
   endsAt: Date;
-}): string {
-  const budget = `${input.daily || '…'} ${input.symbol}`.trim();
-  const cap = input.perTrade && input.perTrade !== input.daily ? `, at most ${input.perTrade} per trade` : '';
-  const buys = input.buys.length ? spokenList(input.buys) : 'nothing yet';
-  const to = input.toOwnAccount ? 'your own account' : `your ${input.recipients} chosen addresses`;
-  const until = input.endsAt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  return `Harbor's agent may spend up to ${budget} a day${cap}, only to buy ${buys} for ${to}, until ${until}.`;
+}): SentencePart[] {
+  const parts: SentencePart[] = [
+    { text: "Harbor's agent may spend up to " },
+    { text: input.daily ? `${input.daily} ${input.symbol}`.trim() : '', value: true },
+    { text: ' a day' },
+  ];
+  if (input.perTrade && input.daily && input.perTrade !== input.daily) {
+    parts.push(
+      { text: ', at most ' },
+      { text: `${input.perTrade} ${input.symbol}`.trim(), value: true },
+      { text: ' per trade' },
+    );
+  }
+  parts.push(
+    { text: ', only to buy ' },
+    { text: input.buys.length ? spokenList(input.buys) : '', value: true },
+    { text: ' for ' },
+    {
+      text: input.toOwnAccount ? 'your own account' : `your ${input.recipients} chosen addresses`,
+      value: true,
+    },
+    { text: ', until ' },
+    {
+      text: input.endsAt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }),
+      value: true,
+    },
+    { text: '.' },
+  );
+  return parts;
+}
+
+export function allowanceSentence(input: Parameters<typeof allowanceParts>[0]): string {
+  return allowanceParts(input)
+    .map((part) => part.text || '…')
+    .join('');
 }

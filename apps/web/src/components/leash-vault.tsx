@@ -1,16 +1,17 @@
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, Check, CircleAlert, LoaderCircle, LockKeyhole, Snowflake, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Check, CircleAlert, LoaderCircle, LockKeyhole, Snowflake } from 'lucide-react';
 import { type ReactNode, useId, useRef, useState } from 'react';
 
 import { call, ExecutionRequestError, execution as executionApi, type SwapAsset } from '../lib/execution.ts';
 import {
   ALLOWANCE_DAYS,
-  allowanceSentence,
+  allowanceParts,
   canSubmitLeash,
   expiryAfterDays,
   fromAtomic,
+  type SentencePart,
   toAtomic,
 } from '../lib/leash-ui.ts';
 import { useWallet, type WalletTransaction } from '../lib/wallet.tsx';
@@ -46,6 +47,8 @@ const NEAR_DECIMALS = 24;
 const WNEAR = 'nep141:wrap.near';
 /** Attached when opening or editing a vault; the contract keeps what the record uses and refunds the rest. */
 const STORAGE_NEAR = '0.05';
+/** The NEAR token contract: a vault holds wrapped NEAR, so native NEAR is wrapped before a deposit. */
+const WRAP_NEAR = 'wrap.near';
 const TOGGLE_ON = 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] text-[var(--ws-accent-ink)]';
 const TOGGLE_OFF = 'border-border bg-card text-muted-foreground hover:text-foreground';
 
@@ -132,6 +135,7 @@ function OwnerVault({ owner }: { owner: string }) {
         registry={registry}
         vault={data.vault}
         refresh={refresh}
+        onStart={() => setEditing(true)}
         onCancel={data.vault ? () => setEditing(false) : undefined}
         onDone={() => setEditing(false)}
       />
@@ -157,6 +161,7 @@ function AllowanceEditor({
   registry,
   vault,
   refresh,
+  onStart,
   onCancel,
   onDone,
 }: {
@@ -164,10 +169,14 @@ function AllowanceEditor({
   registry: readonly SwapAsset[];
   vault: Vault | null;
   refresh: () => Promise<Vault | null>;
+  /** Called when the wallet steps begin, so the page keeps this view until the owner presses Done. */
+  onStart: () => void;
   onCancel?: (() => void) | undefined;
   onDone: () => void;
 }) {
   const id = useId();
+  // Opening or editing is fixed when the editor mounts: the vault appearing mid-flow must not change it.
+  const [opening] = useState(vault === null);
   const wallet = useWallet();
   const nearTokens = registry.filter((asset) => asset.chain === 'near' && asset.canonicalId.startsWith('nep141:'));
   const byId = (canonicalId: string) => registry.find((asset) => asset.canonicalId === canonicalId);
@@ -204,7 +213,7 @@ function AllowanceEditor({
   const symbol = token?.symbol ?? '';
   const presetApplied =
     Boolean(usdc) && tokenId === usdc?.canonicalId && daily === '2' && fund === '2' && days === 1 && !perTrade;
-  const sentence = allowanceSentence({
+  const parts = allowanceParts({
     daily,
     perTrade: effectivePerTrade,
     symbol,
@@ -236,7 +245,7 @@ function AllowanceEditor({
     try {
       perDayRaw = toAtomic(daily, token.decimals);
       perTradeRaw = toAtomic(effectivePerTrade, token.decimals);
-      if (!vault && fund) fundRaw = toAtomic(fund, token.decimals);
+      if (opening && fund) fundRaw = toAtomic(fund, token.decimals);
     } catch (caught) {
       return setError(caught instanceof Error ? caught.message : 'Check the amounts.');
     }
@@ -279,7 +288,7 @@ function AllowanceEditor({
         };
       }),
       {
-        label: vault ? 'Save the new rules' : 'Open your vault',
+        label: opening ? 'Open your vault' : 'Save the new rules',
         state: 'waiting',
         run: () =>
           signOwnerAction(wallet.sendTransaction, owner, {
@@ -289,60 +298,68 @@ function AllowanceEditor({
           }),
       },
     ];
-    if (!vault && fundRaw !== '0') {
+    if (opening && fundRaw !== '0') {
+      if (limits.token === WRAP_NEAR) {
+        plan.push({
+          label: `Wrap ${fund} NEAR so the vault can hold it`,
+          state: 'waiting',
+          run: () => wallet.sendTransaction(wrapNearCall(fundRaw)).then(() => undefined),
+        });
+      }
       plan.push({
         label: `Add ${fund} ${symbol}`,
         state: 'waiting',
         run: async () => {
           // The vault must exist on chain before it can be funded.
-          for (let attempt = 0; attempt < 10 && !(await refresh()); attempt += 1) {
-            await new Promise((resolve) => setTimeout(resolve, 1_500));
+          let current = await refresh();
+          for (let attempt = 0; attempt < 10 && !current; attempt += 1) {
+            await sleep(1_500);
+            current = await refresh();
           }
+          const before = BigInt(current?.balance ?? '0');
           await signOwnerAction(wallet.sendTransaction, owner, { operation: 'fund', amount: fundRaw });
+          await confirmDeposit(refresh, before);
         },
       });
     }
+    onStart();
     await runSteps(plan, setSteps, setError);
   }
 
   const finished = Boolean(steps?.length) && (steps ?? []).every((step) => step.state === 'done');
 
   return (
-    <div className="space-y-6">
-      {vault ? null : <Intro />}
+    <div className="grid gap-x-10 gap-y-8 @3xl/workspace:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+      {/* The agreement, in words. The form beside it only fills in its blanks. */}
+      <div className="space-y-5">
+        {!opening ? (
+          <p className="text-[13.5px] text-muted-foreground">
+            Change what the agent may do. Your wallet signs the new rules.
+          </p>
+        ) : (
+          <Intro />
+        )}
+        <Sentence parts={parts} className="max-w-[30ch] text-[23px] @xl/workspace:text-[27px]" />
+      </div>
 
-      {/* The rules, as the owner will read them back: the one thing on this screen to trust. */}
-      <p
-        aria-live="polite"
-        className="font-display max-w-[34ch] text-[22px] leading-[1.3] text-foreground @xl/workspace:text-[26px]"
-      >
-        {sentence}
-      </p>
-
-      {vault || !usdc ? null : (
-        <button
-          type="button"
-          disabled={running}
-          onClick={tryPreset}
-          className="group flex w-full max-w-xl items-center gap-3.5 rounded-[12px] border border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] px-4 py-3.5 text-left transition-colors hover:border-[var(--ws-accent-ink)] disabled:opacity-60"
-        >
-          {presetApplied ? (
-            <Check className="size-5 shrink-0 text-success" aria-hidden="true" />
-          ) : (
-            <Sparkles className="size-5 shrink-0 text-[var(--ws-accent-ink)]" aria-hidden="true" />
+      <div className="min-w-0 space-y-5 @3xl/workspace:border-l @3xl/workspace:border-border @3xl/workspace:pl-10">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[13.5px] font-medium">{opening ? 'Set the budget' : 'Your rules'}</p>
+          {!opening || !usdc ? null : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 px-3 text-[12.5px]"
+              aria-pressed={presetApplied}
+              disabled={running}
+              onClick={tryPreset}
+            >
+              {presetApplied ? <Check className="text-success" aria-hidden="true" /> : null}
+              Prefill 2 USDC test
+            </Button>
           )}
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-medium text-[var(--ws-accent-ink)]">Try it with 2 USDC</span>
-            <span className="block text-[12.5px] text-muted-foreground">
-              {presetApplied
-                ? 'Filled in. Read the sentence above, then open the vault.'
-                : 'Fills in a one-day budget of 2 USDC that may only buy NEAR for you. You can change anything.'}
-            </span>
-          </span>
-        </button>
-      )}
+        </div>
 
-      <div className="grid max-w-3xl gap-x-6 gap-y-5 @2xl/workspace:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Field id={`${id}-daily`} label="Daily budget">
           <div className="flex gap-2">
             <div className="min-w-0 flex-1">
@@ -355,14 +372,14 @@ function AllowanceEditor({
                 onChange={setDaily}
               />
             </div>
-            <div className="w-44 shrink-0">
+            <div className="w-[10.75rem] shrink-0">
               <AssetSelect
                 label="Token the agent spends"
                 value={tokenId}
                 disabled={running || Boolean(vault && BigInt(vault.balance) > 0n)}
                 onChange={(next) => {
                   setTokenId(next);
-                  if (!vault) setBuyAssets(defaultBuys(next));
+                  if (opening) setBuyAssets(defaultBuys(next));
                 }}
                 choices={nearTokens.map((asset) => ({
                   value: asset.canonicalId,
@@ -374,9 +391,10 @@ function AllowanceEditor({
             </div>
           </div>
         </Field>
-        <fieldset className="space-y-1.5">
+
+        <fieldset>
           <legend className="mb-1.5 text-[13px] font-medium">Lasts for</legend>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {ALLOWANCE_DAYS.map((option) => (
               <button
                 key={option}
@@ -384,14 +402,15 @@ function AllowanceEditor({
                 aria-pressed={days === option}
                 disabled={running}
                 onClick={() => setDays(option)}
-                className={`h-10 flex-1 rounded-md border text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60 ${days === option ? TOGGLE_ON : TOGGLE_OFF}`}
+                className={`h-10 rounded-md border text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60 ${days === option ? TOGGLE_ON : TOGGLE_OFF}`}
               >
                 {option === 1 ? '1 day' : `${option} days`}
               </button>
             ))}
           </div>
         </fieldset>
-        {vault ? null : (
+
+        {!opening ? null : (
           <Field
             id={`${id}-fund`}
             label="Put in now"
@@ -407,38 +426,32 @@ function AllowanceEditor({
             />
           </Field>
         )}
-      </div>
 
-      <details className="group max-w-3xl">
-        <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground select-none hover:text-foreground">
-          Advanced
-        </summary>
-        <div className="mt-4 grid gap-x-6 gap-y-5 @2xl/workspace:grid-cols-2">
-          <Field
-            id={`${id}-trade`}
-            label="Most per trade"
-            hint={`Leave empty to allow the whole daily budget in one trade.`}
-          >
-            <UnitInput
-              id={`${id}-trade`}
-              unit={symbol}
-              value={perTrade}
-              inputMode="decimal"
-              disabled={running}
-              onChange={setPerTrade}
-            />
-          </Field>
-          <Field id={`${id}-slip`} label="Most slippage" hint="Quotes that allow more are refused.">
-            <UnitInput
-              id={`${id}-slip`}
-              unit="%"
-              value={slippagePct}
-              inputMode="decimal"
-              disabled={running}
-              onChange={setSlippagePct}
-            />
-          </Field>
-          <div className="@2xl/workspace:col-span-2">
+        <details className="group border-t border-border pt-4">
+          <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground select-none hover:text-foreground">
+            Advanced
+          </summary>
+          <div className="mt-4 space-y-5">
+            <Field id={`${id}-trade`} label="Most per trade" hint="Empty allows the whole daily budget in one trade.">
+              <UnitInput
+                id={`${id}-trade`}
+                unit={symbol}
+                value={perTrade}
+                inputMode="decimal"
+                disabled={running}
+                onChange={setPerTrade}
+              />
+            </Field>
+            <Field id={`${id}-slip`} label="Most slippage" hint="Quotes that allow more are refused.">
+              <UnitInput
+                id={`${id}-slip`}
+                unit="%"
+                value={slippagePct}
+                inputMode="decimal"
+                disabled={running}
+                onChange={setSlippagePct}
+              />
+            </Field>
             <Field
               id={`${id}-to`}
               label="Deliver only to"
@@ -452,65 +465,68 @@ function AllowanceEditor({
                 onChange={(event) => setRecipients(event.target.value)}
               />
             </Field>
+            <fieldset>
+              <legend className="mb-2 text-[13px] font-medium">May buy</legend>
+              <div className="flex flex-wrap gap-2">
+                {registry
+                  .filter((asset) => asset.canonicalId !== tokenId)
+                  .map((asset) => {
+                    const on = buyAssets.includes(asset.canonicalId);
+                    return (
+                      <button
+                        key={asset.canonicalId}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={running}
+                        onClick={() =>
+                          setBuyAssets((current) =>
+                            on
+                              ? current.filter((value) => value !== asset.canonicalId)
+                              : [...current, asset.canonicalId],
+                          )
+                        }
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-full border pr-2.5 pl-1 text-[12.5px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60 ${on ? TOGGLE_ON : 'border-border bg-card text-foreground hover:bg-secondary/60'}`}
+                      >
+                        <AssetIcon symbol={asset.symbol} className="size-5" />
+                        {asset.symbol}
+                        {on ? <Check className="size-3" aria-hidden="true" /> : null}
+                      </button>
+                    );
+                  })}
+              </div>
+            </fieldset>
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              Opening or changing the vault attaches {STORAGE_NEAR} NEAR for its storage. The contract keeps what the
+              record uses, usually under 0.01 NEAR, and sends the rest back.
+            </p>
           </div>
-          <fieldset className="@2xl/workspace:col-span-2">
-            <legend className="mb-2 text-[13px] font-medium">May buy</legend>
-            <div className="flex flex-wrap gap-2">
-              {registry
-                .filter((asset) => asset.canonicalId !== tokenId)
-                .map((asset) => {
-                  const on = buyAssets.includes(asset.canonicalId);
-                  return (
-                    <button
-                      key={asset.canonicalId}
-                      type="button"
-                      aria-pressed={on}
-                      disabled={running}
-                      onClick={() =>
-                        setBuyAssets((current) =>
-                          on ? current.filter((value) => value !== asset.canonicalId) : [...current, asset.canonicalId],
-                        )
-                      }
-                      className={`inline-flex h-9 items-center gap-2 rounded-full border pr-3 pl-1.5 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60 ${on ? TOGGLE_ON : 'border-border bg-card text-foreground hover:bg-secondary/60'}`}
-                    >
-                      <AssetIcon symbol={asset.symbol} className="size-6" />
-                      {asset.symbol}
-                      <span className="text-[12px] text-muted-foreground">{chainName(asset.chain)}</span>
-                      {on ? <Check className="size-3.5" aria-hidden="true" /> : null}
-                    </button>
-                  );
-                })}
-            </div>
-          </fieldset>
-          <p className="text-[12px] text-muted-foreground @2xl/workspace:col-span-2">
-            Opening or changing the vault attaches {STORAGE_NEAR} NEAR for its storage; the contract keeps what the
-            record uses (usually under 0.01 NEAR) and sends the rest back.
-          </p>
+        </details>
+
+        {steps ? <StepList steps={steps} /> : null}
+        {error ? <Problem>{error}</Problem> : null}
+
+        <div className="space-y-2.5 border-t border-border pt-5">
+          <div className="flex gap-2">
+            {finished ? (
+              <Button className="h-11 flex-1" onClick={onDone}>
+                Done
+              </Button>
+            ) : (
+              <Button className="h-11 flex-1" disabled={running} onClick={() => void save()}>
+                {running ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
+                {opening ? 'Open vault' : 'Save rules'}
+              </Button>
+            )}
+            {onCancel && !running && !finished ? (
+              <Button variant="outline" className="h-11 px-4" onClick={onCancel}>
+                Cancel
+              </Button>
+            ) : null}
+          </div>
+          {!steps && !finished ? (
+            <p className="text-[12.5px] text-muted-foreground">Your wallet asks you to confirm each step.</p>
+          ) : null}
         </div>
-      </details>
-
-      {steps ? <StepList steps={steps} /> : null}
-      {error ? <Problem>{error}</Problem> : null}
-
-      <div className="flex flex-wrap items-center gap-2.5">
-        {finished ? (
-          <Button className="h-11 px-5" onClick={onDone}>
-            Done
-          </Button>
-        ) : (
-          <Button className="h-11 px-5" disabled={running} onClick={() => void save()}>
-            {running ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : null}
-            {vault ? 'Save rules' : 'Open vault'}
-          </Button>
-        )}
-        {onCancel && !running && !finished ? (
-          <Button variant="ghost" className="h-11 px-4" onClick={onCancel}>
-            Cancel
-          </Button>
-        ) : null}
-        {!steps && !finished ? (
-          <p className="text-[12.5px] text-muted-foreground">Your wallet asks you to confirm each step.</p>
-        ) : null}
       </div>
     </div>
   );
@@ -543,7 +559,7 @@ function VaultOverview({
   const cap = BigInt(vault.limits.per_day ?? '0');
   const share = cap > 0n ? Number((spent * 1000n) / cap) / 10 : 0;
   const expired = vault.limits.expires_at_ms !== undefined && vault.limits.expires_at_ms <= Date.now();
-  const sentence = allowanceSentence({
+  const parts = allowanceParts({
     daily: fromAtomic(vault.limits.per_day ?? '0', decimals),
     perTrade: fromAtomic(vault.limits.per_action ?? '0', decimals),
     symbol,
@@ -578,11 +594,29 @@ function VaultOverview({
     } catch (caught) {
       return setError(caught instanceof Error ? caught.message : 'Check the amount.');
     }
-    void act(
-      operation,
-      { operation, amount: raw },
-      operation === 'fund' ? `Added ${amount} ${symbol}.` : `Withdrew ${amount} ${symbol} to your account.`,
-    );
+    if (operation === 'withdraw') {
+      void act('withdraw', { operation, amount: raw }, `Withdrew ${amount} ${symbol} to your account.`);
+      return;
+    }
+    void addFunds(raw);
+  }
+
+  /** NEAR is wrapped first, since the vault holds wNEAR; the deposit counts only once the balance shows it. */
+  async function addFunds(raw: string) {
+    setBusy('fund');
+    setError('');
+    setMessage('');
+    try {
+      if (vault.limits.token === WRAP_NEAR) await wallet.sendTransaction(wrapNearCall(raw));
+      await signOwnerAction(wallet.sendTransaction, owner, { operation: 'fund', amount: raw });
+      await confirmDeposit(refresh, BigInt(vault.balance));
+      setMessage(`Added ${amount} ${symbol}.`);
+      setAmount('');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The wallet did not complete this.');
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -619,7 +653,7 @@ function VaultOverview({
       </div>
 
       <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4">
-        <p className="font-display max-w-[46ch] text-[17px] leading-[1.4]">{sentence}</p>
+        <Sentence parts={parts} className="max-w-[46ch] text-[17px]" />
         <Button variant="outline" className="h-9 px-3.5" disabled={Boolean(busy)} onClick={onEdit}>
           Change rules
         </Button>
@@ -1077,6 +1111,36 @@ function StepList({ steps }: { steps: Step[] }) {
   );
 }
 
+/** Wraps native NEAR into wNEAR, one to one, in the owner's own account. */
+function wrapNearCall(amountYocto: string): WalletTransaction {
+  return {
+    receiverId: WRAP_NEAR,
+    actions: [
+      {
+        type: 'FunctionCall',
+        params: { methodName: 'near_deposit', args: {}, gas: '10000000000000', deposit: amountYocto },
+      },
+    ],
+  };
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Waits for the vault balance to rise above `before`. A wallet can report a deposit the token or the
+ * contract then refused, so the balance, read from the chain, is what says the money arrived.
+ */
+async function confirmDeposit(refresh: () => Promise<Vault | null>, before: bigint) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const vault = await refresh();
+    if (vault && BigInt(vault.balance) > before) return;
+    await sleep(1_500);
+  }
+  throw new Error(
+    'Your wallet sent the deposit, but the vault balance has not changed. Check your wallet activity before trying again.',
+  );
+}
+
 /** Asks Harbor for the exact owner transaction, checks it is the owner's, and has the wallet sign it. */
 async function signOwnerAction(
   send: (transaction: WalletTransaction) => Promise<string>,
@@ -1111,6 +1175,36 @@ function statusLabel(state: string): string {
     'recovery-required': 'Check status',
   };
   return labels[state] ?? (state ? state.replaceAll('-', ' ') : 'Not yet checked');
+}
+
+/**
+ * The vault's rules read as one sentence. Parts the owner sets are underlined; one not set yet is a blank to
+ * fill in, so the sentence doubles as the form's summary.
+ */
+function Sentence({ parts, className }: { parts: SentencePart[]; className: string }) {
+  return (
+    <p aria-live="polite" className={`font-display leading-[1.32] text-foreground ${className}`}>
+      {parts.map((part, index) =>
+        !part.value ? (
+          <span key={index}>{part.text}</span>
+        ) : part.text ? (
+          <span
+            key={index}
+            className="underline decoration-[color-mix(in_oklab,var(--ws-accent-ink)_40%,transparent)] decoration-[1.5px] underline-offset-[0.2em]"
+          >
+            {part.text}
+          </span>
+        ) : (
+          <span
+            key={index}
+            className="inline-block w-[2.6em] border-b-[1.5px] border-dashed border-muted-foreground/60"
+          >
+            <span className="sr-only">not set yet</span>&nbsp;
+          </span>
+        ),
+      )}
+    </p>
+  );
 }
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {

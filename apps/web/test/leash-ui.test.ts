@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { describe, it } from 'node:test';
 import {
+  allowanceParts,
   allowanceSentence,
   canSubmitLeash,
   expiryAfterDays,
@@ -82,8 +83,22 @@ describe('plain-language allowance', () => {
     });
     assert.match(
       sentence,
-      /up to 10 USDC a day, at most 2 per trade, only to buy NEAR, USDT and ETH for your 2 chosen addresses/,
+      /up to 10 USDC a day, at most 2 USDC per trade, only to buy NEAR, USDT and ETH for your 2 chosen addresses/,
     );
+  });
+
+  it('leaves an unset budget as a blank the owner fills in', () => {
+    const parts = allowanceParts({
+      daily: '',
+      perTrade: '',
+      symbol: 'USDC',
+      buys: ['NEAR'],
+      toOwnAccount: true,
+      recipients: 1,
+      endsAt,
+    });
+    assert.deepEqual(parts[1], { text: '', value: true });
+    assert.equal(parts.filter((part) => part.value).length, 4);
   });
 
   it('counts days from now', () => {
