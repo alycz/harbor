@@ -1,18 +1,17 @@
 import { Button } from '@harbor/ui/components/button';
-import { Input } from '@harbor/ui/components/input';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bot, Pause, Play, Plus, Trash2, X } from 'lucide-react';
-import { useId, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
+import { toast } from 'sonner';
 
 import { autopilot } from '../lib/autopilot.ts';
 import { execution } from '../lib/execution.ts';
 import { formatUtc } from '../lib/format.ts';
 import { useWallet } from '../lib/wallet.tsx';
+import { AssetSelect, chainName } from './asset-select.tsx';
 import { SwapProposalCard } from './swap-proposal.tsx';
+import { UnitInput } from './unit-input.tsx';
 import { Chip, EmptyState, Panel } from './workspace.tsx';
-
-const SELECT =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40';
 
 /**
  * The recurring actions the owner asked the agent to take. Each one only runs under the owner's active
@@ -28,17 +27,31 @@ export function StrategiesPanel() {
     queryFn: autopilot.strategies,
     enabled: Boolean(wallet.address),
   });
-  const [draft, setDraft] = useState({ sell: 'NEAR', buy: 'USDC', amount: '0.5', everyHours: 24 });
+  const [draft, setDraft] = useState({ sell: 'NEAR', buy: 'USDC', amount: '0.5', everyHours: '24' });
   const set = (data: Awaited<ReturnType<typeof autopilot.strategies>>) =>
     queryClient.setQueryData(['strategies', wallet.address], data);
-  const create = useMutation({ mutationFn: () => autopilot.create(draft), onSuccess: set });
+  const create = useMutation({
+    mutationFn: () => autopilot.create({ ...draft, everyHours: Number(draft.everyHours) }),
+    onSuccess: (data) => {
+      set(data);
+      toast.success('Added', {
+        description: `The agent will buy ${draft.buy} with ${draft.amount} ${draft.sell} every ${draft.everyHours} hours.`,
+      });
+    },
+  });
   const change = useMutation({
     mutationFn: ({ action, strategyId }: { action: 'pause' | 'resume' | 'remove'; strategyId: string }) =>
       autopilot[action](strategyId),
-    onSuccess: set,
+    onSuccess: (data, { action }) => {
+      set(data);
+      if (action === 'remove') toast('Removed. The agent will not run it again.');
+    },
   });
   const all = assets.data?.assets ?? [];
   const sellable = all.filter((asset) => asset.chain === 'near');
+  const list = strategies.data?.strategies ?? [];
+  const hours = Number(draft.everyHours);
+  const ready = Number(draft.amount) > 0 && Number.isInteger(hours) && hours >= 1 && draft.buy !== draft.sell;
 
   return (
     <Panel
@@ -47,103 +60,129 @@ export function StrategiesPanel() {
       labelId="strategies"
       bodyClassName="p-5 @xl/workspace:p-6"
     >
-      <div className="grid gap-3 @xl/workspace:grid-cols-[1fr_1fr_1fr_1fr_auto]">
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-amount`}>
-          Spend
-          <Input
-            id={`${id}-amount`}
-            className="h-10"
-            inputMode="decimal"
-            value={draft.amount}
-            onChange={(event) => setDraft({ ...draft, amount: event.target.value.trim() })}
-          />
-        </label>
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-sell`}>
-          Of
-          <select
-            id={`${id}-sell`}
-            className={SELECT}
-            value={draft.sell}
-            onChange={(event) => setDraft({ ...draft, sell: event.target.value })}
+      <div className="@container">
+        <div className="grid gap-3.5 @md:grid-cols-2 @3xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.7fr)_auto]">
+          <FormField id={`${id}-amount`} label="Spend">
+            <div className="flex gap-2">
+              <div className="min-w-0 flex-1">
+                <UnitInput
+                  id={`${id}-amount`}
+                  unit=""
+                  value={draft.amount}
+                  inputMode="decimal"
+                  onChange={(amount) => setDraft({ ...draft, amount })}
+                />
+              </div>
+              <div className="w-[8.25rem] shrink-0">
+                <AssetSelect
+                  label="Asset the agent spends"
+                  value={draft.sell}
+                  choices={sellable.map((asset) => ({ value: asset.symbol, symbol: asset.symbol, detail: '' }))}
+                  onChange={(sell) =>
+                    setDraft({
+                      ...draft,
+                      sell,
+                      buy: draft.buy === sell ? (all.find((asset) => asset.symbol !== sell)?.symbol ?? '') : draft.buy,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </FormField>
+          <FormField id={`${id}-buy`} label="To buy">
+            <AssetSelect
+              id={`${id}-buy`}
+              value={draft.buy}
+              choices={all
+                .filter((asset) => asset.symbol !== draft.sell)
+                .map((asset) => ({ value: asset.symbol, symbol: asset.symbol, detail: chainName(asset.chain) }))}
+              onChange={(buy) => setDraft({ ...draft, buy })}
+            />
+          </FormField>
+          <FormField id={`${id}-every`} label="Every">
+            <UnitInput
+              id={`${id}-every`}
+              unit="hours"
+              value={draft.everyHours}
+              inputMode="numeric"
+              onChange={(everyHours) => setDraft({ ...draft, everyHours })}
+            />
+          </FormField>
+          <Button
+            className="h-10 gap-2 self-end px-4"
+            disabled={create.isPending || !ready}
+            onClick={() => create.mutate()}
           >
-            {sellable.map((asset) => (
-              <option key={asset.symbol}>{asset.symbol}</option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-buy`}>
-          To buy
-          <select
-            id={`${id}-buy`}
-            className={SELECT}
-            value={draft.buy}
-            onChange={(event) => setDraft({ ...draft, buy: event.target.value })}
-          >
-            {all.map((asset) => (
-              <option key={asset.symbol}>{asset.symbol}</option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-every`}>
-          Every (hours)
-          <Input
-            id={`${id}-every`}
-            className="h-10"
-            inputMode="numeric"
-            value={String(draft.everyHours)}
-            onChange={(event) => setDraft({ ...draft, everyHours: Number(event.target.value) || 1 })}
-          />
-        </label>
-        <Button className="mt-auto h-10 gap-2 px-4" disabled={create.isPending} onClick={() => create.mutate()}>
-          <Plus /> Add
-        </Button>
+            <Plus /> Add
+          </Button>
+        </div>
       </div>
-      {create.isError ? <p className="mt-2 text-[13px] text-destructive">{create.error.message}</p> : null}
-      <ul className="mt-5 divide-y divide-border border-t border-border">
-        {(strategies.data?.strategies ?? []).map((strategy) => (
-          <li key={strategy.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13.5px]">
-            <span className="min-w-0">
-              <span className="font-medium">
-                Buy {strategy.buy} with {strategy.amount} {strategy.sell} every {strategy.everyHours} h
+      {create.isError ? (
+        <p role="alert" className="mt-3 text-[13px] text-destructive">
+          {create.error.message}
+        </p>
+      ) : null}
+      {list.length > 0 ? (
+        <ul className="mt-5 divide-y divide-border border-t border-border">
+          {list.map((strategy) => (
+            <li key={strategy.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13.5px]">
+              <span className="min-w-0">
+                <span className="font-medium">
+                  Buy {strategy.buy} with {strategy.amount} {strategy.sell} every {strategy.everyHours} h
+                </span>
+                <span className="block text-[12.5px] text-muted-foreground">
+                  {strategy.status === 'active' && strategy.nextRunAt
+                    ? `Next ${formatUtc(strategy.nextRunAt)}`
+                    : 'Paused'}
+                  {strategy.lastRunAt ? ` · last ${formatUtc(strategy.lastRunAt)}` : ''}
+                </span>
               </span>
-              <span className="block text-[12.5px] text-muted-foreground">
-                {strategy.status === 'active' && strategy.nextRunAt
-                  ? `Next ${formatUtc(strategy.nextRunAt)}`
-                  : 'Paused'}
-                {strategy.lastRunAt ? ` · last ${formatUtc(strategy.lastRunAt)}` : ''}
+              <span className="flex items-center gap-1.5">
+                <Chip tone={strategy.status === 'active' ? 'success' : 'neutral'} dot>
+                  {strategy.status === 'active' ? 'Active' : 'Paused'}
+                </Chip>
+                <Button
+                  variant="ghost"
+                  className="h-9 w-9 p-0"
+                  aria-label={strategy.status === 'active' ? 'Pause' : 'Resume'}
+                  onClick={() =>
+                    change.mutate({
+                      action: strategy.status === 'active' ? 'pause' : 'resume',
+                      strategyId: strategy.id,
+                    })
+                  }
+                >
+                  {strategy.status === 'active' ? <Pause /> : <Play />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="h-9 w-9 p-0"
+                  aria-label="Delete"
+                  onClick={() => change.mutate({ action: 'remove', strategyId: strategy.id })}
+                >
+                  <Trash2 />
+                </Button>
               </span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Chip tone={strategy.status === 'active' ? 'success' : 'neutral'} dot>
-                {strategy.status === 'active' ? 'Active' : 'Paused'}
-              </Chip>
-              <Button
-                variant="ghost"
-                className="h-9 w-9 p-0"
-                aria-label={strategy.status === 'active' ? 'Pause' : 'Resume'}
-                onClick={() =>
-                  change.mutate({ action: strategy.status === 'active' ? 'pause' : 'resume', strategyId: strategy.id })
-                }
-              >
-                {strategy.status === 'active' ? <Pause /> : <Play />}
-              </Button>
-              <Button
-                variant="ghost"
-                className="h-9 w-9 p-0"
-                aria-label="Delete"
-                onClick={() => change.mutate({ action: 'remove', strategyId: strategy.id })}
-              >
-                <Trash2 />
-              </Button>
-            </span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="mt-5 border-t border-border pt-4 text-[12.5px] leading-relaxed text-muted-foreground">
         The agent only acts while your signed policy is active and within it. What it queues waits for one tap from you
         to sign, and a freeze stops it at once.
       </p>
     </Panel>
+  );
+}
+
+function FormField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <label htmlFor={id} className="block text-[12.5px] text-muted-foreground">
+        {label}
+      </label>
+      {children}
+    </div>
   );
 }
 

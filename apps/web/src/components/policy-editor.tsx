@@ -9,8 +9,10 @@ import { type ReactNode, useId, useState } from 'react';
 import { execution } from '../lib/execution.ts';
 import { draftFrom, type PolicyDraft, policies, type SignedPolicyView } from '../lib/policy.ts';
 import { useWallet, walletProblem } from '../lib/wallet.tsx';
+import { AssetIcon } from './asset-icon.tsx';
 import { AssetSelect, chainName } from './asset-select.tsx';
 import { ChainLogo } from './protocol-logo.tsx';
+import { UnitInput } from './unit-input.tsx';
 import { Toggle } from './workspace.tsx';
 
 const CHAINS = [
@@ -143,16 +145,14 @@ export function PolicyEditor({ current }: { current: SignedPolicyView | null }) 
                 id={`${id}-${field}-${index}`}
                 label={field === 'perAction' ? 'Per action' : field === 'perDay' ? 'Per day' : 'In total'}
               >
-                <Input
+                <UnitInput
                   id={`${id}-${field}-${index}`}
-                  className="h-10"
+                  unit={limit.asset}
                   inputMode="decimal"
                   value={limit[field]}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     update({
-                      spend: draft.spend.map((entry, at) =>
-                        at === index ? { ...entry, [field]: event.target.value.trim() } : entry,
-                      ),
+                      spend: draft.spend.map((entry, at) => (at === index ? { ...entry, [field]: value } : entry)),
                     })
                   }
                 />
@@ -191,15 +191,19 @@ export function PolicyEditor({ current }: { current: SignedPolicyView | null }) 
       >
         <div className="flex flex-wrap gap-2 @xl/workspace:col-span-2">
           {all.map((asset) => {
-            const on = draft.assets.includes(asset.symbol) || draft.spend.some((limit) => limit.asset === asset.symbol);
+            const spent = draft.spend.some((limit) => limit.asset === asset.symbol);
+            const on = spent || draft.assets.includes(asset.symbol);
             return (
               <button
                 key={asset.symbol}
                 type="button"
                 aria-pressed={on}
+                disabled={spent}
+                title={spent ? 'Included because it has a spend limit' : undefined}
                 onClick={() => toggleAsset(asset.symbol)}
-                className="h-8 rounded-md border border-border px-2.5 text-[13px] text-muted-foreground transition-colors aria-pressed:border-[var(--ws-accent-border)] aria-pressed:bg-[var(--harbor-accent-tint)] aria-pressed:text-[var(--ws-accent-ink)]"
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-border pr-3 pl-2 text-[13px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default aria-pressed:border-[var(--ws-accent-border)] aria-pressed:bg-[var(--harbor-accent-tint)] aria-pressed:text-[var(--ws-accent-ink)]"
               >
+                <AssetIcon symbol={asset.symbol} className="size-[18px]" />
                 {asset.symbol}
               </button>
             );
@@ -281,41 +285,35 @@ export function PolicyEditor({ current }: { current: SignedPolicyView | null }) 
       </PolicySection>
 
       <PolicySection title="Execution">
-        <Field id={`${id}-slippage`} label="Slippage limit (%)">
-          <Input
-            id={`${id}-slippage`}
-            className="h-10"
-            inputMode="decimal"
-            value={slippage}
-            onChange={(event) => setSlippage(event.target.value.trim())}
-          />
+        <Field id={`${id}-slippage`} label="Slippage limit">
+          <UnitInput id={`${id}-slippage`} unit="%" inputMode="decimal" value={slippage} onChange={setSlippage} />
         </Field>
-        <Field id={`${id}-quote-age`} label="Oldest quote accepted (seconds)">
-          <Input
+        <Field id={`${id}-quote-age`} label="Oldest quote accepted">
+          <UnitInput
             id={`${id}-quote-age`}
-            className="h-10"
+            unit="seconds"
             inputMode="numeric"
             value={String(draft.quoteMaxAgeSeconds)}
-            onChange={(event) => update({ quoteMaxAgeSeconds: Number(event.target.value) || 0 })}
+            onChange={(value) => update({ quoteMaxAgeSeconds: Number(value) || 0 })}
           />
         </Field>
-        <Field id={`${id}-every`} label="The agent may act at most every (hours)">
-          <Input
+        <Field id={`${id}-every`} label="The agent may act at most every">
+          <UnitInput
             id={`${id}-every`}
-            className="h-10"
+            unit={draft.agentEveryHours === null ? '' : 'hours'}
             inputMode="numeric"
             disabled={draft.agentEveryHours === null}
             value={draft.agentEveryHours === null ? '' : String(draft.agentEveryHours)}
-            onChange={(event) => update({ agentEveryHours: Number(event.target.value) || 1 })}
+            onChange={(value) => update({ agentEveryHours: Number(value) || 1 })}
           />
         </Field>
-        <Field id={`${id}-expiry`} label="Policy expires after (days)">
-          <Input
+        <Field id={`${id}-expiry`} label="Policy expires after">
+          <UnitInput
             id={`${id}-expiry`}
-            className="h-10"
+            unit="days"
             inputMode="numeric"
             value={String(draft.expiresInDays)}
-            onChange={(event) => update({ expiresInDays: Number(event.target.value) || 0 })}
+            onChange={(value) => update({ expiresInDays: Number(value) || 0 })}
           />
         </Field>
         <div className="@xl/workspace:col-span-2">
