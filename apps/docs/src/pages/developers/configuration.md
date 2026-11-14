@@ -34,3 +34,21 @@ The first command generates migrations; the second applies them locally. Neither
 `apps/docs/vocs.config.ts` owns site title, theme, navigation, and repository link. No production domain is assumed. Set a verified `baseUrl` only when a documentation hosting destination is chosen; Vocs uses it for absolute sitemap URLs. Deployment is intentionally not configured here.
 
 Sources: [decoder](https://github.com/alycz/harbor/blob/main/apps/worker/src/config.ts), [Wrangler configuration](https://github.com/alycz/harbor/blob/main/apps/worker/wrangler.jsonc), [example variables](https://github.com/alycz/harbor/blob/main/.dev.vars.example).
+
+## Generated deployment configuration
+
+After building the app and docs, select the mainnet write integrations explicitly:
+
+```sh
+node scripts/prepare-deployment.mjs mainnet DATABASE_ID --write-adapters=oneclick,rhea-lending,templar
+```
+
+This generates a local configuration only; it does not deploy, apply migrations, or enable execution.
+`EXECUTION_ENABLED` remains `false` unless `--enable-execution` is explicitly added.
+The adapter selection is retained while execution is off, so both gates remain independent.
+When `--write-adapters` is omitted, the selection in the built configuration is preserved.
+An empty `--write-adapters=` clears the selection; execution cannot be enabled with an empty list.
+Only `oneclick`, `rhea-lending`, and `templar` are accepted. KAIO is not a supported write adapter.
+These adapters are mainnet-only; testnet configurations remain execution-disabled with an empty list.
+Changing either gate does not establish that migrations, protocol registration, market allowlists,
+wallet approval, balances, or settlement verification are ready. Those requirements still apply.
