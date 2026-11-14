@@ -9,7 +9,7 @@ Local optional values belong in `apps/worker/.dev.vars` (or `.dev.vars.testnet`)
 | `ENABLED_WRITE_ADAPTERS` | Empty comma-separated allowlist |
 | `OPENROUTER_API_KEY` | Optional; absent or empty gives scripted chat |
 | `PI_PROVIDER` | `openrouter`; `faux` is for scripted demos/tests |
-| `PI_MODEL_ID` | `openrouter/free`; model validation requires a free model |
+| `PI_MODEL_ID` | `z-ai/glm-5.3-flash`; model validation allows free OpenRouter models and a short paid list (GLM 5.3 and GLM 5.3 Flash) |
 | `PI_FAUX_SCRIPT` | Required nonempty script when using the faux provider |
 | `ONE_CLICK_JWT` | Optional partner JWT; unauthenticated quotes carry default protocol fee |
 | `NEAR_RPC_URL` | Optional read endpoint; otherwise network public RPC |

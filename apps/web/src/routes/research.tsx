@@ -18,7 +18,7 @@ const ALL = 'all';
 
 export function ResearchPage() {
   const [chain, setChain] = useState(ALL);
-  const [view, setView] = useState('yields');
+  const [view, setView] = useState('protocols');
   const chains = chainsWithPools();
   const totalTvl = chains.reduce((sum, entry) => sum + (entry.tvl ?? 0), 0);
   const empty = research.yieldPools.length === 0;

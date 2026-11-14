@@ -12,7 +12,16 @@ import { Compass, TriangleAlert } from 'lucide-react';
 import { lazy } from 'react';
 import { AppShell } from './components/app-shell.tsx';
 
-import { ChatSkeleton, LandingSkeleton, PageSkeleton } from './components/skeletons.tsx';
+import {
+  ChatSkeleton,
+  EarnSkeleton,
+  LandingSkeleton,
+  PlanSkeleton,
+  PolicySkeleton,
+  PortfolioSkeleton,
+  ResearchSkeleton,
+  TradeSkeleton,
+} from './components/skeletons.tsx';
 import { EmptyState, Panel } from './components/workspace.tsx';
 
 // The landing page renders on its own; every other page sits inside the workspace shell.
@@ -49,25 +58,25 @@ const chatRoute = createRoute({
 const researchRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/research',
-  pendingComponent: PageSkeleton,
+  pendingComponent: ResearchSkeleton,
   component: lazy(() => import('./routes/research.tsx').then((module) => ({ default: module.ResearchPage }))),
 });
 const tradeRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/trade',
-  pendingComponent: PageSkeleton,
+  pendingComponent: TradeSkeleton,
   component: lazy(() => import('./routes/trade.tsx').then((module) => ({ default: module.TradePage }))),
 });
 const earnRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/earn',
-  pendingComponent: PageSkeleton,
+  pendingComponent: EarnSkeleton,
   component: lazy(() => import('./routes/earn.tsx').then((module) => ({ default: module.EarnPage }))),
 });
 const portfolioRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/portfolio',
-  pendingComponent: PageSkeleton,
+  pendingComponent: PortfolioSkeleton,
   component: lazy(() => import('./routes/portfolio.tsx').then((module) => ({ default: module.PortfolioPage }))),
 });
 
@@ -75,13 +84,13 @@ const PlanPage = lazy(() => import('./routes/portfolio.tsx').then((module) => ({
 const planRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/plans/$planId',
-  pendingComponent: PageSkeleton,
+  pendingComponent: PlanSkeleton,
   component: PlanView,
 });
 const policyRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/settings/policy',
-  pendingComponent: PageSkeleton,
+  pendingComponent: PolicySkeleton,
   component: lazy(() => import('./routes/settings.tsx').then((module) => ({ default: module.PolicyPage }))),
 });
 const walletAlias = createRoute({

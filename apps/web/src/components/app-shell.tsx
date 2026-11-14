@@ -42,7 +42,7 @@ import { shortAddress, useWallet, WalletProvider } from '../lib/wallet.tsx';
 import { AdjacentAssistant, AgentPanel } from './agent-panel.tsx';
 import { ConversationList } from './conversation-list.tsx';
 import { HarborLogo, HarborMark } from './harbor-logo.tsx';
-import { PageSkeleton } from './skeletons.tsx';
+import { SkeletonForPath } from './skeletons.tsx';
 import { useAppSurface } from './surface.ts';
 import { AccountDot } from './workspace.tsx';
 import { useWorkspaceSession, WorkspaceSessionProvider } from './workspace-session.tsx';
@@ -57,7 +57,7 @@ const ROUTES = [
 
 const SETTINGS = [{ to: '/settings/policy', label: 'Policy', icon: ShieldCheck }] as const;
 
-const DOCS_URL = 'https://harbor-docs.tanishbaansal.workers.dev';
+const DOCS_URL = '/docs/';
 
 /** Pinned to the bottom of the sidebar: a card that opens the Harbor docs in a new tab. */
 function DocsBanner() {
@@ -215,7 +215,7 @@ function WorkspaceContent({ pathname, children }: { pathname: string; children: 
     >
       {/* Keyed by route: the body fades up as the chrome holds still. */}
       <div key={pathname} className={`ws-page ${chatPage ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
-        <Suspense fallback={<PageSkeleton />}>{children ?? <Outlet />}</Suspense>
+        <Suspense fallback={<SkeletonForPath pathname={pathname} />}>{children ?? <Outlet />}</Suspense>
       </div>
     </main>
   );

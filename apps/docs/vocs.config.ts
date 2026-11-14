@@ -2,6 +2,7 @@ import { defineConfig } from 'vocs/config';
 
 export default defineConfig({
   title: 'Harbor',
+  basePath: '/docs',
   renderStrategy: 'full-static',
   ogImageUrl: '/harbor-mark.svg',
   iconUrl: '/harbor-mark.svg',
