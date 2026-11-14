@@ -48,8 +48,8 @@ const NEAR_DECIMALS = 24;
 const TOGGLE_ON = 'border-[var(--ws-accent-border)] bg-[var(--harbor-accent-tint)] text-[var(--ws-accent-ink)]';
 
 /**
- * Leash: a budget the agent can spend on its own, inside limits a NEAR contract enforces. Until the
- * contract is deployed and configured on this server it explains itself rather than showing a form
+ * Leash: a contract-enforced budget for explicitly owner-approved swaps. Until the
+ * deployment is configured on this server, explain the setup instead of showing a form
  * that can only fail.
  */
 export function LeashVault() {
@@ -85,8 +85,8 @@ function Explainer() {
     },
     {
       icon: <Bot />,
-      title: 'The agent works inside them',
-      body: 'It can pay only a quote NEAR Intents signed, that fits every limit, once. The contract checks each one.',
+      title: 'You approve each swap',
+      body: 'Review and approve an exact signed quote, then submit it. The configured agent pays it once, only if it fits every vault limit.',
     },
     {
       icon: <KeyRound />,
@@ -97,9 +97,9 @@ function Explainer() {
   return (
     <div className="space-y-4">
       <p className="max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">
-        Put a budget in a Leash vault and Harbor's agent can act on your monitors without asking you to sign each trade,
-        but only within limits the NEAR contract enforces. Your signed policy above is checked by Harbor's server; Leash
-        moves the same kind of rules on chain.
+        Leash holds a budget for swaps you explicitly approve and submit in Harbor. A configured restricted agent signs
+        the approved payment within the vault's on-chain limits. Monitoring ticks do not automatically trade. Deploying
+        the signer alone does not enable unattended execution.
       </p>
       <ul className="grid gap-3 @2xl/workspace:grid-cols-3">
         {facts.map((fact) => (
@@ -192,8 +192,8 @@ function OwnerVault({ owner }: { owner: string }) {
             Not live yet
           </Chip>
           <p className="text-[13px] text-muted-foreground">
-            The Leash contract isn't deployed for this server yet. Until it is, every trade is signed in your own
-            wallet.
+            Leash deployment settings are missing on this server. The contract, private signer, account identities and
+            execution settings must be configured before owner-approved dispatch is available.
           </p>
         </div>
       </div>
@@ -267,7 +267,7 @@ function OwnerVault({ owner }: { owner: string }) {
       fund: `Add ${amount} ${symbol(amountToken)} to your vault.`,
       withdraw: `Withdraw ${amount} ${symbol(amountToken)} from your vault to your account.`,
       freeze: 'Freeze your vault. The agent cannot spend from it until you unfreeze it.',
-      unfreeze: 'Unfreeze your vault. The agent can spend within your limits again.',
+      unfreeze: 'Unfreeze your vault so explicitly approved swaps can be submitted within your limits again.',
     };
     setPrepared({ ...response, summary: summaries[operation] });
   }
@@ -484,7 +484,7 @@ function OwnerVault({ owner }: { owner: string }) {
             <Snowflake className="size-4" aria-hidden="true" />
             {operation === 'freeze'
               ? 'Stops the agent from spending at once. Your funds stay in the vault.'
-              : 'Lets the agent spend again, within your limits.'}
+              : 'Allows explicitly approved swaps to be submitted again, within your limits.'}
           </p>
         ) : null}
 
