@@ -35,7 +35,7 @@ export interface SwapVenue {
 export interface DepositQuote extends VenueQuote {
   deposit: {
     /** Chain on which this exact deposit must be funded. */
-    originChain: string;
+    originChain?: string;
     address: string;
     memo: string | null;
     /** After this the provider refunds instead of swapping. */
