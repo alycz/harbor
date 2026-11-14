@@ -17,6 +17,7 @@ import {
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@harbor/ui/components/sheet';
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import {
+  Activity,
   ArrowLeftRight,
   ArrowUpRight,
   BookOpen,
@@ -52,6 +53,7 @@ const ROUTES = [
   { to: '/research', label: 'Research', icon: Telescope },
   { to: '/earn', label: 'Earn', icon: PiggyBank },
   { to: '/trade', label: 'Trade', icon: ArrowLeftRight },
+  { to: '/automations', label: 'Automations', icon: Activity },
   { to: '/portfolio', label: 'Portfolio', icon: WalletCards },
 ] as const;
 
