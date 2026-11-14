@@ -1,0 +1,10 @@
+{
+  "name": "harbor-leash-signer",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "durable_objects": { "bindings": [{ "name": "SIGNER", "class_name": "LeashSigner" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LeashSigner"] }]
+}
