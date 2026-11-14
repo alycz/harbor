@@ -53,3 +53,20 @@ Only `oneclick`, `rhea-lending`, and `templar` are accepted. KAIO is not a suppo
 These adapters are mainnet-only; testnet configurations remain execution-disabled with an empty list.
 Changing either gate does not establish that migrations, protocol registration, supported-market verification,
 wallet approval, balances, or settlement verification are ready. Those requirements still apply.
+
+
+## Enable Templar in a teammate deployment
+
+A valid market can return `borrowingEnabled: false` when either global execution is disabled or the `templar` write adapter is absent. A successful market read is not a borrowing permission. The response's `borrowingDisabledReason` distinguishes those settings.
+
+After building the audited revision (including the Templar approval/receipt fixes), prepare an explicitly enabled mainnet artifact:
+
+```sh
+pnpm build
+pnpm docs:build
+node scripts/prepare-deployment.mjs mainnet "$HARBOR_D1_ID" --enable-templar
+```
+
+This local preparation opts into both `EXECUTION_ENABLED=true` and `templar` in `ENABLED_WRITE_ADAPTERS`. It preserves other adapters selected in the built config or supplied using `--write-adapters=...`. It does not inspect deployed settings: include the existing deployed adapter selection explicitly if it differs from the built config. It does not deploy or run migrations. Testnet rejects this option. Checked-in defaults remain disabled.
+
+The teammate must then apply required migrations and deploy that exact generated artifact using the project's normal deployment process. Do not subsequently run the default `deploy:mainnet` command: it regenerates a disabled artifact without these explicit options. After deployment, read `/api/health` and `/api/templar/markets/<active-market>` to verify the switch and adapter are active. No wallet transaction is needed for that check.
