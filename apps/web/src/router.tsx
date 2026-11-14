@@ -67,6 +67,11 @@ const tradeRoute = createRoute({
   pendingComponent: TradeSkeleton,
   component: lazy(() => import('./routes/trade.tsx').then((module) => ({ default: module.TradePage }))),
 });
+const automationsRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: '/automations',
+  component: lazy(() => import('./routes/automations.tsx').then((module) => ({ default: module.AutomationsPage }))),
+});
 const earnRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: '/earn',
@@ -116,6 +121,7 @@ export const router = createRouter({
       researchRoute,
       tradeRoute,
       earnRoute,
+      automationsRoute,
       portfolioRoute,
       planRoute,
       policyRoute,
