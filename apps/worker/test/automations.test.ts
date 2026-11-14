@@ -185,6 +185,44 @@ describe('scheduled checks', () => {
     await deleteRule(h.deps, rule.id);
   });
 
+  it('does not update live rule state when paused while a quote is in flight', async () => {
+    const h = createFixture(1_946_000_000_000);
+    const rule = await activeRule(h);
+    h.deps.quotes.read = async () => {
+      await pauseRule(h.deps, rule.id);
+      return { amountOut: BELOW, venue: 'oneclick', observedAtMs: h.clock.now };
+    };
+    await tick(h);
+    const state = await readRule(h.deps, rule.id);
+    expect(state.status).toBe('paused');
+    expect(state.lastEvaluatedAt).toBeNull();
+    expect(state.alerts).toHaveLength(0);
+    await deleteRule(h.deps, rule.id);
+  });
+
+  it('skips queued obsolete due slots instead of replaying historical scans', async () => {
+    const h = createFixture(1_947_000_000_000);
+    const rule = await activeRule(h);
+    await env.DB.prepare(
+      `INSERT INTO jobs (id, kind, status, payload, dedupe_key, attempts, max_attempts, run_after_ms, created_at_ms, updated_at_ms)
+       VALUES (?, 'automation.evaluate', 'queued', ?, ?, 0, 3, ?, ?, ?)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        JSON.stringify({ ruleId: rule.id, revision: 1, scheduledForMs: h.clock.now - 5 * MINUTE }),
+        `backlog:${rule.id}`,
+        h.clock.now - 5 * MINUTE,
+        h.clock.now - 5 * MINUTE,
+        h.clock.now - 5 * MINUTE,
+      )
+      .run();
+    await tick(h);
+    const state = await readRule(h.deps, rule.id);
+    expect(state.evaluations).toHaveLength(1);
+    expect(state.evaluations[0]?.delayMs).toBe(0);
+    await deleteRule(h.deps, rule.id);
+  });
+
   it('fires one alert when two scheduler invocations overlap', async () => {
     const h = createFixture(1_950_000_000_000);
     h.quote.output = ABOVE;
