@@ -322,3 +322,10 @@ fn failed_withdrawal_restores_original_token_balance() {
     assert_eq!(vault.limits.token, account("wrap.near"));
     assert_eq!(leash.vaults.get(&account("alice.near")).unwrap().pending_transfers, 0);
 }
+
+#[test]
+#[should_panic(expected = "Only destination-chain delivery")]
+fn rejects_delivery_to_an_intents_balance() {
+    let mut leash = funded();
+    execute(&mut leash, &quote(|value| value["recipientType"] = "INTENTS".into()));
+}

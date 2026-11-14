@@ -166,6 +166,7 @@ impl Leash {
         require!(quote.get("dry") == Some(&Value::Bool(false)), "Not an executable quote");
         require!(field("swapType") == "EXACT_INPUT", "Only exact-input swaps");
         require!(field("depositType") == "ORIGIN_CHAIN", "Only origin-chain deposits");
+        require!(field("recipientType") == "DESTINATION_CHAIN", "Only destination-chain delivery");
         require!(field("refundType") == "ORIGIN_CHAIN", "Refunds must return to the origin chain");
         require!(field("originAsset") == format!("nep141:{}", vault.limits.token), "This vault does not hold that asset");
         require!(vault.limits.buy_assets.contains(&field("destinationAsset")), "The owner does not allow buying that");

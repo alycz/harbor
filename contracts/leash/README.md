@@ -52,3 +52,8 @@ reserved it. The `pending_transfers` field changes the stored vault layout: this
 version is for a fresh deployment, **not an in-place upgrade of an existing vault**
 without a separately reviewed state migration. The public Worker-facing ABI is
 unchanged; the private execution callback now also receives its spending-window ID.
+
+Operating NEAR is a shared deployment reserve, not part of each vault's token budget:
+every attempted deposit may consume registration cost, transfer dust and replay-record
+storage. A production deployment still needs explicit operating-reserve accounting;
+token spending caps alone do not isolate those costs between vaults.
