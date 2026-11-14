@@ -3,6 +3,7 @@ import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
 import { EarnVaults } from '../components/earn-vaults.tsx';
+import { IntegrationDemo } from '../components/integration-demo.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
@@ -41,6 +42,7 @@ export function EarnPage() {
           </Button>
         }
       />
+      <IntegrationDemo />
       {best.length === 0 ? (
         <Panel>
           <EmptyState
