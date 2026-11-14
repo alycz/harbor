@@ -30,3 +30,20 @@ The Postman reference documents POST `/api/v1/orderbook/subscription/order` with
 client. Readback uses GET `/api/v1/orderbook/order` and `/api/v1/orderbook/order/:orderId`.
 The complete flow requires create, confirm with an agreement, then admin locking and
 settlement. Confirmation is intentionally not auto-triggered by this client.
+
+## Authenticated server workflow seam
+
+`@harbor/adapters/kaio/workflow` adds an investor-bound subscription coordinator.
+The server must provide a verified Harbor-account → KAIO-investor session resolver,
+provider-configured instrument eligibility checks, and durable `KaioOrderStore`.
+Its store contract requires atomic insert-if-absent per account/attempt UUID. Reusing
+an attempt never repeats the provider POST; conflicting payloads are rejected.
+Claiming precedes submission, so a crash or lost response requires reconciliation,
+not another order. A received response is not settlement or mint success.
+
+This is **not connected to Harbor routes/UI and not a completed persistence backend**.
+Harbor's existing NEAR wallet sign-in does not prove ownership of a KAIO investor
+account. We intentionally do not ask for pasted JWTs, share one investor credential,
+or invent an OAuth exchange. Before exposing a submit button, implement the provider-
+approved investor authentication/linking flow, durable store, request/CSRF checks,
+and explicit user approval. No new tables or migrations have been applied.
