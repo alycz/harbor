@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 type TextBlock = {
-  kind: 'paragraph' | 'heading' | 'quote' | 'code' | 'ordered' | 'unordered';
+  kind: 'paragraph' | 'heading' | 'quote' | 'code' | 'ordered' | 'unordered' | 'table';
   offset: number;
   lines: { text: string; offset: number }[];
   start: number;
@@ -22,6 +22,8 @@ export function MessageContent({ text }: { text: string }) {
             </pre>
           );
         }
+        if (block.kind === 'table')
+          return <MessageTable key={block.offset} lines={block.lines.map((line) => line.text)} />;
         if (block.kind === 'ordered' || block.kind === 'unordered') {
           const items = block.lines.map((line) => (
             <li key={line.offset} className="pl-1.5 whitespace-pre-wrap marker:text-muted-foreground">
@@ -96,10 +98,21 @@ function parseBlocks(text: string): TextBlock[] {
       blocks.push(current);
       continue;
     }
+    const table = /^\s*\|.*\|\s*$/.test(line);
     const heading = /^#{1,6}\s+(.+)$/.exec(line);
     const quote = /^>\s?(.*)$/.exec(line);
     const item = /^\s*(?:(\d+)[.)]|[-+*])\s+(.+)$/.exec(line);
-    const kind = heading ? 'heading' : quote ? 'quote' : item ? (item[1] ? 'ordered' : 'unordered') : 'paragraph';
+    const kind = table
+      ? 'table'
+      : heading
+        ? 'heading'
+        : quote
+          ? 'quote'
+          : item
+            ? item[1]
+              ? 'ordered'
+              : 'unordered'
+            : 'paragraph';
     if (!current || current.kind !== kind || kind === 'heading') {
       current = {
         kind,
@@ -109,9 +122,56 @@ function parseBlocks(text: string): TextBlock[] {
       };
       blocks.push(current);
     }
-    current.lines.push({ text: heading?.[1] ?? quote?.[1] ?? item?.[2] ?? line, offset: match.index });
+    current.lines.push({
+      text: table ? line : (heading?.[1] ?? quote?.[1] ?? item?.[2] ?? line),
+      offset: match.index,
+    });
   }
   return blocks;
+}
+
+/** The cells of one Markdown table row, without its outer pipes. */
+function cells(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+/** A Markdown table: a header row, a divider row of dashes, then body rows. */
+function MessageTable({ lines }: { lines: string[] }) {
+  const divider = (line: string) => cells(line).every((cell) => /^:?-{2,}:?$/.test(cell));
+  const [head, ...rest] = lines;
+  const body = rest[0] !== undefined && divider(rest[0]) ? rest.slice(1) : rest;
+  if (head === undefined) return null;
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <table className="w-full min-w-[28rem] text-left text-[13px] leading-snug">
+        <thead className="border-b border-border bg-secondary/40 text-[12px] text-muted-foreground">
+          <tr>
+            {cells(head).map((cell, index) => (
+              <th key={index} className="px-3.5 py-2.5 font-medium">
+                {inlineContent(cell)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((row, rowIndex) => (
+            <tr key={rowIndex} className="border-b border-border/70 last:border-b-0">
+              {cells(row).map((cell, index) => (
+                <td key={index} className="ws-num px-3.5 py-2.5 align-top">
+                  {inlineContent(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function inlineContent(text: string): ReactNode[] {

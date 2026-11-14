@@ -1,6 +1,7 @@
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { Label } from '@harbor/ui/components/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@harbor/ui/components/select';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, LoaderCircle, Plus, X } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
@@ -8,10 +9,10 @@ import { type ReactNode, useId, useState } from 'react';
 import { execution } from '../lib/execution.ts';
 import { draftFrom, type PolicyDraft, policies, type SignedPolicyView } from '../lib/policy.ts';
 import { useWallet, walletProblem } from '../lib/wallet.tsx';
+import { AssetSelect, chainName } from './asset-select.tsx';
+import { ChainLogo } from './protocol-logo.tsx';
 import { Toggle } from './workspace.tsx';
 
-const SELECT =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40';
 const CHAINS = [
   { value: 'base', label: 'Base' },
   { value: 'arb', label: 'Arbitrum' },
@@ -19,6 +20,17 @@ const CHAINS = [
   { value: 'sol', label: 'Solana' },
   { value: 'near', label: 'Another NEAR account' },
 ] as const;
+
+/** A destination chain with its logo, as the chain dropdown shows it. */
+function ChainChoice({ chain }: { chain: string }) {
+  const label = CHAINS.find((entry) => entry.value === chain)?.label ?? chain;
+  return (
+    <span className="flex items-center gap-2.5">
+      <ChainLogo chain={chainName(chain)} className="size-5" />
+      {label}
+    </span>
+  );
+}
 
 /** One group of policy fields under a short title, separated from the next by a hairline. */
 function PolicySection({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
@@ -109,24 +121,21 @@ export function PolicyEditor({ current }: { current: SignedPolicyView | null }) 
             className="grid gap-3 @xl/workspace:col-span-2 @xl/workspace:grid-cols-[1fr_1fr_1fr_1fr_auto]"
           >
             <Field id={`${id}-asset-${index}`} label="Asset">
-              <select
+              <AssetSelect
                 id={`${id}-asset-${index}`}
-                className={SELECT}
                 value={limit.asset}
-                onChange={(event) =>
+                choices={(sellable.length > 0 ? sellable : [{ symbol: limit.asset, chain: 'near' }]).map((asset) => ({
+                  value: asset.symbol,
+                  symbol: asset.symbol,
+                  // Every asset the agent may spend lives on NEAR, so the chain would only repeat itself.
+                  detail: '',
+                }))}
+                onChange={(asset) =>
                   update({
-                    spend: draft.spend.map((entry, at) =>
-                      at === index ? { ...entry, asset: event.target.value } : entry,
-                    ),
+                    spend: draft.spend.map((entry, at) => (at === index ? { ...entry, asset } : entry)),
                   })
                 }
-              >
-                {(sellable.length > 0 ? sellable : [{ symbol: limit.asset }]).map((asset) => (
-                  <option key={asset.symbol} value={asset.symbol}>
-                    {asset.symbol}
-                  </option>
-                ))}
-              </select>
+              />
             </Field>
             {(['perAction', 'perDay', 'total'] as const).map((field) => (
               <Field
@@ -207,24 +216,33 @@ export function PolicyEditor({ current }: { current: SignedPolicyView | null }) 
             key={`destination-${index}`}
             className="grid gap-3 @xl/workspace:col-span-2 @xl/workspace:grid-cols-[180px_1fr_auto]"
           >
-            <select
-              aria-label="Chain"
-              className={SELECT}
+            <Select
               value={destination.chain}
-              onChange={(event) =>
+              onValueChange={(chain) =>
+                chain !== null &&
                 update({
                   destinations: draft.destinations.map((entry, at) =>
-                    at === index ? { ...entry, chain: event.target.value } : entry,
+                    at === index ? { ...entry, chain: String(chain) } : entry,
                   ),
                 })
               }
             >
-              {CHAINS.map((chain) => (
-                <option key={chain.value} value={chain.value}>
-                  {chain.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                aria-label="Chain"
+                className="h-10 w-full gap-2.5 rounded-md border-input bg-card pr-3 pl-2.5 text-[13.5px] font-medium data-[size=default]:h-10"
+              >
+                <SelectValue>
+                  <ChainChoice chain={destination.chain} />
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="min-w-56 p-1.5">
+                {CHAINS.map((chain) => (
+                  <SelectItem key={chain.value} value={chain.value} className="min-h-10 rounded-md py-2 pr-9 pl-2.5">
+                    <ChainChoice chain={chain.value} />
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               aria-label="Address"
               className="h-10 font-mono text-[12.5px]"

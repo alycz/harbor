@@ -1,4 +1,4 @@
-import type { ProposalKind, ProtocolAction, PublicAgentEvent } from '@harbor/agent-runtime/events';
+import type { DataCard, ProposalKind, ProtocolAction, PublicAgentEvent } from '@harbor/agent-runtime/events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface PreparationStep {
@@ -18,6 +18,8 @@ interface ConversationMessage {
   /** Intents Harbor created for this answer; each renders as a proposal card. */
   protocolActions?: { actionId: string; action: ProtocolAction }[];
   proposals?: { intentId: string; kind: ProposalKind }[];
+  /** What Harbor's read tools returned for this answer, shown as cards above its text. */
+  cards?: { cardId: string; card: DataCard }[];
 }
 
 export interface AgentChat {
@@ -285,6 +287,14 @@ function apply(message: ConversationMessage, event: PublicAgentEvent): Conversat
         protocolActions: [
           ...(message.protocolActions ?? []).filter((item) => item.actionId !== event.actionId),
           { actionId: event.actionId, action: event.action },
+        ],
+      };
+    case 'data_card':
+      return {
+        ...message,
+        cards: [
+          ...(message.cards ?? []).filter((item) => item.cardId !== event.cardId),
+          { cardId: event.cardId, card: event.card },
         ],
       };
     case 'proposal':

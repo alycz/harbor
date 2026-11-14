@@ -2,7 +2,13 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Agent, AgentEvent, AgentMessage } from '@earendil-works/pi-agent-core';
 import { fauxAssistantMessage, fauxText } from '@earendil-works/pi-ai';
 import { createHarborAgent, DEFAULT_TURN_LIMITS, runTurn, type TurnOutcome } from '@harbor/agent-runtime/agent';
-import { isTerminal, PROPOSAL_KINDS, type PublicAgentEvent, toPublicEvent } from '@harbor/agent-runtime/events';
+import {
+  type DataCard,
+  isTerminal,
+  PROPOSAL_KINDS,
+  type PublicAgentEvent,
+  toPublicEvent,
+} from '@harbor/agent-runtime/events';
 import { assertExactTools } from '@harbor/agent-runtime/tools';
 
 import { type AdmissionLimits, ConfigError, decodeAgentConfig } from '../config.ts';
@@ -208,6 +214,8 @@ export class ConversationAgent extends DurableObject<Env> {
         if (publicEvent) this.#emit(publicEvent);
         const proposal = proposalOf(event);
         if (proposal) this.#emit(proposal);
+        const card = dataCardOf(event);
+        if (card) this.#emit(card);
       });
       run.agent = agent;
       outcome = run.stopRequested
@@ -280,6 +288,22 @@ function terminalEvent(outcome: TurnOutcome, stopRequested: boolean): PublicAgen
     };
   }
   return { type: 'error', code: 'failed', message: 'The assistant could not answer. Try again in a moment.' };
+}
+
+const CARD_TOOLS = new Set(['list_deposit_opportunities', 'list_borrow_markets', 'list_markets']);
+const CARD_KINDS = new Set(['deposits', 'borrow_markets', 'yield_pools']);
+
+/**
+ * A read tool's data as a card. The card comes from the tool's own result object, which the model never
+ * writes, so the browser shows what Harbor read rather than what the model says it read.
+ */
+export function dataCardOf(event: AgentEvent): PublicAgentEvent | null {
+  if (event.type !== 'tool_execution_end' || event.isError || !CARD_TOOLS.has(event.toolName)) return null;
+  const card: unknown = event.result?.details?.card;
+  if (!card || typeof card !== 'object') return null;
+  const { kind, items } = card as { kind?: unknown; items?: unknown };
+  if (typeof kind !== 'string' || !CARD_KINDS.has(kind) || !Array.isArray(items) || items.length === 0) return null;
+  return { type: 'data_card', cardId: event.toolCallId, card: card as DataCard };
 }
 
 /** The intent ID comes from the application's tool result, so the card shows Harbor's record, not model text. */

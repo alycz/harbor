@@ -1,14 +1,13 @@
 import { Button } from '@harbor/ui/components/button';
-import { Input } from '@harbor/ui/components/input';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { AssetSelect, chainName } from '../components/asset-select.tsx';
-import { LeashVault } from '../components/leash-vault.tsx';
 import { PriceAlerts } from '../components/price-alerts.tsx';
 import { RoundtripMonitor } from '../components/roundtrip-monitor.tsx';
 import { SpreadMonitors } from '../components/spread-monitors.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
+import { UnitInput } from '../components/unit-input.tsx';
 import { Chip, PageHeader, Panel } from '../components/workspace.tsx';
 import { outboundReviewRequest, roundtripDraftValid } from '../lib/automation-draft.ts';
 import { call, execution } from '../lib/execution.ts';
@@ -63,7 +62,6 @@ export function AutomationsPage() {
         title="Automations"
         description="Harbor watches the market every minute while you're away and keeps the evidence of every check. When something moves, it tells you and queues the trade for you to sign."
       />
-      <LeashVault />
       <SpreadMonitors />
       <PriceAlerts />
       <Panel label="Intents round-trip scan" icon={<Radar />} bodyClassName="p-5 @xl/workspace:p-6">
@@ -246,41 +244,6 @@ function ScanField({ id, label, hint, children }: { id: string; label: string; h
       </label>
       {children}
       <p className="text-[12px] text-muted-foreground">{hint}</p>
-    </div>
-  );
-}
-
-/** A number input with its unit shown inside, on the right. */
-function UnitInput({
-  id,
-  unit,
-  value,
-  inputMode,
-  disabled,
-  onChange,
-}: {
-  id: string;
-  unit: string;
-  value: string;
-  inputMode: 'decimal' | 'numeric';
-  disabled: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="relative">
-      <Input
-        id={id}
-        className="h-10 pr-14"
-        value={value}
-        inputMode={inputMode}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value.trim())}
-      />
-      {unit ? (
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[12.5px] text-muted-foreground">
-          {unit}
-        </span>
-      ) : null}
     </div>
   );
 }

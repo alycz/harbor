@@ -4,7 +4,7 @@ import type { PublicAgentEvent } from '@harbor/agent-runtime/events';
 import { describe, expect, it } from 'vitest';
 
 import type { ConversationAgent } from '../src/agent/conversation.ts';
-import { proposalOf } from '../src/agent/conversation.ts';
+import { dataCardOf, proposalOf } from '../src/agent/conversation.ts';
 import type { OpportunityService } from '../src/agent/opportunities.ts';
 import { createTools, type ProposalService } from '../src/agent/tools.ts';
 import { createApp } from '../src/app.ts';
@@ -478,6 +478,48 @@ describe('live opportunity tools', () => {
     expect(text.startsWith('<untrusted source="')).toBe(true);
     expect(body(text)).toMatchObject({ live: true, opportunities: [{ asset: 'USDC', ratePct: 12.59 }] });
     expect(body(text).opportunities[0].queueWith).toContain('assetId: "USDC"');
+  });
+
+  it('turns each read tool result into a card built from its own rows, never from model text', async () => {
+    const run = async (name: string, args: Record<string, unknown> = {}) => {
+      const tool = tools.find((entry) => entry.name === name);
+      const result = await tool?.execute('call', args, undefined);
+      return { type: 'tool_execution_end', toolCallId: `${name}-1`, toolName: name, isError: false, result } as const;
+    };
+    expect(dataCardOf(await run('list_deposit_opportunities'))).toEqual({
+      type: 'data_card',
+      cardId: 'list_deposit_opportunities-1',
+      card: {
+        kind: 'deposits',
+        fetchedAt: '2026-11-15T00:00:00.000Z',
+        items: [
+          {
+            name: 'Rhea Lend USDC',
+            protocol: 'rhea-lending',
+            chain: 'NEAR',
+            asset: 'USDC',
+            ratePct: 12.59,
+            rateKind: 'APR',
+            sizeUsd: 12_092_763,
+          },
+        ],
+      },
+    });
+    expect(dataCardOf(await run('list_borrow_markets'))).toMatchObject({
+      card: {
+        kind: 'borrow_markets',
+        items: [
+          { marketId: 'ibtc-iethusdc-1.v1.tmplr.near', borrow: { symbol: 'USDC' }, collateral: { symbol: 'BTC' } },
+        ],
+      },
+    });
+    const pools = dataCardOf(await run('list_markets', { kind: 'yield_pools', limit: 3 }));
+    expect(pools).toMatchObject({ card: { kind: 'yield_pools' } });
+    expect(pools?.type === 'data_card' && pools.card.items.length).toBe(3);
+    // Protocol rankings, failed tools and other tools carry no card.
+    expect(dataCardOf(await run('list_markets', { kind: 'protocols', limit: 3 }))).toBeNull();
+    expect(dataCardOf({ ...(await run('list_deposit_opportunities')), isError: true })).toBeNull();
+    expect(dataCardOf({ ...(await run('list_deposit_opportunities')), toolName: 'read_feed' })).toBeNull();
   });
 
   it('lists Templar markets with the decimals a borrow amount needs', async () => {
