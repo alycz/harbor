@@ -75,7 +75,7 @@ interface Leg {
 }
 
 /** A round trip: buy the base on one venue, sell it on the other, and what came back. */
-export interface RoundTrip {
+interface RoundTrip {
   /** Where the base was bought, then sold. */
   route: 'intents_then_rhea' | 'rhea_then_intents';
   legs: Leg[];

@@ -8,7 +8,7 @@ export const SPREAD_PAIRS = [
 ] as const;
 
 export type AutomationKind = 'price_alert' | 'spread_alert';
-export type AutomationStatus = 'draft' | 'active' | 'paused' | 'completed';
+type AutomationStatus = 'draft' | 'active' | 'paused' | 'completed';
 export type CheckResult = 'true' | 'false' | 'unknown';
 
 export interface SpreadConfig {
@@ -20,7 +20,7 @@ export interface SpreadConfig {
   mode: 'once' | 'repeat';
 }
 
-export interface Leg {
+interface Leg {
   venue: string;
   sell: { symbol: string; amount: string };
   buy: { symbol: string; amount: string };
