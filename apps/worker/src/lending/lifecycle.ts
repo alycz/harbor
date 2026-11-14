@@ -241,7 +241,7 @@ export async function settleSupply(env: Env, owner: string, id: string, txHash: 
   const blockResponse = await fetch(config.rpcUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    redirect: 'error',
+    redirect: 'manual',
     signal: AbortSignal.timeout(8_000),
     body: JSON.stringify({
       jsonrpc: '2.0',

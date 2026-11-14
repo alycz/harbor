@@ -1,4 +1,4 @@
-import { createRheaLending } from '@harbor/adapters/rhea/lending';
+import { createRheaLending, RheaRegistrationRequired } from '@harbor/adapters/rhea/lending';
 import { MAX_U128_RAW, parseDecimalAmount } from '@harbor/domain/amount';
 import { parseOneClickAssetId } from '@harbor/domain/asset';
 import { AppError } from '@harbor/domain/errors';
@@ -86,6 +86,24 @@ export function createLendingRoutes() {
       executionEnabled: config.executionEnabled && config.writeAdapters.has('rhea-lending'),
     });
   });
+  // Rhea holds a small storage deposit per account. Without it a supply is refunded, so it comes first.
+  routes.get('/rhea/registration', async (c) => {
+    const config = decodeExecutionConfig(c.env);
+    if (config.network !== 'mainnet') {
+      throw new AppError('UNAVAILABLE', 'Rhea lending has no configured testnet integration.');
+    }
+    if (!config.executionEnabled || !config.writeAdapters.has('rhea-lending')) {
+      throw new AppError(
+        'EXECUTION_DISABLED',
+        'Rhea execution is disabled. An operator must enable the validated lending adapter.',
+      );
+    }
+    try {
+      return c.json(await createRheaLending(config.rpcUrl).registration(c.get('account')));
+    } catch {
+      throw new AppError('UNAVAILABLE', 'Could not read your Rhea registration. Retry in a moment.');
+    }
+  });
   routes.post('/rhea/prepare', async (c) => {
     const config = decodeExecutionConfig(c.env);
     if (config.network !== 'mainnet')
@@ -125,10 +143,17 @@ export function createLendingRoutes() {
           ? 'Review the one-time supply approval, then sign the transaction in your wallet. No funds have moved yet.'
           : 'Rhea execution is disabled by the operator. Preview only; no funds have moved.',
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      if (error instanceof RheaRegistrationRequired) {
+        throw new AppError('CONFLICT', 'Register with Rhea first: one wallet transaction, then supply.');
+      }
+      if (error instanceof Error && error.message === 'Insufficient token balance') {
+        throw new AppError('INVALID_REQUEST', 'Your wallet holds less than this amount of the token.');
+      }
       throw new AppError(
         'UNAVAILABLE',
-        'Rhea preparation failed. Check asset deposit availability, wallet balance and Rhea storage registration, then retry.',
+        'Rhea preparation failed. Check asset deposit availability and your balance, then retry.',
       );
     }
   });

@@ -10,10 +10,28 @@ const Account = z
 const Amount = z.string().regex(/^(0|[1-9]\d{0,38})$/);
 const Asset = z.object({
   token_id: Account,
-  config: z.object({ can_deposit: z.boolean() }),
+  supplied: z.object({ balance: Amount }),
+  supply_apr: z.string().regex(/^\d+(\.\d+)?$/),
+  config: z.object({
+    can_deposit: z.boolean(),
+    can_withdraw: z.boolean(),
+    extra_decimals: z.number().int().min(0).max(24),
+  }),
 });
 const Storage = z.object({ total: Amount, available: Amount }).nullable();
+const StorageBounds = z.object({ min: Amount });
 const U128_MAX = (1n << 128n) - 1n;
+const SUPPLY_GAS = '100000000000000';
+const REGISTRATION_GAS = '30000000000000';
+
+/** A wallet-signable NEAR call, never a submitted transaction. No keys are accepted by this adapter. */
+export interface RheaTransaction {
+  receiverId: string;
+  actions: Array<{
+    type: 'FunctionCall';
+    params: { methodName: string; args: Record<string, string>; gas: string; deposit: string };
+  }>;
+}
 
 export interface RheaSupplyPlan {
   adapter: 'rhea-lending';
@@ -21,20 +39,33 @@ export interface RheaSupplyPlan {
   signerId: string;
   tokenId: string;
   amount: string;
-  /** A wallet-signable call, not a submitted transaction. No keys are accepted by this adapter. */
-  transaction: {
-    receiverId: string;
-    actions: Array<{
-      type: 'FunctionCall';
-      params: { methodName: string; args: Record<string, string>; gas: string; deposit: string };
-    }>;
-  };
+  transaction: RheaTransaction;
   preparedAt: number;
   expiresAt: number;
 }
 
-/** Read-only NEAR RPC plus deterministic, non-collateral supply transaction preparation.
- * The caller must bind this exact plan to user approval and enforce Harbor execution gates.
+/** One Rhea lending market as the contract reports it now. */
+export interface RheaMarket {
+  tokenId: string;
+  /** Supply APR in percent, as the contract computes it; farm rewards are not included. */
+  supplyAprPct: number;
+  /** Total supplied in the contract's internal units: token decimals plus `extraDecimals`. */
+  suppliedRaw: string;
+  extraDecimals: number;
+  canDeposit: boolean;
+  canWithdraw: boolean;
+}
+
+/** The account has no Rhea storage yet: it must register, one wallet transaction, before supplying. */
+export class RheaRegistrationRequired extends Error {
+  constructor() {
+    super('Register with Rhea before supplying');
+    this.name = 'RheaRegistrationRequired';
+  }
+}
+
+/** Read-only NEAR RPC plus deterministic supply and registration transaction preparation.
+ * The caller must bind a supply plan to user approval and enforce Harbor execution gates.
  * Never treat preparation or wallet submission as proof of settlement.
  */
 export function createRheaLending(rpcUrl: string, fetcher: typeof fetch = fetch) {
@@ -47,7 +78,8 @@ export function createRheaLending(rpcUrl: string, fetcher: typeof fetch = fetch)
     const response = await fetcher(endpoint.toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      redirect: 'error',
+      // Workers reject redirect: 'error'; a redirect comes back as a non-2xx response and is refused below.
+      redirect: 'manual',
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -70,12 +102,56 @@ export function createRheaLending(rpcUrl: string, fetcher: typeof fetch = fetch)
       .parse(JSON.parse(text));
     return JSON.parse(new TextDecoder().decode(new Uint8Array(payload.result.result))) as unknown;
   }
+  async function asset(tokenId: string) {
+    Account.parse(tokenId);
+    // The contract's view takes `token_id` (Burrowland `get_asset`); `asset_id` makes it panic.
+    const parsed = Asset.parse(await view(RHEA_LENDING_CONTRACT, 'get_asset', { token_id: tokenId }));
+    if (parsed.token_id !== tokenId) throw new Error('Rhea asset identity mismatch');
+    return parsed;
+  }
+  async function storage(accountId: string) {
+    return Storage.parse(await view(RHEA_LENDING_CONTRACT, 'storage_balance_of', { account_id: accountId }));
+  }
   return {
-    async asset(tokenId: string) {
-      Account.parse(tokenId);
-      const asset = Asset.parse(await view(RHEA_LENDING_CONTRACT, 'get_asset', { asset_id: tokenId }));
-      if (asset.token_id !== tokenId) throw new Error('Rhea asset identity mismatch');
-      return asset;
+    /** The market's raw contract record, after its identity is checked. */
+    asset,
+    async market(tokenId: string): Promise<RheaMarket> {
+      const raw = await asset(tokenId);
+      return {
+        tokenId: raw.token_id,
+        supplyAprPct: Number(raw.supply_apr) * 100,
+        suppliedRaw: raw.supplied.balance,
+        extraDecimals: raw.config.extra_decimals,
+        canDeposit: raw.config.can_deposit,
+        canWithdraw: raw.config.can_withdraw,
+      };
+    },
+    /** Whether the account can supply now, and if not, the one registration transaction it must sign first. */
+    async registration(accountId: string): Promise<{ registered: boolean; transaction: RheaTransaction | null }> {
+      Account.parse(accountId);
+      const [current, bounds] = await Promise.all([
+        storage(accountId),
+        view(RHEA_LENDING_CONTRACT, 'storage_balance_bounds', {}).then((raw) => StorageBounds.parse(raw)),
+      ]);
+      if (current && BigInt(current.total) > 0n) return { registered: true, transaction: null };
+      return {
+        registered: false,
+        transaction: {
+          receiverId: RHEA_LENDING_CONTRACT,
+          actions: [
+            {
+              type: 'FunctionCall',
+              params: {
+                methodName: 'storage_deposit',
+                args: { account_id: accountId },
+                gas: REGISTRATION_GAS,
+                // Exactly the contract's minimum: registration only, nothing extra is held.
+                deposit: bounds.min,
+              },
+            },
+          ],
+        },
+      };
     },
     async prepareSupply(input: {
       network: 'near:mainnet';
@@ -89,17 +165,14 @@ export function createRheaLending(rpcUrl: string, fetcher: typeof fetch = fetch)
       if (input.amount <= 0n || input.amount > U128_MAX) throw new Error('Invalid Rhea supply amount');
       // On-chain config and balance must be checked, not inferred from model output or ticker symbols.
       // Official view methods: common/lending/view.go in the Rhea SDK.
-      const [rawAsset, rawBalance, rawStorage] = await Promise.all([
-        view(RHEA_LENDING_CONTRACT, 'get_asset', { asset_id: tokenId }),
+      const [market, rawBalance, current] = await Promise.all([
+        asset(tokenId),
         view(tokenId, 'ft_balance_of', { account_id: accountId }),
-        view(RHEA_LENDING_CONTRACT, 'storage_balance_of', { account_id: accountId }),
+        storage(accountId),
       ]);
-      const asset = Asset.parse(rawAsset);
-      if (asset.token_id !== tokenId || !asset.config.can_deposit)
-        throw new Error('Rhea deposits unavailable for this asset');
+      if (!market.config.can_deposit) throw new Error('Rhea deposits unavailable for this asset');
       if (BigInt(Amount.parse(rawBalance)) < input.amount) throw new Error('Insufficient token balance');
-      const storage = Storage.parse(rawStorage);
-      if (!storage || BigInt(storage.total) === 0n) throw new Error('Register storage with Rhea before supplying');
+      if (!current || BigInt(current.total) === 0n) throw new RheaRegistrationRequired();
       const now = Date.now();
       return {
         adapter: 'rhea-lending',
@@ -119,7 +192,7 @@ export function createRheaLending(rpcUrl: string, fetcher: typeof fetch = fetch)
                 // https://github.com/rhea-finance/lending-sdk-golang/blob/main/common/lending/write.go
                 methodName: 'ft_transfer_call',
                 args: { receiver_id: RHEA_LENDING_CONTRACT, amount: input.amount.toString(), msg: '' },
-                gas: '100000000000000',
+                gas: SUPPLY_GAS,
                 deposit: '1',
               },
             },
