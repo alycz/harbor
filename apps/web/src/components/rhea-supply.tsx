@@ -10,11 +10,11 @@ type Approval = { id:string; digest:string; message:string; nonce:string; recipi
 type Preview = { plan: { amount: string; tokenId: string; signerId: string; expiresAt: number }; limitation: string; executionEnabled:boolean; approval:Approval|null };
 const recoveryKey = (owner:string) => `harbor.rhea.supply.${owner}`;
 
-export function RheaSupply() {
+export function RheaSupply({ initialAssetId, initialAmount }: { initialAssetId?: string; initialAmount?: string } = {}) {
   const wallet = useWallet();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetId, setAssetId] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(initialAmount ?? '');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [approval, setApproval] = useState<Approval|null>(null);
   const [hash, setHash] = useState('');
@@ -25,7 +25,7 @@ export function RheaSupply() {
     setPreview(null); setApproval(null); setHash(''); setAssets([]); setAssetId(''); setError(null);
     if (wallet.address) {
       void call<{ assets: Asset[] }>('/api/lending/rhea/assets').then((data) => {
-        if (active) { setAssets(data.assets); setAssetId(data.assets[0]?.canonicalId ?? ''); }
+        if (active) { setAssets(data.assets); setAssetId(initialAssetId && data.assets.some((asset) => asset.canonicalId === initialAssetId) ? initialAssetId : initialAssetId ? '' : data.assets[0]?.canonicalId ?? ''); }
       }).catch(() => { if (active) setError('Could not load NEAR assets.'); });
       const saved = localStorage.getItem(recoveryKey(wallet.address));
       if (saved) void call<Approval>(`/api/lending/rhea/plans/${encodeURIComponent(saved)}`).then((plan)=>{
@@ -33,7 +33,7 @@ export function RheaSupply() {
       }).catch(()=>{if(active)setError('Could not restore the previous supply. Do not resend until its outcome is known.');});
     }
     return () => { active = false; };
-  }, [wallet.address]);
+  }, [wallet.address, initialAssetId]);
   async function prepare() {
     setBusy(true); setError(null); setPreview(null);
     try {

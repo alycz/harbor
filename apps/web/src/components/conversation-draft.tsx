@@ -1,3 +1,5 @@
+import { RheaChatAction } from './rhea-chat-action.tsx';
+import { TemplarChatAction } from './templar-chat-action.tsx';
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { Label } from '@harbor/ui/components/label';
@@ -196,6 +198,11 @@ export function ConversationDraft({
                         {message.error}
                       </p>
                     ) : null}
+                    {message.protocolActions?.map(({ actionId, action }) => (
+                      <div key={actionId} className="mt-4">
+                        {action.protocol === 'rhea-lending' ? <RheaChatAction assetId={action.assetId} amount={action.amount} /> : <TemplarChatAction marketId={action.marketId} amountAtomic={action.amountAtomic} />}
+                      </div>
+                    ))}
                     {message.proposals?.length ? (
                       <div className="mt-4 space-y-3">
                         {message.proposals.map((proposal) => (
