@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "bundle": "wrangler deploy --dry-run"
+    "bundle": "wrangler deploy --dry-run",
+    "provision-key": "node scripts/provision-agent-key.mjs"
   },
   "dependencies": {
     "near-api-js": "catalog:",
