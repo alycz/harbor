@@ -4,8 +4,10 @@ import { z } from 'zod';
 
 import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
+import { executionDeps } from '../execution/store.ts';
 import { automationDeps } from './dispatch.ts';
 import { evaluatePriceAlert } from './evaluate.ts';
+import { previewRoundtrip, RoundtripSchema } from './roundtrip.ts';
 import {
   type AutomationDeps,
   acknowledgeTrigger,
@@ -44,6 +46,15 @@ const PreviewSchema = z.strictObject({ config: z.unknown() });
  */
 export function createAutomationRoutes() {
   const routes = new Hono<AppEnv>();
+
+  routes.post('/roundtrip-preview', async (c) => {
+    const body = parse(
+      RoundtripSchema,
+      await c.req.json().catch(() => null),
+      'Send supported asset IDs, amount and optional minSpreadBps.',
+    );
+    return c.json(await previewRoundtrip(executionDeps(c.env), body));
+  });
 
   /** Evaluates settings now without saving anything or firing an alert. */
   routes.post('/preview', async (c) => {
