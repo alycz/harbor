@@ -5,7 +5,7 @@ Cross-chain DeFi research and reviewed swap plans, built around explicit user li
 Harbor is the application in [alycz/harbor](https://github.com/alycz/harbor). It combines a React interface, a Cloudflare Worker, NEAR wallet sign-in, and verified NEAR Intents 1Click quotes. The agent proposes typed intents; it does not hold your keys.
 
 :::warning[Read this before using funds]
-Harbor is a work-in-progress hackathon application. The committed configuration disables execution. Deposit submission, independently verified settlement receipts, and autonomous policy enforcement are not implemented. A quote or reviewed plan is not a completed swap.
+Harbor is a work-in-progress hackathon application. The committed configuration disables execution. Wallet-approved deposit submission and settlement verification are implemented; live end-to-end completion and unattended execution are not established by a build. A quote or reviewed plan is not a completed swap.
 :::
 
 ## Choose your path
@@ -17,6 +17,6 @@ Harbor is a work-in-progress hackathon application. The committed configuration 
 
 ## The intended model
 
-Ask in plain language, inspect the proposed action, and retain control of approvals. Harbor's longer-term policy model describes budgets, assets, your own destination addresses, schedules, and expiry. Today that signed-policy schema is present, but the signing and enforcement flow is not.
+Ask in plain language, inspect the proposed action, and retain control of approvals. Harbor's longer-term policy model describes budgets, assets, your own destination addresses, schedules, and expiry. Signed-policy approval and plan checks are implemented. Policy conflicts require owner review; transactions outside Harbor are not restricted by Harbor's policy.
 
 These docs describe repository behavior, not a guarantee of production availability, investment returns, or safety of third-party venues. Research snapshots are dated observations, not executable quotes.
