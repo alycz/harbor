@@ -419,3 +419,71 @@ export const automationTriggers = sqliteTable(
   },
   (table) => [index('automation_triggers_rule_idx').on(table.ruleId, table.createdAtMs)],
 );
+
+const RHEA_SUPPLY_STATUSES = [
+  'awaiting_review',
+  'awaiting_signature',
+  'submitted',
+  'confirmed',
+  'refunded',
+  'failed',
+  'cancelled',
+  'expired',
+] as const;
+
+/**
+ * One supply into Rhea Lend from the owner's NEAR wallet. Reviewed, then signed by the owner's own
+ * wallet; settled only from the chain. A transaction hash belongs to one plan at most.
+ */
+export const rheaSupplyPlans = sqliteTable(
+  'rhea_supply_plans',
+  {
+    id: text('id').primaryKey(),
+    network: text('network', { enum: NETWORKS }).notNull(),
+    accountId: text('account_id').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    tokenId: text('token_id').notNull(),
+    symbol: text('symbol').notNull(),
+    decimals: integer('decimals').notNull(),
+    extraDecimals: integer('extra_decimals').notNull(),
+    amountRaw: text('amount_raw').notNull(),
+    digest: text('digest').notNull(),
+    status: text('status', { enum: RHEA_SUPPLY_STATUSES }).notNull(),
+    txHash: text('tx_hash'),
+    createdAtMs: integer('created_at_ms').notNull(),
+    expiresAtMs: integer('expires_at_ms').notNull(),
+    updatedAtMs: integer('updated_at_ms').notNull(),
+  },
+  (table) => [
+    uniqueIndex('rhea_supply_plans_idempotency_uq').on(table.network, table.accountId, table.idempotencyKey),
+    uniqueIndex('rhea_supply_plans_tx_hash_uq').on(table.txHash),
+    index('rhea_supply_plans_account_idx').on(table.accountId, table.createdAtMs),
+    check('rhea_supply_plans_network_ck', NETWORK_CHECK),
+    check(
+      'rhea_supply_plans_status_ck',
+      sql.raw(`status IN (${RHEA_SUPPLY_STATUSES.map((status) => `'${status}'`).join(', ')})`),
+    ),
+  ],
+);
+
+/** One Templar borrow, approved once by the owner and settled from the final receipt. */
+export const templarBorrowPlans = sqliteTable(
+  'templar_borrow_plans',
+  {
+    id: text('id').primaryKey(),
+    account: text('account').notNull(),
+    market: text('market').notNull(),
+    amount: text('amount').notNull(),
+    payload: text('payload').notNull(),
+    digest: text('digest').notNull(),
+    nonce: text('nonce').notNull(),
+    recipient: text('recipient').notNull(),
+    expires: integer('expires').notNull(),
+    state: text('state', { enum: ['prepared', 'issued', 'confirmed'] }).notNull(),
+    txHash: text('tx_hash').unique(),
+  },
+  (table) => [
+    index('templar_borrow_account').on(table.account),
+    check('templar_borrow_plans_state_ck', sql`state IN ('prepared', 'issued', 'confirmed')`),
+  ],
+);
