@@ -1,6 +1,15 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
+import { runAutomations } from '../src/automations/dispatch.ts';
 import { previewRoundtrip } from '../src/automations/roundtrip.ts';
+import {
+  type AutomationDeps,
+  activateRule,
+  createRule,
+  deleteRule,
+  pauseRule,
+  readRule,
+} from '../src/automations/rules.ts';
 import { executionDeps } from '../src/execution/store.ts';
 import { createSwapIntent } from '../src/execution/swap.ts';
 
@@ -105,5 +114,75 @@ describe('read-only roundtrip monitor', () => {
     await expect(
       createSwapIntent(h.deps, { sell: h.sell.symbol, buy: h.sell.canonicalId, amount: '100', source: 'form' }),
     ).rejects.toThrow();
+  });
+});
+
+describe('periodic round-trip monitors', () => {
+  it('persists a draft, evaluates only after activation, saves evidence and stops a one-shot alert', async () => {
+    const h = fixture();
+    const deps: AutomationDeps = {
+      db: env.DB,
+      network: 'mainnet',
+      now: h.deps.now,
+      quotes: {
+        read: async () => {
+          throw new Error('wrong evaluator');
+        },
+      },
+      roundtrip: (config) => previewRoundtrip(h.deps, config),
+    };
+    const rule = await createRule(deps, {
+      kind: 'roundtrip_alert',
+      account: 'alice.near',
+      config: { ...h.input, cooldownMinutes: 1, mode: 'once' },
+    });
+    expect(rule.kind).toBe('roundtrip_alert');
+    await runAutomations(deps);
+    expect((await readRule(deps, rule.id)).evaluations).toHaveLength(0);
+    await activateRule(deps, rule.id, { revision: rule.revision, configHash: rule.configHash });
+    await Promise.all([runAutomations(deps), runAutomations(deps)]);
+    const state = await readRule(deps, rule.id);
+    expect(state.status).toBe('completed');
+    expect(state.alerts).toHaveLength(1);
+    expect(state.evaluations).toHaveLength(1);
+    expect(state.evaluations[0]?.evidence).toMatchObject({
+      status: 'opportunity',
+      grossSpreadBps: '100.00',
+      executionAvailable: false,
+    });
+    await deleteRule(deps, rule.id);
+  });
+  it('records unavailable routes as unknown without alerts and pause stops later checks', async () => {
+    const h = fixture();
+    const deps: AutomationDeps = {
+      db: env.DB,
+      network: 'mainnet',
+      now: h.deps.now,
+      quotes: {
+        read: async () => {
+          throw new Error('wrong evaluator');
+        },
+      },
+      roundtrip: async () => {
+        throw new Error('provider unavailable');
+      },
+    };
+    const rule = await createRule(deps, {
+      kind: 'roundtrip_alert',
+      account: 'alice.near',
+      config: { ...h.input, cooldownMinutes: 1, mode: 'repeat' },
+    });
+    await activateRule(deps, rule.id, { revision: rule.revision, configHash: rule.configHash });
+    await runAutomations(deps);
+    let state = await readRule(deps, rule.id);
+    expect(state.lastResult).toBe('unknown');
+    expect(state.alerts).toHaveLength(0);
+    await pauseRule(deps, rule.id);
+    h.advance();
+    h.advance();
+    await runAutomations(deps);
+    state = await readRule(deps, rule.id);
+    expect(state.evaluations).toHaveLength(1);
+    await deleteRule(deps, rule.id);
   });
 });

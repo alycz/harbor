@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RoundtripSchema } from './roundtrip.ts';
 
 const ASSET_ID = z
   .string()
@@ -48,9 +49,19 @@ export const SpreadAlertConfigSchema = z
 
 export type SpreadAlertConfig = z.infer<typeof SpreadAlertConfigSchema>;
 
-export const AUTOMATION_RULE_KINDS = ['price_alert', 'spread_alert'] as const;
-export type AutomationKind = (typeof AUTOMATION_RULE_KINDS)[number];
-export type AutomationConfig = PriceAlertConfig | SpreadAlertConfig;
+const AUTOMATION_RULE_KINDS = ['price_alert', 'spread_alert', 'roundtrip_alert'] as const;
+type AutomationKind = (typeof AUTOMATION_RULE_KINDS)[number];
+type AutomationConfig = PriceAlertConfig | SpreadAlertConfig | RoundtripAlertConfig;
 
 /** Checks run about once a minute: the scheduled handler's cadence. */
 export const EVALUATION_INTERVAL_MS = 60_000;
+
+export const RoundtripAlertConfigSchema = RoundtripSchema.extend({
+  cooldownMinutes: z.number().int().min(1).max(1_440),
+  mode: z.enum(['once', 'repeat']),
+})
+  .refine((config) => config.sellAssetId !== config.buyAssetId, { message: 'Choose two different assets.' })
+  .refine((config) => Number(config.amount) > 0, { message: 'Enter an amount above zero.' });
+export type RoundtripAlertConfig = z.infer<typeof RoundtripAlertConfigSchema>;
+export type MonitorConfig = AutomationConfig;
+export type MonitorKind = AutomationKind;
