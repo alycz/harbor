@@ -45,3 +45,15 @@ Both remain read/preview-only with `executionAvailable: false`; no signer or sub
 Configure `LEASH_CONTRACT_ID` and `LEASH_AGENT_ACCOUNT_ID` only after selecting the deployment.
 Pending-callback accounting fixes add persisted state: this build is for a fresh deployment,
 not an in-place upgrade of an existing contract without a separately reviewed migration.
+
+## Unsigned wallet wiring
+
+`POST /api/leash/prepare-owner-action` now constructs owner-wallet calls for `set_limits`,
+`fund`, `freeze`, `unfreeze`, and `withdraw`. Amounts and storage deposit are explicit atomic
+strings, not inferred spending permission. The session owner is the required signer. It
+performs identity/vault reads but no signing, broadcast, or guarantee of execution. Token
+storage registration and balance checks still belong to the wallet/contract workflow.
+`POST /api/leash/preview` additionally returns the exact unsigned agent `execute` call after
+provider-signature and limit checks. Its `signerId` is the configured agent, not the owner.
+No secret signing service or automatic submission exists. `executionAvailable: false` remains
+intentional until an authorized external signer and receipt lifecycle are connected.
