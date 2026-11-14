@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ChatRequestError } from '../lib/agent-chat.ts';
+import { arrangeCards } from '../lib/chat-cards.ts';
 import { amountDraftIssue } from '../lib/draft-validation.ts';
 import { ChatDataCard } from './chat-data-card.tsx';
 import { AssetSelect } from './financial-draft.tsx';
@@ -167,7 +168,7 @@ export function ConversationDraft({
                     ) : (
                       <span className="sr-only">You</span>
                     )}
-                    {message.cards?.map(({ cardId, card }) => (
+                    {arrangeCards(message.cards ?? []).map(({ cardId, card }) => (
                       <ChatDataCard key={cardId} card={card} />
                     ))}
                     {message.cards?.length && message.text ? <div className="h-4" aria-hidden="true" /> : null}

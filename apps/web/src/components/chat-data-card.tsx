@@ -1,6 +1,7 @@
 import type { DataCard } from '@harbor/agent-runtime/events';
 import { Link } from '@tanstack/react-router';
 import { ArrowUpRight, MessageSquarePlus } from 'lucide-react';
+import { useState } from 'react';
 
 import { formatApy, formatUsd } from '../lib/format.ts';
 import { projectLogo, projectName } from '../lib/research-view.ts';
@@ -15,6 +16,8 @@ const DEPOSIT_PROJECTS: Record<string, string> = {
   'Gauntlet USDC Prime': 'morpho-blue',
   'Taler USDC': 'taler-finance',
 };
+
+const VISIBLE_ROWS = 5;
 
 /**
  * Data a read tool returned, shown as cards inside Harbor's answer. The rows come from the tool's own
@@ -157,6 +160,9 @@ function BorrowCards({ card }: { card: Extract<DataCard, { kind: 'borrow_markets
 }
 
 function PoolCards({ card }: { card: Extract<DataCard, { kind: 'yield_pools' }> }) {
+  const [expanded, setExpanded] = useState(false);
+  const rows = expanded ? card.items : card.items.slice(0, VISIBLE_ROWS);
+  const hidden = card.items.length - VISIBLE_ROWS;
   return (
     <CardFrame
       title="Yield pools"
@@ -164,7 +170,7 @@ function PoolCards({ card }: { card: Extract<DataCard, { kind: 'yield_pools' }> 
       live={false}
     >
       <ul className="divide-y divide-border">
-        {card.items.map((pool) => (
+        {rows.map((pool) => (
           <li key={`${pool.project}-${pool.chain}-${pool.asset}`} className="flex items-center gap-3 px-4 py-2.5">
             <LogoPair
               className="size-7"
@@ -184,6 +190,15 @@ function PoolCards({ card }: { card: Extract<DataCard, { kind: 'yield_pools' }> 
           </li>
         ))}
       </ul>
+      {hidden > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="w-full border-t border-border px-4 py-2.5 text-left text-[12.5px] font-medium text-[var(--ws-accent-ink)] hover:bg-secondary/40"
+        >
+          {expanded ? 'Show fewer' : `Show ${hidden} more`}
+        </button>
+      ) : null}
     </CardFrame>
   );
 }
