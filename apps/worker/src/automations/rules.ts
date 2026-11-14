@@ -1,32 +1,33 @@
 import { isNearAccountId } from '@harbor/domain/account';
 import { AppError } from '@harbor/domain/errors';
 import type { Network } from '@harbor/domain/network';
-
 import type { AUTOMATION_STATUSES, EVALUATION_RESULTS } from '../db/schema.ts';
 import {
-  type AutomationConfig,
-  type AutomationKind,
   EVALUATION_INTERVAL_MS,
+  type MonitorConfig,
+  type MonitorKind,
+  type PriceAlertConfig,
   PriceAlertConfigSchema,
-  type SpreadAlertConfig,
+  type RoundtripAlertConfig,
+  RoundtripAlertConfigSchema,
   SpreadAlertConfigSchema,
 } from './config.ts';
 import type { QuoteSource } from './evaluate.ts';
+import type { RoundtripPreview } from './roundtrip.ts';
 
 export interface AutomationDeps {
   db: D1Database;
   network: Network;
-  /** NEAR Intents, the venue Harbor executes on. */
   quotes: QuoteSource;
-  /** Rhea's router: a second price for spread monitors, never executed on. */
-  reference: QuoteSource;
+  reference?: QuoteSource;
   now(): number;
+  roundtrip?: (config: RoundtripAlertConfig) => Promise<RoundtripPreview>;
 }
 
 export interface RuleRow {
   id: string;
   network: Network;
-  kind: AutomationKind;
+  kind: MonitorKind;
   name: string;
   owner_account: string | null;
   status: (typeof AUTOMATION_STATUSES)[number];
@@ -68,8 +69,15 @@ interface TriggerRow {
 
 const HISTORY_LIMIT = 30;
 
-export function parseConfig(kind: AutomationKind, value: unknown): AutomationConfig {
-  const parsed = (kind === 'spread_alert' ? SpreadAlertConfigSchema : PriceAlertConfigSchema).safeParse(value);
+export function parseConfig(value: unknown): PriceAlertConfig;
+export function parseConfig(value: unknown, kind: MonitorKind): MonitorConfig;
+export function parseConfig(value: unknown, kind: MonitorKind = 'price_alert'): MonitorConfig {
+  const parsed =
+    kind === 'roundtrip_alert'
+      ? RoundtripAlertConfigSchema.safeParse(value)
+      : kind === 'spread_alert'
+        ? SpreadAlertConfigSchema.safeParse(value)
+        : PriceAlertConfigSchema.safeParse(value);
   if (!parsed.success) {
     throw new AppError('INVALID_REQUEST', parsed.error.issues[0]?.message ?? 'The monitor settings are invalid.');
   }
@@ -79,10 +87,10 @@ export function parseConfig(kind: AutomationKind, value: unknown): AutomationCon
 /** Saves a draft. Nothing is evaluated on a schedule until the user activates this exact revision. */
 export async function createRule(
   deps: AutomationDeps,
-  input: { kind?: AutomationKind; name?: string | undefined; account?: string | undefined; config: unknown },
+  input: { kind?: MonitorKind; name?: string | undefined; account?: string | undefined; config: unknown },
 ) {
   const kind = input.kind ?? 'price_alert';
-  const config = parseConfig(kind, input.config);
+  const config = parseConfig(input.config, kind);
   if (input.account && !isNearAccountId(input.account)) {
     throw new AppError('INVALID_REQUEST', 'The account must be a valid account ID.');
   }
@@ -91,7 +99,7 @@ export async function createRule(
     id: crypto.randomUUID(),
     network: deps.network,
     kind,
-    name: input.name?.trim() || defaultName(kind, config),
+    name: input.name?.trim() || defaultName(config),
     owner_account: input.account ?? null,
     status: 'draft',
     revision: 1,
@@ -142,7 +150,7 @@ export async function reviseRule(
   input: { expectedRevision: number; name?: string | undefined; config: unknown },
 ) {
   const current = await loadRule(deps, id);
-  const config = parseConfig(current.kind, input.config);
+  const config = parseConfig(input.config, current.kind);
   if (current.status === 'deleted') throw new AppError('NOT_FOUND', 'No such automation.');
   const revision = current.revision + 1;
   const result = await deps.db
@@ -293,19 +301,17 @@ async function setStatus(
 }
 
 /** Binds activation to the exact settings and revision the user reviewed. */
-async function configHash(config: AutomationConfig, revision: number): Promise<string> {
+async function configHash(config: MonitorConfig, revision: number): Promise<string> {
   const text = JSON.stringify({ revision, ...config });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function defaultName(kind: AutomationKind, config: AutomationConfig): string {
-  if (kind === 'spread_alert') {
-    const spread = config as SpreadAlertConfig;
-    return `${spread.base.symbol}/${spread.quote.symbol} spread ≥ ${spread.thresholdPct}% on ${spread.size} ${spread.quote.symbol}`;
-  }
-  const price = config as Extract<AutomationConfig, { minOutput: string }>;
-  return `${price.sell.amount} ${price.sell.symbol} → ${price.buy.symbol} ≥ ${price.minOutput}`;
+function defaultName(config: MonitorConfig): string {
+  if ('base' in config)
+    return `${config.base.symbol}/${config.quote.symbol} spread ≥ ${config.thresholdPct}% on ${config.size} ${config.quote.symbol}`;
+  if ('sellAssetId' in config) return `Round trip ≥ ${config.minSpreadBps} bps`;
+  return `${config.sell.amount} ${config.sell.symbol} → ${config.buy.symbol} ≥ ${config.minOutput}`;
 }
 
 function ruleView(row: RuleRow) {
@@ -318,7 +324,7 @@ function ruleView(row: RuleRow) {
     status: row.status,
     revision: row.revision,
     configHash: row.config_hash,
-    config: JSON.parse(row.config) as AutomationConfig,
+    config: JSON.parse(row.config) as MonitorConfig,
     intervalSeconds: row.interval_ms / 1000,
     armed: row.armed === 1,
     nextCheckAt: row.next_due_at_ms === null ? null : iso(row.next_due_at_ms),
