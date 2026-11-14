@@ -41,6 +41,23 @@ const IdempotencyKeySchema = z
 export function createExecutionRoutes() {
   const routes = new Hono<AppEnv>();
 
+  /** Native execution support, not an assertion that live funds have been tested. */
+  routes.get('/capabilities', (c) => {
+    const deps = executionDeps(c.env);
+    return c.json({
+      network: deps.config.network,
+      executionEnabled: deps.config.executionEnabled && deps.config.writeAdapters.has('oneclick'),
+      originChains: ['near'],
+      actions: [
+        { id: 'oneclick_swap', implemented: true, originChains: ['near'], requiresWalletSignature: true },
+        { id: 'oneclick_external_origin', implemented: false, reason: 'Origin-chain signing and deposit verification are not integrated.' },
+        { id: 'rhea_lend', implemented: false, reason: 'Rhea is a swap-price comparison reference only.' },
+        { id: 'templar_borrow', implemented: false, reason: 'No native borrowing adapter is integrated.' },
+        { id: 'kaio_mint', implemented: false, reason: 'No native RWA minting adapter is integrated.' },
+      ],
+    });
+  });
+
   /** The assets this network can swap, for the swap form. */
   routes.get('/assets', (c) => {
     const deps = executionDeps(c.env);
