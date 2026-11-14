@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, Radar, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { PriceAlerts } from '../components/price-alerts.tsx';
+import { RoundtripMonitor } from '../components/roundtrip-monitor.tsx';
 import { SwapProposalCard, useCountdown } from '../components/swap-proposal.tsx';
 import { Chip, PageHeader, Panel } from '../components/workspace.tsx';
 import { outboundReviewRequest, roundtripDraftValid } from '../lib/automation-draft.ts';
@@ -231,6 +232,15 @@ export function AutomationsPage() {
               scheduled or executed.
             </p>
           </section>
+        ) : null}
+        {valid ? (
+          <RoundtripMonitor
+            key={`${origin}:${via}:${amount}:${threshold}`}
+            origin={origin}
+            via={via}
+            amount={amount}
+            threshold={threshold}
+          />
         ) : null}
       </Panel>
       {review.isError ? (

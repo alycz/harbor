@@ -7,6 +7,7 @@ import { useId, useState } from 'react';
 import { call, execution } from '../lib/execution.ts';
 import { formatUtc } from '../lib/format.ts';
 import { useWallet } from '../lib/wallet.tsx';
+import { MonitorHistory } from './monitor-history.tsx';
 import { Chip, EmptyState, Panel } from './workspace.tsx';
 
 interface Alert {
@@ -42,6 +43,7 @@ const alerts = {
  */
 export function PriceAlerts() {
   const id = useId();
+  const [expanded, setExpanded] = useState<string | null>(null);
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const assets = useQuery({ queryKey: ['assets'], queryFn: execution.assets, staleTime: 5 * 60_000 });
@@ -83,7 +85,7 @@ export function PriceAlerts() {
 
   if (!wallet.address) {
     return (
-      <Panel label="Price alerts" icon={<Bell />} labelId="price-alerts">
+      <Panel label="Scheduled monitors" icon={<Bell />} labelId="price-alerts">
         <EmptyState
           icon={<Bell />}
           title="Connect a wallet to set price alerts"
@@ -93,7 +95,7 @@ export function PriceAlerts() {
     );
   }
   return (
-    <Panel label="Price alerts" icon={<Bell />} labelId="price-alerts" bodyClassName="p-5">
+    <Panel label="Scheduled monitors" icon={<Bell />} labelId="price-alerts" bodyClassName="p-5">
       <div className="grid gap-3 @xl/workspace:grid-cols-[1fr_1fr_1fr_1fr_auto]">
         <label className="space-y-1.5 text-[12.5px] text-muted-foreground" htmlFor={`${id}-amount`}>
           When
@@ -186,6 +188,13 @@ export function PriceAlerts() {
               </span>
             </span>
             <span className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                aria-expanded={expanded === alert.id}
+                onClick={() => setExpanded(expanded === alert.id ? null : alert.id)}
+              >
+                History
+              </Button>
               {alert.unacknowledgedAlerts > 0 ? (
                 <Chip tone="success" dot>
                   {alert.unacknowledgedAlerts} new
@@ -223,6 +232,7 @@ export function PriceAlerts() {
                 <Trash2 />
               </Button>
             </span>
+            {expanded === alert.id ? <MonitorHistory id={alert.id} /> : null}
           </li>
         ))}
       </ul>
