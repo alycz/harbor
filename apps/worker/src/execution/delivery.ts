@@ -155,6 +155,60 @@ export async function verifyEvmDeposit(
   return { outcome: 'confirmed' };
 }
 
+const WRAPPED_NEAR = 'nep141:wrap.near';
+const INTENTS_CONTRACT = 'intents.near';
+
+/**
+ * Native NEAR the intents contract paid to `recipient` in one NEAR transaction, from the `native_withdraw`
+ * events that contract logged in receipts that succeeded. Logs from any other contract are ignored, so
+ * nothing else can fake one.
+ */
+function nativeWithdrawn(result: unknown, recipient: string): bigint {
+  const record = result as { status?: unknown; receipts_outcome?: unknown } | null;
+  const status = record?.status;
+  if (!status || typeof status !== 'object' || !('SuccessValue' in status)) return 0n;
+  if (!Array.isArray(record?.receipts_outcome)) return 0n;
+  let total = 0n;
+  for (const entry of record.receipts_outcome as { outcome?: Record<string, unknown> }[]) {
+    const outcome = entry.outcome;
+    if (!outcome || outcome.executor_id !== INTENTS_CONTRACT || !Array.isArray(outcome.logs)) continue;
+    const receiptStatus = outcome.status;
+    if (!receiptStatus || typeof receiptStatus !== 'object' || 'Failure' in receiptStatus) continue;
+    for (const log of outcome.logs) {
+      if (typeof log !== 'string' || !log.startsWith('EVENT_JSON:')) continue;
+      let event: { standard?: unknown; event?: unknown; data?: unknown };
+      try {
+        event = JSON.parse(log.slice('EVENT_JSON:'.length)) as typeof event;
+      } catch {
+        continue;
+      }
+      if (event.standard !== 'dip4' || event.event !== 'native_withdraw' || !Array.isArray(event.data)) continue;
+      for (const item of event.data as { receiver_id?: unknown; amount?: unknown }[]) {
+        if (item.receiver_id === recipient && typeof item.amount === 'string' && /^[1-9]\d*$/.test(item.amount)) {
+          total += BigInt(item.amount);
+        }
+      }
+    }
+  }
+  return total;
+}
+
+async function verifyNativeNearDelivery(chain: NearChain, delivery: Delivery): Promise<DeliveryCheck> {
+  let received = 0n;
+  let proof: string | null = null;
+  for (const hash of delivery.deliveryTxHashes) {
+    // The RPC finds a transaction by hash whatever sender is named; the recipient is as good as any.
+    const paid = nativeWithdrawn(await chain.transaction(hash, delivery.recipient), delivery.recipient);
+    if (paid > 0n) {
+      received += paid;
+      proof = hash;
+    }
+  }
+  return received >= delivery.minOutRaw && delivery.minOutRaw > 0n && proof
+    ? { verified: true, txHash: proof, receivedRaw: received }
+    : { verified: false, reason: 'No delivery transaction shows the minimum NEAR reaching the recipient yet.' };
+}
+
 export type DeliveryCheck =
   | { verified: true; txHash: string | null; receivedRaw: bigint }
   | { verified: false; reason: string };
@@ -167,6 +221,12 @@ export type DeliveryCheck =
  */
 export async function verifyDelivery(chain: NearChain, evm: EvmReader, delivery: Delivery): Promise<DeliveryCheck> {
   if (delivery.chain === 'near') {
+    if (delivery.buyAsset === WRAPPED_NEAR) {
+      // A swap into NEAR is paid out as native NEAR, so the wNEAR balance never moves. The delivery
+      // transaction's own events are the proof; a wNEAR payout falls through to the balance check below.
+      const native = await verifyNativeNearDelivery(chain, delivery);
+      if (native.verified) return native;
+    }
     const token = tokenContractOf(delivery.buyAsset);
     if (!token) return { verified: false, reason: 'The bought asset is not a NEP-141 token Harbor can read.' };
     if (delivery.balanceBeforeRaw === null) {
