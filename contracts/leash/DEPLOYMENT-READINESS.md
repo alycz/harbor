@@ -57,3 +57,17 @@ storage registration and balance checks still belong to the wallet/contract work
 provider-signature and limit checks. Its `signerId` is the configured agent, not the owner.
 No secret signing service or automatic submission exists. `executionAvailable: false` remains
 intentional until an authorized external signer and receipt lifecycle are connected.
+
+## Submission coordinator (unbound)
+
+`src/leash/execution.ts` provides an internal injected bounded-signer coordinator. It verifies
+provider signatures, identity scopes, expiry and a required fresh-authorization callback,
+then atomically claims an execution in D1 before requesting submission. Ambiguous failures
+remain locked and are never retried automatically. Apply migration 0007 only to the selected
+database through the normal reviewed deployment process. No endpoint invokes this coordinator
+and no signer implementation/secret is supplied. Operator must provide a reviewed execute-only
+signer and authorization implementation before wiring it to a job or route.
+
+Final receipt verification matches exact transaction hash, agent, contract, method, gas, deposit,
+arguments and successful finalized receipts. It reports payment only, never destination settlement.
+Independent destination delivery/refund verification is still required before a completed-swap claim.
