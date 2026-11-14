@@ -16,7 +16,7 @@ const VAULTS = [
 ] as const;
 const CACHE_MS = 10 * 60_000;
 
-export interface DepositOpportunity {
+interface DepositOpportunity {
   protocol: 'rhea-lending' | 'oneclick-vault';
   name: string;
   chain: string;
@@ -28,14 +28,14 @@ export interface DepositOpportunity {
   queueWith: string;
 }
 
-export interface BorrowAsset {
+interface BorrowAsset {
   assetId: string;
   symbol: string | null;
   blockchain: string | null;
   decimals: number | null;
 }
 
-export interface BorrowMarket {
+interface BorrowMarket {
   marketId: string;
   borrow: BorrowAsset;
   collateral: BorrowAsset;
