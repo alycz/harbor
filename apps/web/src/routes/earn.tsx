@@ -1,3 +1,4 @@
+import { TemplarBorrow } from '../components/templar-borrow.tsx';
 import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
@@ -45,6 +46,7 @@ export function EarnPage() {
         }
       />
       <IntegrationDemo />
+      <TemplarBorrow />
       {best.length === 0 ? (
         <Panel>
           <EmptyState
