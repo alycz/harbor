@@ -202,8 +202,8 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
       .prepare(
         `INSERT INTO plans (id, intent_id, quote_id, network, account_id, idempotency_key, status, digest, policy,
            policy_check, policy_id, source, recipient, recipient_chain, quote_hash, deposit_address, deposit_memo,
-           error_code, created_at_ms, updated_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           result, error_code, created_at_ms, updated_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         row.id,
@@ -223,6 +223,7 @@ export async function insertPlan(deps: ExecutionDeps, row: PlanRow): Promise<voi
         row.quote_hash,
         row.deposit_address,
         row.deposit_memo,
+        row.result,
         row.error_code,
         row.created_at_ms,
         row.updated_at_ms,
@@ -258,6 +259,7 @@ export function newPlanRow(input: {
   policyId: string | null;
   source: PlanRow['source'];
   recipient: { chain: string; address: string } | null;
+  origin: { chain: string; address: string } | null;
   deposit: { address: string; memo: string | null; quoteHash: string } | null;
   errorCode: string | null;
   now: number;
@@ -286,7 +288,7 @@ export function newPlanRow(input: {
     one_click_status: null,
     delivery_tx_hash: null,
     delivery_verified_at_ms: null,
-    result: null,
+    result: input.origin ? JSON.stringify({ origin: input.origin }) : null,
     error_code: input.errorCode,
     created_at_ms: input.now,
     updated_at_ms: input.now,
