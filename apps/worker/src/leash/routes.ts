@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
+import { createLeashDispatchRoutes, leashAvailable } from '../autopilot/leash-dispatch.ts';
 import { decodeExecutionConfig } from '../config.ts';
 
 const Account = z
@@ -74,7 +75,7 @@ async function view(rpc: string, contract: string, method: string, args: Record<
   return JSON.parse(new TextDecoder().decode(Uint8Array.from(body.data.result.result))) as unknown;
 }
 
-async function snapshot(env: unknown, owner: string) {
+export async function leashSnapshot(env: unknown, owner: string) {
   const config = settings(env);
   const actualAgent = Account.parse(await view(config.rpcUrl, config.contract, 'get_agent', {}));
   if (actualAgent !== config.agent)
@@ -83,7 +84,7 @@ async function snapshot(env: unknown, owner: string) {
   return { config, vault };
 }
 
-/** Owner-scoped reads and unsigned wallet preparation. No submit or server signing endpoint. */
+/** Owner-scoped preparation plus explicitly approved private signer dispatch. */
 export function createLeashRoutes() {
   return new Hono<AppEnv>()
     .use('*', requireSession)
@@ -92,7 +93,7 @@ export function createLeashRoutes() {
       await next();
     })
     .get('/vault', async (c) => {
-      const { config, vault } = await snapshot(c.env, c.get('account'));
+      const { config, vault } = await leashSnapshot(c.env, c.get('account'));
       return c.json({
         owner: c.get('account'),
         contractId: config.contract,
@@ -100,8 +101,10 @@ export function createLeashRoutes() {
         network: config.network,
         vault,
         observedAt: new Date().toISOString(),
-        executionAvailable: false,
-        limitation: 'Read-only integration. No authorized agent signer or transaction submission is configured.',
+        executionAvailable: leashAvailable(c.env),
+        limitation: leashAvailable(c.env)
+          ? 'Explicit owner approval and current contract validation required before dispatch.'
+          : 'Agent dispatch requires a private signer binding, reviewed code hash and execution configuration.',
       });
     })
     .post('/prepare-owner-action', async (c) => {
@@ -126,7 +129,7 @@ export function createLeashRoutes() {
       if (!input.success)
         throw new AppError('INVALID_REQUEST', 'Send an explicit vault operation with canonical atomic amounts.');
       const owner = c.get('account');
-      const { config, vault } = await snapshot(c.env, owner);
+      const { config, vault } = await leashSnapshot(c.env, owner);
       const action = input.data;
       let receiverId = config.contract;
       let methodName: string = action.operation;
@@ -169,7 +172,7 @@ export function createLeashRoutes() {
           receiverId,
           actions: [{ type: 'FunctionCall', params: { methodName, args, gas: '100000000000000', deposit } }],
         },
-        executionAvailable: false,
+        executionAvailable: leashAvailable(c.env),
         limitation:
           'No funds moved. Review exact caps, recipients and attached NEAR in your own wallet. Storage/registration and contract checks may reject this transaction. Harbor does not sign or submit.',
       });
@@ -180,43 +183,11 @@ export function createLeashRoutes() {
         throw new AppError('INVALID_REQUEST', 'A valid provider-signed 1Click quote response is required.');
       }
       const owner = c.get('account');
-      const { config, vault } = await snapshot(c.env, owner);
+      const { config, vault } = await leashSnapshot(c.env, owner);
       if (config.network !== 'mainnet')
         throw new AppError('UNAVAILABLE', 'Provider-signed 1Click preview is mainnet-only.');
       if (!vault || vault.frozen) throw new AppError('FORBIDDEN', 'Owner vault is absent or frozen.');
-      const payload = oneClickQuotePayload(input.data.quoteResponse);
-      const q = JSON.parse(payload) as Record<string, unknown>;
-      const amount = Amount.safeParse(q.amountIn);
-      const deadline = typeof q.deadline === 'string' ? Date.parse(q.deadline) : NaN;
-      if (
-        !amount.success ||
-        BigInt(amount.data) === 0n ||
-        q.amount !== amount.data ||
-        q.dry !== false ||
-        q.swapType !== 'EXACT_INPUT' ||
-        q.depositType !== 'ORIGIN_CHAIN' ||
-        q.refundType !== 'ORIGIN_CHAIN' ||
-        q.originAsset !== `nep141:${vault.limits.token}` ||
-        q.refundTo !== owner ||
-        typeof q.destinationAsset !== 'string' ||
-        !vault.limits.buy_assets.includes(q.destinationAsset) ||
-        typeof q.recipient !== 'string' ||
-        !vault.limits.recipients.includes(q.recipient) ||
-        typeof q.depositAddress !== 'string' ||
-        !/^[a-f0-9]{64}$/.test(q.depositAddress) ||
-        typeof q.slippageTolerance !== 'number' ||
-        !Number.isInteger(q.slippageTolerance) ||
-        q.slippageTolerance < 0 ||
-        q.slippageTolerance > vault.limits.max_slippage_bps ||
-        !Number.isFinite(deadline) ||
-        deadline <= Date.now() ||
-        vault.limits.expires_at_ms <= Date.now() ||
-        BigInt(amount.data) > BigInt(vault.balance) ||
-        BigInt(amount.data) > BigInt(vault.limits.per_action) ||
-        BigInt(amount.data) > BigInt(vault.limits.per_day)
-      ) {
-        throw new AppError('FORBIDDEN', 'Quote does not fit the observed owner vault limits.');
-      }
+      const payload = validateLeashQuote(input.data.quoteResponse, owner, vault);
       return c.json({
         status: 'preview-not-approved',
         owner,
@@ -241,10 +212,51 @@ export function createLeashRoutes() {
             },
           ],
         },
-        executionAvailable: false,
+        executionAvailable: leashAvailable(c.env),
         observedAt: new Date().toISOString(),
         limitation:
           'No transaction created or submitted. Contract must recheck daily usage, replay protection and limits at execution. This preview is not authority for an agent.',
       });
-    });
+    })
+    .route('/', createLeashDispatchRoutes());
+}
+
+export function validateLeashQuote(quoteResponse: unknown, owner: string, vault: z.infer<typeof Vault>) {
+  if (!vault || vault.frozen) throw new AppError('FORBIDDEN', 'Owner vault is absent or frozen.');
+  const payload = oneClickQuotePayload(quoteResponse);
+  const q = JSON.parse(payload) as Record<string, unknown>;
+  const amount = Amount.safeParse(q.amountIn);
+  const deadline = typeof q.deadline === 'string' ? Date.parse(q.deadline) : NaN;
+  if (
+    !amount.success ||
+    BigInt(amount.data) === 0n ||
+    q.amount !== amount.data ||
+    q.dry !== false ||
+    q.swapType !== 'EXACT_INPUT' ||
+    q.depositType !== 'ORIGIN_CHAIN' ||
+    q.refundType !== 'ORIGIN_CHAIN' ||
+    q.recipientType !== 'DESTINATION_CHAIN' ||
+    q.originAsset !== `nep141:${vault.limits.token}` ||
+    q.refundTo !== owner ||
+    typeof q.destinationAsset !== 'string' ||
+    !vault.limits.buy_assets.includes(q.destinationAsset) ||
+    typeof q.recipient !== 'string' ||
+    !vault.limits.recipients.includes(q.recipient) ||
+    typeof q.depositAddress !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(q.depositAddress) ||
+    typeof q.slippageTolerance !== 'number' ||
+    !Number.isInteger(q.slippageTolerance) ||
+    q.slippageTolerance < 0 ||
+    q.slippageTolerance > vault.limits.max_slippage_bps ||
+    !Number.isFinite(deadline) ||
+    deadline <= Date.now() ||
+    vault.limits.expires_at_ms <= Date.now() ||
+    BigInt(amount.data) > BigInt(vault.balance) ||
+    BigInt(amount.data) > BigInt(vault.limits.per_action) ||
+    BigInt(amount.data) + BigInt(vault.spent_today) > BigInt(vault.limits.per_day)
+  ) {
+    throw new AppError('FORBIDDEN', 'Quote does not fit the observed owner vault limits.');
+  }
+
+  return payload;
 }
