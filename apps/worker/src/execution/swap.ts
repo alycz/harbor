@@ -394,7 +394,7 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
     ...basePlanView(row),
     kind: 'swap' as const,
     quote: swapQuoteView(deps, quote, intent),
-    funding: fundingRequest(row, intent, quote),
+    funding: fundingRequest(deps, row, intent, quote),
     signing: signingRequest(row, intent, quote),
   };
 }
@@ -403,23 +403,17 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
  * The one transaction the owner's wallet signs for an approved plan, built here from Harbor's own
  * records so what the wallet shows is exactly what the deposit check later accepts.
  */
-function fundingRequest(row: PlanRow, intent: IntentRow, quote: QuoteRow) {
+function fundingRequest(deps: ExecutionDeps, row: PlanRow, intent: IntentRow, quote: QuoteRow) {
   if (row.status !== 'awaiting_signature' || row.tx_hash !== null || !row.deposit_address) return null;
-  const parsed = JSON.parse(row.provider_quote ?? '{}') as { response?: { quote?: { depositMemo?: string } } };
+  const chain = assetOf(deps, intent.sell_asset).chain;
   return {
-    chain: assetChain(intent.sell_asset),
+    chain,
     asset: intent.sell_asset,
     amountRaw: quote.amount_in_raw,
     address: row.deposit_address,
-    memo: row.deposit_memo || parsed.response?.quote?.depositMemo || null,
-    walletTransactionAvailable: assetChain(intent.sell_asset) === 'near',
+    memo: row.deposit_memo || null,
+    walletTransactionAvailable: chain === 'near',
   };
-}
-
-/** Chain encoded in the verified 1Click asset id. NEP-141 native assets are on NEAR. */
-function assetChain(assetId: string): string {
-  const bridged = /^nep141:([a-z][a-z0-9]{1,15})-/.exec(assetId);
-  return bridged?.[1] ?? 'near';
 }
 
 function signingRequest(row: PlanRow, intent: IntentRow, quote: QuoteRow) {
