@@ -3,6 +3,8 @@ import type { LeashRequest } from '../src/leash/execution.ts';
 import { reconcileLeashDelivery } from '../src/leash/settlement.ts';
 import { createLeashServiceSigner } from '../src/leash/signer-service.ts';
 
+vi.hoisted(() => vi.resetModules());
+
 vi.mock('@harbor/adapters/oneclick/signature', () => ({
   oneClickQuotePayload: (v: unknown) => JSON.stringify(v),
   oneClickQuoteHash: async () => 'quote-hash',
