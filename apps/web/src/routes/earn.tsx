@@ -3,7 +3,14 @@ import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
-import { DepositDialog, NotYetDialog, VAULTS, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
+import {
+  DepositDialog,
+  NotYetDialog,
+  VAULTS,
+  type Vault,
+  vaultForPool,
+  vaultListing,
+} from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
@@ -226,10 +233,7 @@ function RateCard({
 
 /** A vault Harbor can deposit into: its best rate in the snapshot when listed, the chain, and both actions. */
 function VaultCard({ vault, onDeposit }: { vault: Vault; onDeposit: (vault: Vault) => void }) {
-  const listed = research.yieldPools
-    .filter((pool) => pool.chain === vault.snapshot.chain && pool.symbol.toUpperCase() === vault.snapshot.symbol)
-    .sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
-  const lead = listed[0];
+  const lead = vaultListing(vault);
   return (
     <li className="ws-card flex flex-col">
       <div className="flex items-center justify-between gap-3 px-5 pt-4">
