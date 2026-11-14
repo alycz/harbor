@@ -106,6 +106,7 @@ describe('oneClickExecutor', () => {
     });
     expect(quote).toMatchObject({ amountIn: 1000n, minAmountOut: 2487n });
     expect(quote.deposit).toEqual({
+      originChain: 'near',
       address: DEPOSIT,
       memo: null,
       deadlineMs: Date.parse('2026-11-11T12:10:00.000Z'),
