@@ -1,17 +1,17 @@
+import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@harbor/ui/components/dialog';
 import { Input } from '@harbor/ui/components/input';
 import { Link } from '@tanstack/react-router';
-import { ArrowRight, LoaderCircle, Vault } from 'lucide-react';
+import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { ExecutionRequestError, execution } from '../lib/execution.ts';
-import { research } from '../lib/research.ts';
 import { useWallet } from '../lib/wallet.tsx';
 import { SwapProposalCard } from './swap-proposal.tsx';
-import { Chip, Panel } from './workspace.tsx';
 
 /** Vaults 1Click Earn reaches from USDC on NEAR: buying the receipt token deposits into the vault. */
-const VAULTS = [
+export const VAULTS = [
   {
     receipt: 'gtUSDCp',
     name: 'Gauntlet USDC Prime',
@@ -26,52 +26,52 @@ const VAULTS = [
     protocol: 'Taler',
     chain: 'Ethereum',
     chainCode: 'eth',
-    snapshot: null,
+    snapshot: { chain: 'Ethereum', symbol: 'TLO' },
   },
 ] as const;
 
 const MIN_USDC = 50;
 
-/** The vault's rate in the dated snapshot, as a range when the snapshot lists it more than once. */
-function snapshotRate(match: { chain: string; symbol: string } | null): string {
-  if (!match) return 'Not in the snapshot';
-  const rates = research.yieldPools
-    .filter((pool) => pool.chain === match.chain && pool.symbol.toUpperCase() === match.symbol)
-    .map((pool) => pool.totalApyPct)
-    .filter((rate): rate is number => rate !== null)
-    .sort((a, b) => a - b);
-  if (rates.length === 0) return 'Not in the snapshot';
-  const low = rates[0]?.toFixed(2);
-  const high = rates.at(-1)?.toFixed(2);
-  return low === high ? `${low}% APY` : `${low}–${high}% APY`;
+/** The vault a snapshot pool is, when Harbor can deposit into it. */
+export function vaultForPool(pool: YieldPoolRow): Vault | null {
+  return (
+    VAULTS.find(
+      (vault) => vault.snapshot.chain === pool.chain && vault.snapshot.symbol === pool.symbol.toUpperCase(),
+    ) ?? null
+  );
 }
+
+export type Vault = (typeof VAULTS)[number];
 
 /**
  * Deposits USDC held on NEAR into a yield vault on another chain, through NEAR Intents. It is a swap
  * into the vault's receipt token, so it runs every check a swap does: delivery only to your own address
  * on that chain, your signed policy, your signature, and the delivery verified on that chain.
  */
-export function EarnVaults() {
+export function DepositDialog({ vault, onOpenChange }: { vault: Vault | null; onOpenChange: (open: boolean) => void }) {
   return (
-    <Panel label="Deposit through NEAR Intents" icon={<Vault />} labelId="earn-vaults" bodyClassName="p-5">
-      <p className="mb-4 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-        Pay with USDC on NEAR; the vault's receipt token is delivered to your own address on its chain. Add that address
-        to{' '}
-        <Link to="/settings/policy" className="ws-link">
-          your policy
-        </Link>{' '}
-        first. Withdrawals happen on the vault's own chain.
-      </p>
-      <ul className="grid gap-4 @3xl/workspace:grid-cols-2">
-        {VAULTS.map((vault) => (
-          <VaultCard key={vault.receipt} vault={vault} />
-        ))}
-      </ul>
-    </Panel>
+    <Dialog open={vault !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[560px] gap-4">
+        {vault ? (
+          <>
+            <DialogTitle className="font-display text-[22px] leading-tight">Deposit into {vault.name}</DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed">
+              Pay with USDC on NEAR; the vault's receipt token is delivered to your own address on {vault.chain}. Add
+              that address to{' '}
+              <Link to="/settings/policy" className="ws-link">
+                your policy
+              </Link>{' '}
+              first. Withdrawals happen on the vault's own chain.
+            </DialogDescription>
+            <VaultCard vault={vault} />
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function VaultCard({ vault }: { vault: (typeof VAULTS)[number] }) {
+function VaultCard({ vault }: { vault: Vault }) {
   const id = useId();
   const wallet = useWallet();
   const [amount, setAmount] = useState(String(MIN_USDC));
@@ -97,16 +97,10 @@ function VaultCard({ vault }: { vault: (typeof VAULTS)[number] }) {
   }
 
   return (
-    <li className="ws-card flex flex-col gap-3.5 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[14.5px] font-medium">{vault.name}</p>
-          <p className="text-[12.5px] text-muted-foreground">
-            {vault.protocol} on {vault.chain} · receipt token {vault.receipt}
-          </p>
-        </div>
-        <Chip tone="accent">{snapshotRate(vault.snapshot)}</Chip>
-      </div>
+    <div className="flex flex-col gap-3.5">
+      <p className="text-[12.5px] text-muted-foreground">
+        {vault.protocol} on {vault.chain} · receipt token {vault.receipt}
+      </p>
       {intentId ? (
         <SwapProposalCard intentId={intentId} />
       ) : (
@@ -134,6 +128,6 @@ function VaultCard({ vault }: { vault: (typeof VAULTS)[number] }) {
         </div>
       )}
       {error ? <p className="text-[12.5px] text-destructive">{error}</p> : null}
-    </li>
+    </div>
   );
 }

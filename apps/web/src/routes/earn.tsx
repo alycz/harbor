@@ -2,7 +2,8 @@ import type { YieldPoolRow } from '@harbor/data/research';
 import { Button } from '@harbor/ui/components/button';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
-import { EarnVaults } from '../components/earn-vaults.tsx';
+import { useState } from 'react';
+import { DepositDialog, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
 import { IntegrationDemo } from '../components/integration-demo.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
@@ -15,6 +16,7 @@ import { apyDrift, HOME_CHAIN, projectLogo, projectName } from '../lib/research-
 const MIN_TVL_USD = 1_000_000;
 
 export function EarnPage() {
+  const [depositVault, setDepositVault] = useState<Vault | null>(null);
   const pools = stablePools(research.yieldPools);
   const best = bestPerChain(pools);
   const top = best.reduce<YieldPoolRow | null>(
@@ -53,12 +55,11 @@ export function EarnPage() {
         </Panel>
       ) : (
         <>
-          <EarnVaults />
           <section aria-labelledby="earn-best" className="flex flex-col gap-3.5">
             <SectionTitle id="earn-best" title="Best rate by chain" />
             <ol className="ws-stagger grid list-none gap-3 @xl/workspace:grid-cols-2 @5xl/workspace:grid-cols-3">
               {best.map((pool) => (
-                <RateCard key={pool.id} pool={pool} />
+                <RateCard key={pool.id} pool={pool} onDeposit={setDepositVault} />
               ))}
             </ol>
           </section>
@@ -108,9 +109,24 @@ export function EarnPage() {
                   cell: (row) => <span className="text-muted-foreground">{formatApy(row.mean30dApyPct)}</span>,
                 },
                 { id: 'tvl', label: 'TVL', numeric: true, cell: (row) => formatUsd(row.tvlUsd) },
+                {
+                  id: 'deposit',
+                  label: '',
+                  required: true,
+                  numeric: true,
+                  cell: (row) => {
+                    const vault = vaultForPool(row);
+                    return vault ? (
+                      <Button size="sm" className="h-8 px-3" onClick={() => setDepositVault(vault)}>
+                        Deposit
+                      </Button>
+                    ) : null;
+                  },
+                },
               ]}
             />
           </section>
+          <DepositDialog vault={depositVault} onOpenChange={(open) => (open ? null : setDepositVault(null))} />
         </>
       )}
     </div>
@@ -118,7 +134,8 @@ export function EarnPage() {
 }
 
 /** One chain's best stablecoin rate: the rate is the one big number, the pool and its context below. */
-function RateCard({ pool }: { pool: YieldPoolRow }) {
+function RateCard({ pool, onDeposit }: { pool: YieldPoolRow; onDeposit: (vault: Vault) => void }) {
+  const vault = vaultForPool(pool);
   const drift = apyDrift(pool);
   const home = pool.chain === HOME_CHAIN;
   return (
@@ -160,17 +177,28 @@ function RateCard({ pool }: { pool: YieldPoolRow }) {
         <Figure label="30d mean" value={formatApy(pool.mean30dApyPct)} />
         <Figure label="Rewards" value={formatApy(pool.rewardApyPct)} />
       </dl>
-      <Link
-        to="/chat"
-        search={{ ask: askAbout(pool) }}
-        className="mt-4 flex items-center justify-between gap-2 rounded-b-[11px] border-t border-border px-5 py-3 text-[13px] font-medium text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
-      >
-        Compare with Harbor
-        <ArrowUpRight
-          className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none"
-          aria-hidden="true"
-        />
-      </Link>
+      <div className="mt-4 grid grid-cols-2 border-t border-border text-[13px] font-medium">
+        <Link
+          to="/chat"
+          search={{ ask: askAbout(pool) }}
+          className="flex items-center justify-center gap-1.5 rounded-bl-[11px] border-r border-border px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)]"
+        >
+          Research on Harbor
+          <ArrowUpRight
+            className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none"
+            aria-hidden="true"
+          />
+        </Link>
+        <button
+          type="button"
+          disabled={!vault}
+          onClick={vault ? () => onDeposit(vault) : undefined}
+          title={vault ? undefined : 'Harbor can deposit into Gauntlet USDC Prime and Taler USDC so far'}
+          className="flex items-center justify-center gap-1.5 rounded-br-[11px] px-3 py-3 text-[var(--ws-accent-ink)] transition-colors hover:bg-[var(--harbor-accent-tint)] disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-60 disabled:hover:bg-transparent"
+        >
+          Deposit
+        </button>
+      </div>
     </li>
   );
 }
