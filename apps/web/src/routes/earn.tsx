@@ -12,9 +12,9 @@ import {
   vaultListing,
 } from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
+import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { RheaOpportunities } from '../components/rhea-opportunities.tsx';
 import { TemplarBorrow } from '../components/templar-borrow.tsx';
-import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
 import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
 import { research, snapshotCredit } from '../lib/research.ts';

@@ -55,7 +55,7 @@ export function QuoteSkeleton({ label = 'Getting a live quote' }: { label?: stri
 }
 
 /** Any workspace page while its code loads: a title block, a wide card and a list. */
-export function PageSkeleton() {
+function PageSkeleton() {
   return (
     <Loading label="Loading" className="flex flex-col gap-7">
       <div className="max-w-2xl space-y-3">

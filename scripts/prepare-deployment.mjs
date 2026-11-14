@@ -25,9 +25,10 @@ if (typeof source.main !== 'string' || typeof source.assets?.directory !== 'stri
 // Preserve an existing selection unless the operator explicitly replaces it. Never carry
 // the built configuration's global execution switch into a newly generated deployment.
 const execution = options.includes('--enable-execution');
-const selected = adapterOption === undefined
-  ? (source.vars.ENABLED_WRITE_ADAPTERS ?? '')
-  : adapterOption.slice('--write-adapters='.length);
+const selected =
+  adapterOption === undefined
+    ? (source.vars.ENABLED_WRITE_ADAPTERS ?? '')
+    : adapterOption.slice('--write-adapters='.length);
 if (typeof selected !== 'string') throw new Error('ENABLED_WRITE_ADAPTERS must be a comma-separated string.');
 const supported = new Set(['oneclick', 'rhea-lending', 'templar']);
 const adapterNames = selected === '' ? [] : selected.split(',').map((name) => name.trim());

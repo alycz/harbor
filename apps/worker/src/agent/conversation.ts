@@ -182,7 +182,9 @@ export class ConversationAgent extends DurableObject<Env> {
       );
       assertExactTools(
         tools,
-        APPROVED_TOOLS.filter((name) => !researchOnly || (name !== 'propose_intent' && name !== 'review_protocol_action')),
+        APPROVED_TOOLS.filter(
+          (name) => !researchOnly || (name !== 'propose_intent' && name !== 'review_protocol_action'),
+        ),
       );
       const agent = createHarborAgent({
         model: source.model,
@@ -284,11 +286,32 @@ export function proposalOf(event: AgentEvent): PublicAgentEvent | null {
     const action: unknown = event.result?.details?.protocolAction;
     if (action && typeof action === 'object') {
       const a = action as Record<string, unknown>;
-      if (a.protocol === 'rhea-lending' && typeof a.assetId === 'string' && a.assetId.length <= 256 && typeof a.amount === 'string' && /^[0-9]+([.][0-9]+)?$/.test(a.amount) && a.amount.length <= 80) {
-        return { type: 'protocol_action', actionId: event.toolCallId, action: { protocol: 'rhea-lending', assetId: a.assetId, amount: a.amount } };
+      if (
+        a.protocol === 'rhea-lending' &&
+        typeof a.assetId === 'string' &&
+        a.assetId.length <= 256 &&
+        typeof a.amount === 'string' &&
+        /^[0-9]+([.][0-9]+)?$/.test(a.amount) &&
+        a.amount.length <= 80
+      ) {
+        return {
+          type: 'protocol_action',
+          actionId: event.toolCallId,
+          action: { protocol: 'rhea-lending', assetId: a.assetId, amount: a.amount },
+        };
       }
-      if (a.protocol === 'templar' && typeof a.marketId === 'string' && /^[a-z0-9._-]{2,64}$/.test(a.marketId) && typeof a.amountAtomic === 'string' && /^[1-9][0-9]{0,38}$/.test(a.amountAtomic)) {
-        return { type: 'protocol_action', actionId: event.toolCallId, action: { protocol: 'templar', marketId: a.marketId, amountAtomic: a.amountAtomic } };
+      if (
+        a.protocol === 'templar' &&
+        typeof a.marketId === 'string' &&
+        /^[a-z0-9._-]{2,64}$/.test(a.marketId) &&
+        typeof a.amountAtomic === 'string' &&
+        /^[1-9][0-9]{0,38}$/.test(a.amountAtomic)
+      ) {
+        return {
+          type: 'protocol_action',
+          actionId: event.toolCallId,
+          action: { protocol: 'templar', marketId: a.marketId, amountAtomic: a.amountAtomic },
+        };
       }
     }
     return null;

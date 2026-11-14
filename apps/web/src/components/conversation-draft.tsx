@@ -1,5 +1,3 @@
-import { RheaChatAction } from './rhea-chat-action.tsx';
-import { TemplarChatAction } from './templar-chat-action.tsx';
 import { Button } from '@harbor/ui/components/button';
 import { Input } from '@harbor/ui/components/input';
 import { Label } from '@harbor/ui/components/label';
@@ -21,13 +19,14 @@ import {
   Square,
 } from 'lucide-react';
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
-
 import { ChatRequestError } from '../lib/agent-chat.ts';
 import { amountDraftIssue } from '../lib/draft-validation.ts';
 import { AssetSelect } from './financial-draft.tsx';
 import { HarborMark } from './harbor-logo.tsx';
 import { MessageContent } from './message-content.tsx';
 import { ProposalCard } from './proposal-card.tsx';
+import { RheaChatAction } from './rhea-chat-action.tsx';
+import { TemplarChatAction } from './templar-chat-action.tsx';
 import { useWorkspaceSession } from './workspace-session.tsx';
 
 const HORIZON_DAYS = ['7', '30', '90'];
@@ -200,7 +199,11 @@ export function ConversationDraft({
                     ) : null}
                     {message.protocolActions?.map(({ actionId, action }) => (
                       <div key={actionId} className="mt-4">
-                        {action.protocol === 'rhea-lending' ? <RheaChatAction assetId={action.assetId} amount={action.amount} /> : <TemplarChatAction marketId={action.marketId} amountAtomic={action.amountAtomic} />}
+                        {action.protocol === 'rhea-lending' ? (
+                          <RheaChatAction assetId={action.assetId} amount={action.amount} />
+                        ) : (
+                          <TemplarChatAction marketId={action.marketId} amountAtomic={action.amountAtomic} />
+                        )}
                       </div>
                     ))}
                     {message.proposals?.length ? (

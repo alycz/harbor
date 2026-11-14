@@ -280,7 +280,13 @@ function apply(message: ConversationMessage, event: PublicAgentEvent): Conversat
         ? { ...message, stopped: true }
         : { ...message, error: 'The answer was interrupted. Send the message again.' };
     case 'protocol_action':
-      return { ...message, protocolActions: [...(message.protocolActions ?? []).filter((item) => item.actionId !== event.actionId), { actionId: event.actionId, action: event.action }] };
+      return {
+        ...message,
+        protocolActions: [
+          ...(message.protocolActions ?? []).filter((item) => item.actionId !== event.actionId),
+          { actionId: event.actionId, action: event.action },
+        ],
+      };
     case 'proposal':
       return {
         ...message,
