@@ -18,10 +18,18 @@ import { executionDeps } from './store.ts';
 import { createSwapIntent } from './swap.ts';
 
 const SYMBOL = z.string().regex(/^[A-Za-z0-9.$-]{1,16}$/);
+const ASSET = z.union([
+  SYMBOL,
+  z
+    .string()
+    .min(3)
+    .max(320)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*:\S+$/),
+]);
 const SwapIntentSchema = z.strictObject({
   kind: z.literal('swap'),
-  sellAsset: SYMBOL,
-  buyAsset: SYMBOL,
+  sellAsset: ASSET,
+  buyAsset: ASSET,
   sellAmount: z.string().min(1).max(64),
 });
 const PlanSchema = z.strictObject({ intentId: z.uuid(), quoteId: z.uuid() });

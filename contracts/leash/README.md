@@ -26,3 +26,34 @@ near contract deploy <leash-account> use-file target/near/harbor_leash.wasm \
 `quote_signer` is 1Click's manager key, the one `packages/adapters/src/oneclick/signature.ts` verifies quotes with. Try the whole flow on testnet, with a stand-in signer key, before mainnet.
 
 Harbor's Worker does not call this contract yet: until it is deployed and audited, every deposit is signed in the owner's own wallet.
+
+## Build artifact without a local Rust installation
+
+The **Leash WASM** GitHub Actions workflow builds the locked dependencies on contract
+pull requests and main changes, or on manual dispatch. Download its `leash-wasm-<commit>`
+artifact after the build succeeds. It contains `harbor_leash.wasm`, `SHA256SUMS`, and
+`BUILD.txt` identifying the source commit. Verify `sha256sum -c SHA256SUMS` before use.
+This is a release build, not the Docker-based reproducible build above; the workflow
+records the compiler version. It runs the contract unit tests but does not deploy, provision an account,
+load keys, authorize an agent, or spend funds. Build success does not establish
+mainnet readiness or an end-to-end Agent Economy demonstration.
+
+For a testnet demonstration, use a dedicated testnet account, a testnet token and a
+clearly labelled stand-in quote signer. 1Click settlement is mainnet-only; do not
+present a testnet stand-in as actual 1Click settlement. The same contract ABI is used
+on both networks. Never initialize it with an arbitrary agent account: that account
+is the sole execution authority for every funded vault in that deployment.
+
+### Pending-transfer accounting
+
+Token changes wait for every outstanding transfer callback, including withdrawals.
+Failed executions restore daily allowance only in the same spending window that
+reserved it. The `pending_transfers` field changes the stored vault layout: this
+version is for a fresh deployment, **not an in-place upgrade of an existing vault**
+without a separately reviewed state migration. The public Worker-facing ABI is
+unchanged; the private execution callback now also receives its spending-window ID.
+
+Operating NEAR is a shared deployment reserve, not part of each vault's token budget:
+every attempted deposit may consume registration cost, transfer dust and replay-record
+storage. A production deployment still needs explicit operating-reserve accounting;
+token spending caps alone do not isolate those costs between vaults.

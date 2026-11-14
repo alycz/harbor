@@ -164,6 +164,22 @@ describe('signing a policy', () => {
     );
   });
 
+  it('keeps the active policy when a replacement draft is abandoned or signed for a different recipient', async () => {
+    const { cookie, drafted: active } = await signedPolicy('draft-cancel.near');
+    const pending = await (await call('', cookie, { ...DRAFT, slippageMaxBps: 100 })).json<Drafted>();
+    expect((await (await call('/current', cookie)).json<Current>()).policy?.id).toBe(active.id);
+
+    const wallet = await createWallet();
+    const signature = await wallet.sign(pending.message, 'another-app.test', pending.nonce);
+    chainSays(FULL_ACCESS);
+    expect((await call(`/${pending.id}/sign`, cookie, { publicKey: wallet.publicKey, signature })).status).toBe(401);
+    expect((await (await call('/current', cookie)).json<Current>()).policy).toMatchObject({
+      id: active.id,
+      status: 'active',
+      revision: 1,
+    });
+  });
+
   it('rejects addresses that are not valid on their chain and assets the network does not have', async () => {
     const cookie = await sessionCookie('typo.near');
     const badAddress = { ...DRAFT, destinations: [{ chain: 'base', address: 'not-an-address' }] };

@@ -11,6 +11,7 @@ import { Chip, EmptyState, Panel } from './workspace.tsx';
 
 interface Alert {
   id: string;
+  kind: 'price_alert' | 'spread_alert';
   name: string;
   status: 'draft' | 'active' | 'paused' | 'completed';
   revision: number;
@@ -51,13 +52,14 @@ export function PriceAlerts() {
     enabled: Boolean(wallet.address),
     refetchInterval: 30_000,
   });
-  const [draft, setDraft] = useState({ sell: 'NEAR', amount: '10', buy: 'USDC', target: '40' });
+  const [draft, setDraft] = useState({ sell: '', amount: '10', buy: '', target: '40' });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['alerts', wallet.address] });
   const create = useMutation({
     mutationFn: async () => {
-      const sell = assets.data?.assets.find((asset) => asset.symbol === draft.sell);
-      const buy = assets.data?.assets.find((asset) => asset.symbol === draft.buy);
-      if (!sell || !buy) throw new Error('Choose two supported assets.');
+      const sell = assets.data?.assets.find((asset) => asset.canonicalId === draft.sell);
+      const buy = assets.data?.assets.find((asset) => asset.canonicalId === draft.buy);
+      if (!sell || !buy || sell.canonicalId === buy.canonicalId)
+        throw new Error('Choose two different supported assets.');
       const created = await alerts.create({
         kind: 'price_alert',
         config: {
@@ -70,15 +72,15 @@ export function PriceAlerts() {
       });
       return alerts.activate(created);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
   const change = useMutation({
     mutationFn: async ({ action, alert }: { action: 'activate' | 'pause' | 'remove'; alert: Alert }) => {
       await alerts[action](alert);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
-  const symbols = (assets.data?.assets ?? []).map((asset) => asset.symbol);
+  const options = assets.data?.assets ?? [];
 
   if (!wallet.address) {
     return (
@@ -112,8 +114,11 @@ export function PriceAlerts() {
             value={draft.sell}
             onChange={(event) => setDraft({ ...draft, sell: event.target.value })}
           >
-            {symbols.map((symbol) => (
-              <option key={symbol}>{symbol}</option>
+            <option value="">Choose asset and chain</option>
+            {options.map((asset) => (
+              <option key={asset.canonicalId} value={asset.canonicalId}>
+                {asset.symbol} · {asset.chain}
+              </option>
             ))}
           </select>
         </label>
@@ -135,66 +140,94 @@ export function PriceAlerts() {
             value={draft.buy}
             onChange={(event) => setDraft({ ...draft, buy: event.target.value })}
           >
-            {symbols.map((symbol) => (
-              <option key={symbol}>{symbol}</option>
+            <option value="">Choose asset and chain</option>
+            {options.map((asset) => (
+              <option key={asset.canonicalId} value={asset.canonicalId}>
+                {asset.symbol} · {asset.chain}
+              </option>
             ))}
           </select>
         </label>
-        <Button className="mt-auto h-10 gap-2 px-4" disabled={create.isPending} onClick={() => create.mutate()}>
+        <Button
+          className="mt-auto h-10 gap-2 px-4"
+          disabled={create.isPending || !draft.sell || !draft.buy || draft.sell === draft.buy}
+          onClick={() => create.mutate()}
+        >
           <Bell /> Alert me
         </Button>
       </div>
       {create.isError ? <p className="mt-2 text-[13px] text-destructive">{create.error.message}</p> : null}
+      {list.isPending ? <p className="mt-3 text-sm text-muted-foreground">Loading your monitors…</p> : null}
+      {list.isError ? (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {list.error.message}
+        </p>
+      ) : null}
+      {change.isError ? (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {change.error.message}
+        </p>
+      ) : null}
+      {list.isSuccess && list.data.automations.filter((alert) => alert.kind === 'price_alert').length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No saved monitors yet. Create your first quote alert above.
+        </p>
+      ) : null}
       <ul className="mt-4 divide-y divide-border border-t border-border">
-        {(list.data?.automations ?? []).map((alert) => (
-          <li key={alert.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13.5px]">
-            <span className="min-w-0">
-              <span className="font-medium">{alert.name}</span>
-              <span className="block text-[12.5px] text-muted-foreground">
-                {alert.lastAlertAt
-                  ? `Reached ${formatUtc(alert.lastAlertAt)}`
-                  : alert.lastEvaluatedAt
-                    ? `Checked ${formatUtc(alert.lastEvaluatedAt)}: ${alert.lastResult === 'unknown' ? 'no quote' : 'not yet'}`
-                    : 'Not checked yet'}
+        {(list.data?.automations ?? [])
+          .filter((alert) => alert.kind === 'price_alert')
+          .map((alert) => (
+            <li key={alert.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13.5px]">
+              <span className="min-w-0">
+                <span className="font-medium">{alert.name}</span>
+                <span className="block text-[12.5px] text-muted-foreground">
+                  {alert.lastAlertAt
+                    ? `Reached ${formatUtc(alert.lastAlertAt)}`
+                    : alert.lastEvaluatedAt
+                      ? `Checked ${formatUtc(alert.lastEvaluatedAt)}: ${alert.lastResult === 'unknown' ? 'no quote' : alert.lastResult === 'true' ? 'target met' : 'not yet'}`
+                      : 'Not checked yet'}
+                </span>
               </span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              {alert.unacknowledgedAlerts > 0 ? (
-                <Chip tone="success" dot>
-                  {alert.unacknowledgedAlerts} new
-                </Chip>
-              ) : null}
-              <Chip tone={alert.status === 'active' ? 'accent' : 'neutral'}>{alert.status}</Chip>
-              {alert.status === 'active' ? (
+              <span className="flex items-center gap-1.5">
+                {alert.unacknowledgedAlerts > 0 ? (
+                  <Chip tone="success" dot>
+                    {alert.unacknowledgedAlerts} new
+                  </Chip>
+                ) : null}
+                <Chip tone={alert.status === 'active' ? 'accent' : 'neutral'}>{alert.status}</Chip>
+                {alert.status === 'active' ? (
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-9 p-0"
+                    disabled={change.isPending}
+                    aria-label="Pause"
+                    onClick={() => change.mutate({ action: 'pause', alert })}
+                  >
+                    <Pause />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-9 p-0"
+                    disabled={change.isPending}
+                    aria-label="Resume"
+                    onClick={() => change.mutate({ action: 'activate', alert })}
+                  >
+                    <Play />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   className="h-9 w-9 p-0"
-                  aria-label="Pause"
-                  onClick={() => change.mutate({ action: 'pause', alert })}
+                  disabled={change.isPending}
+                  aria-label="Delete"
+                  onClick={() => change.mutate({ action: 'remove', alert })}
                 >
-                  <Pause />
+                  <Trash2 />
                 </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  className="h-9 w-9 p-0"
-                  aria-label="Resume"
-                  onClick={() => change.mutate({ action: 'activate', alert })}
-                >
-                  <Play />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                className="h-9 w-9 p-0"
-                aria-label="Delete"
-                onClick={() => change.mutate({ action: 'remove', alert })}
-              >
-                <Trash2 />
-              </Button>
-            </span>
-          </li>
-        ))}
+              </span>
+            </li>
+          ))}
       </ul>
       <p className="mt-3 text-[12.5px] text-muted-foreground">Alerts only read quotes. They never trade.</p>
     </Panel>

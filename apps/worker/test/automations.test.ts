@@ -1,9 +1,9 @@
 import { env, exports } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 
-import type { PriceAlertConfig } from '../src/automations/config.ts';
+import type { PriceAlertConfig, SpreadAlertConfig } from '../src/automations/config.ts';
 import { runAutomations } from '../src/automations/dispatch.ts';
-import { compareDecimal } from '../src/automations/evaluate.ts';
+import { compareDecimal, edgePct, evaluateSpreadAlert, type QuoteSource } from '../src/automations/evaluate.ts';
 import {
   type AutomationDeps,
   acknowledgeTrigger,
@@ -41,6 +41,11 @@ function createFixture(startMs: number) {
       read: async () => {
         if (quote.output === null) throw new Error('The quote venue is unreachable.');
         return { amountOut: quote.output, venue: 'oneclick', observedAtMs: clock.now };
+      },
+    },
+    reference: {
+      read: async () => {
+        throw new Error('Price alerts never read Rhea.');
       },
     },
   };
@@ -248,5 +253,117 @@ describe('compareDecimal', () => {
     expect(compareDecimal('41.2', '40')).toBe(1);
     expect(compareDecimal('40.000', '40')).toBe(0);
     expect(compareDecimal('39.999999999999999999999999', '40')).toBe(-1);
+  });
+});
+
+const NEAR = { assetId: 'nep141:wrap.near', symbol: 'NEAR' };
+const USDC = { assetId: 'nep141:usdc.example.near', symbol: 'USDC' };
+const SPREAD: SpreadAlertConfig = {
+  base: NEAR,
+  quote: USDC,
+  size: '100',
+  thresholdPct: 1,
+  cooldownMinutes: 5,
+  mode: 'repeat',
+};
+
+/**
+ * A venue that prices NEAR at `usdPerNear` and keeps `feePct` of every trade, so round trips can be
+ * worked out by hand. `null` makes it unreachable.
+ */
+function venue(name: string, state: { usdPerNear: number | null; feePct: number }): QuoteSource {
+  return {
+    async read({ sellAssetId, amount }) {
+      if (state.usdPerNear === null) throw new Error(`${name} is unreachable.`);
+      const keep = 1 - state.feePct / 100;
+      const out =
+        sellAssetId === NEAR.assetId
+          ? Number(amount) * state.usdPerNear * keep
+          : (Number(amount) / state.usdPerNear) * keep;
+      return { amountOut: out.toFixed(6), venue: name, observedAtMs: 0 };
+    },
+  };
+}
+
+describe('spread monitors', () => {
+  it('measures the edge of a round trip exactly, in percent', () => {
+    expect(edgePct('100', '101.5')).toBe(1.5);
+    expect(edgePct('100.000000', '99.25')).toBe(-0.75);
+    expect(edgePct('100', '100.00001')).toBe(0);
+  });
+
+  it('prices both round trips with each leg feeding the next, and picks the better one', async () => {
+    const intents = { usdPerNear: 2.5, feePct: 0.1 };
+    const rhea = { usdPerNear: 2.55, feePct: 0.1 };
+    const evaluation = await evaluateSpreadAlert(SPREAD, {
+      intents: venue('oneclick', intents),
+      rhea: venue('rhea', rhea),
+    });
+    // 100 USDC → 39.96 NEAR on Intents → 101.796102 USDC on Rhea after both fees: +1.7961%.
+    expect(evaluation.result).toBe('true');
+    expect(evaluation.evidence.best).toBe('intents_then_rhea');
+    const [forward, reverse] = evaluation.evidence.trips;
+    expect(forward).toMatchObject({
+      route: 'intents_then_rhea',
+      legs: [
+        {
+          venue: 'NEAR Intents',
+          sell: { symbol: 'USDC', amount: '100' },
+          buy: { symbol: 'NEAR', amount: '39.960000' },
+        },
+        { venue: 'Rhea', sell: { symbol: 'NEAR', amount: '39.960000' }, buy: { symbol: 'USDC', amount: '101.796102' } },
+      ],
+      returned: '101.796102',
+      edgePct: 1.7961,
+    });
+    expect(reverse?.edgePct).toBeLessThan(0);
+    expect(evaluation.reason).toContain('buy NEAR on NEAR Intents, sell on Rhea');
+  });
+
+  it('stays below the threshold when venues agree, and is unknown when a venue cannot be read', async () => {
+    const level = await evaluateSpreadAlert(SPREAD, {
+      intents: venue('oneclick', { usdPerNear: 2.5, feePct: 0.1 }),
+      rhea: venue('rhea', { usdPerNear: 2.5, feePct: 0.1 }),
+    });
+    expect(level.result).toBe('false');
+    expect(level.evidence.trips.every((trip) => (trip.edgePct ?? 0) < 0)).toBe(true);
+
+    const down = await evaluateSpreadAlert(SPREAD, {
+      intents: venue('oneclick', { usdPerNear: 2.5, feePct: 0.1 }),
+      rhea: venue('rhea', { usdPerNear: null, feePct: 0.1 }),
+    });
+    expect(down.result).toBe('unknown');
+    expect(down.reason).toContain('rhea is unreachable');
+  });
+
+  it('runs on the schedule like any rule: alerts once, then waits out the cooldown', async () => {
+    const h = createFixture(1_910_000_000_000);
+    const intents = { usdPerNear: 2.5, feePct: 0.1 };
+    const rhea = { usdPerNear: 2.5, feePct: 0.1 };
+    h.deps.quotes = venue('oneclick', intents);
+    h.deps.reference = venue('rhea', rhea);
+    const draft = await createRule(h.deps, { kind: 'spread_alert', account: ACCOUNT, config: SPREAD });
+    expect(draft).toMatchObject({ kind: 'spread_alert', name: 'NEAR/USDC spread ≥ 1% on 100 USDC' });
+    const rule = await activateRule(h.deps, draft.id, { revision: draft.revision, configHash: draft.configHash });
+
+    expect(await tick(h)).toMatchObject({ evaluated: 1, alerts: 0 });
+    rhea.usdPerNear = 2.56;
+    expect(await tick(h)).toMatchObject({ evaluated: 1, alerts: 1 });
+    // Still wide, but the rule fired and has not re-armed: no second alert.
+    expect(await tick(h)).toMatchObject({ evaluated: 1, alerts: 0 });
+
+    const read = await readRule(h.deps, rule.id);
+    expect(read.alerts).toHaveLength(1);
+    expect(read.alerts[0]?.summary).toContain('buy NEAR on NEAR Intents, sell on Rhea');
+    expect(read.evaluations[0]?.evidence).toMatchObject({ best: 'intents_then_rhea', thresholdPct: 1 });
+    await deleteRule(h.deps, rule.id);
+  });
+
+  it('refuses a monitor on one asset, and keeps price alert settings out of spread monitors', async () => {
+    const h = createFixture(1_920_000_000_000);
+    await expect(
+      createRule(h.deps, { kind: 'spread_alert', account: ACCOUNT, config: { ...SPREAD, quote: NEAR } }),
+    ).rejects.toThrow('Choose two different assets.');
+    await expect(createRule(h.deps, { kind: 'spread_alert', account: ACCOUNT, config: CONFIG })).rejects.toThrow();
   });
 });

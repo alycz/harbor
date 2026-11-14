@@ -4,8 +4,10 @@ import { z } from 'zod';
 
 import type { AppEnv } from '../app.ts';
 import { requireSession } from '../auth/guard.ts';
-import { automationDeps } from './dispatch.ts';
-import { evaluatePriceAlert } from './evaluate.ts';
+import { executionDeps } from '../execution/store.ts';
+import { AUTOMATION_RULE_KINDS } from './config.ts';
+import { automationDeps, evaluateRule } from './dispatch.ts';
+import { previewRoundtrip, RoundtripSchema } from './roundtrip.ts';
 import {
   type AutomationDeps,
   acknowledgeTrigger,
@@ -21,8 +23,9 @@ import {
   reviseRule,
 } from './rules.ts';
 
+const KIND = z.enum(AUTOMATION_RULE_KINDS);
 const CreateSchema = z.strictObject({
-  kind: z.literal('price_alert'),
+  kind: KIND,
   name: z.string().max(80).optional(),
   config: z.unknown(),
 });
@@ -35,7 +38,7 @@ const ActivateSchema = z.strictObject({
   revision: z.number().int().positive(),
   configHash: z.string().regex(/^[0-9a-f]{64}$/),
 });
-const PreviewSchema = z.strictObject({ config: z.unknown() });
+const PreviewSchema = z.strictObject({ kind: KIND.default('price_alert'), config: z.unknown() });
 
 /**
  * Monitoring rules: draft → activate the exact revision → scheduled checks → alerts. Each rule
@@ -45,13 +48,22 @@ const PreviewSchema = z.strictObject({ config: z.unknown() });
 export function createAutomationRoutes() {
   const routes = new Hono<AppEnv>();
 
+  routes.post('/roundtrip-preview', async (c) => {
+    const body = parse(
+      RoundtripSchema,
+      await c.req.json().catch(() => null),
+      'Send supported asset IDs, amount and optional minSpreadBps.',
+    );
+    return c.json(await previewRoundtrip(executionDeps(c.env), body));
+  });
+
   /** Evaluates settings now without saving anything or firing an alert. */
   routes.post('/preview', async (c) => {
     const body = parse(PreviewSchema, await c.req.json().catch(() => null), 'Send the monitor config.');
     const deps = automationDeps(c.env);
     return c.json({
       evaluatedAt: new Date(deps.now()).toISOString(),
-      ...(await evaluatePriceAlert(parseConfig(body.config), deps.quotes)),
+      ...(await evaluateRule(deps, body.kind, parseConfig(body.kind, body.config))),
     });
   });
 
@@ -60,7 +72,11 @@ export function createAutomationRoutes() {
   );
 
   routes.post('/', requireSession, async (c) => {
-    const body = parse(CreateSchema, await c.req.json().catch(() => null), 'Send kind "price_alert" and config.');
+    const body = parse(
+      CreateSchema,
+      await c.req.json().catch(() => null),
+      'Send kind "price_alert" or "spread_alert" and config.',
+    );
     return c.json(await createRule(automationDeps(c.env), { ...body, account: c.get('account') }), 201);
   });
 
@@ -100,7 +116,7 @@ export function createAutomationRoutes() {
     const { deps, rule } = await owned(c);
     return c.json({
       evaluatedAt: new Date(deps.now()).toISOString(),
-      ...(await evaluatePriceAlert(parseConfig(JSON.parse(rule.config)), deps.quotes)),
+      ...(await evaluateRule(deps, rule.kind, parseConfig(rule.kind, JSON.parse(rule.config)))),
     });
   });
 
