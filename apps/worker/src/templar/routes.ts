@@ -30,6 +30,21 @@ export function createTemplarRoutes() {
       return c.json({ markets, network: config.network, nextOffset: deployments.length === 100 ? offset + 100 : null,
         note: 'Registry deployments include retired markets. Membership is not a recommendation or evidence of current liquidity.' });
     })
+    .get('/markets/:id', async (c) => {
+      const marketId = Market.parse(c.req.param('id'));
+      const config = decodeExecutionConfig(c.env);
+      if (config.network !== 'mainnet') throw new AppError('UNAVAILABLE', 'Templar discovery requires mainnet.');
+      const view = reader(config.rpcUrl);
+      const deployment = await view(REGISTRY, 'get_deployment', { account_id: marketId });
+      if (!deployment) throw new AppError('NOT_FOUND', 'Market not found in Templar registry.');
+      const configuration = await new TemplarClient(view, new Set([marketId])).configuration(marketId);
+      const allowed = z.object({ TEMPLAR_ALLOWED_MARKETS: z.string().default('') }).parse(c.env)
+        .TEMPLAR_ALLOWED_MARKETS.split(',').map(s => s.trim()).includes(marketId);
+      return c.json({ marketId, network: 'mainnet', protocol: 'templar', configuration,
+        observedAt: new Date().toISOString(), source: 'finalized NEAR contract read',
+        borrowingEnabled: config.executionEnabled && config.writeAdapters.has('templar') && allowed,
+        note: 'Credit market, not an earn APY. Registry can include retired markets. Rates, liquidity and collateral health must be reviewed before borrowing.' });
+    })
     .post('/prepare', requireSession, async (c) => {
       const input = Request.safeParse(await c.req.json().catch(() => null));
       if (!input.success) throw new AppError('INVALID_REQUEST', 'Send a market, operation and positive atomic amount.');
@@ -47,7 +62,7 @@ export function createTemplarRoutes() {
       return c.json({ network: config.network, accountId: c.get('account'), marketId, operation, amountAtomic,
         deployment: record, configuration, registration, preparedTransaction: transaction,
         executable: false, signing: null, status: 'prepared',
-        limitation: 'Real contract calls prepared. Harbor borrow policy/approval and settlement lifecycle is not yet connected; do not treat this as a submitted loan.' });
+        limitation: 'Real contract calls prepared. Use the separate borrow-plan review for enabled markets. This preparation endpoint does not submit a loan.' });
     });
 }
 
