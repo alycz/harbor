@@ -12,8 +12,11 @@ import { createAutomationRoutes } from './automations/routes.ts';
 import { createAutopilotRoutes } from './autopilot/routes.ts';
 import { ConfigError, decodeConfig } from './config.ts';
 import { createExecutionRoutes } from './execution/routes.ts';
+import { createLendingRoutes } from './lending/routes.ts';
 import { createMarketRoutes } from './markets/routes.ts';
 import { createPolicyRoutes } from './policy/routes.ts';
+
+import { createTemplarRoutes } from './templar/routes.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const STATUS_BY_CODE: Record<ErrorCode, ContentfulStatusCode> = {
@@ -69,6 +72,8 @@ export function createApp() {
 
   app.route('/auth', createAuthRoutes());
   app.route('/markets', createMarketRoutes());
+  app.route('/lending', createLendingRoutes());
+  app.route('/templar', createTemplarRoutes());
   app.route('/automations', createAutomationRoutes());
   app.route('/policies', createPolicyRoutes());
   app.route('/autopilot', createAutopilotRoutes());

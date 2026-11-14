@@ -5,6 +5,8 @@ import { ArrowRight, ArrowUpRight, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
 import { DepositDialog, NotYetDialog, VAULTS, type Vault, vaultForPool } from '../components/earn-vaults.tsx';
 import { ChainLogo, LogoPair } from '../components/protocol-logo.tsx';
+import { RheaSupply } from '../components/rhea-supply.tsx';
+import { TemplarBorrow } from '../components/templar-borrow.tsx';
 import { ResearchDataTable } from '../components/research-data-table.tsx';
 import { Chip, EmptyState, HeroCard, Panel, SectionTitle } from '../components/workspace.tsx';
 import { formatApy, formatPercentPoints, formatUsd } from '../lib/format.ts';
@@ -44,6 +46,8 @@ export function EarnPage() {
           </Button>
         }
       />
+      <RheaSupply />
+      <TemplarBorrow />
       {best.length === 0 ? (
         <Panel>
           <EmptyState
