@@ -72,7 +72,7 @@ export function decodeConfig(env: unknown): Config {
 }
 
 export interface AdmissionLimits {
-  /** Turns one anonymous subject may start per window. */
+  /** Turns one subject may start per window: an anonymous visitor's IP, or a signed-in account. */
   guestTurns: number;
   guestWindowMs: number;
   /** Model runs in flight at once across every conversation. */
@@ -82,14 +82,18 @@ export interface AdmissionLimits {
 const GUEST_WINDOW_MS = 15 * 60_000;
 const AdmissionSchema = z.object({
   AGENT_GUEST_TURNS_PER_15_MIN: z.coerce.number().int().min(1).max(10_000),
+  /** Signed-in wallets: counted per account rather than per IP. Defaults to the guest limit when unset. */
+  AGENT_ACCOUNT_TURNS_PER_15_MIN: optional(z.coerce.number().int().min(1).max(10_000)),
   AGENT_MAX_ACTIVE_RUNS: z.coerce.number().int().min(1).max(1_000),
 });
 
-export function decodeAdmissionLimits(env: unknown): AdmissionLimits {
+/** The turn limits for one sender: a signed-in account gets its own, usually higher, allowance. */
+export function decodeAdmissionLimits(env: unknown, signedIn = false): AdmissionLimits {
   const parsed = AdmissionSchema.safeParse(env);
   if (!parsed.success) throw new ConfigError(variablesOf(parsed.error));
+  const guest = parsed.data.AGENT_GUEST_TURNS_PER_15_MIN;
   return {
-    guestTurns: parsed.data.AGENT_GUEST_TURNS_PER_15_MIN,
+    guestTurns: signedIn ? (parsed.data.AGENT_ACCOUNT_TURNS_PER_15_MIN ?? guest) : guest,
     guestWindowMs: GUEST_WINDOW_MS,
     activeRuns: parsed.data.AGENT_MAX_ACTIVE_RUNS,
   };

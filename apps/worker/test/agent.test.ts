@@ -7,6 +7,7 @@ import type { ConversationAgent } from '../src/agent/conversation.ts';
 import { proposalOf } from '../src/agent/conversation.ts';
 import { createTools, type ProposalService } from '../src/agent/tools.ts';
 import { createApp } from '../src/app.ts';
+import { sessionCookie } from './session.ts';
 
 const ORIGIN = 'https://harbor.test';
 const noProposals: ProposalService = {
@@ -312,6 +313,36 @@ describe('admission', () => {
     expect(await limited.json()).toMatchObject({
       error: { code: 'RATE_LIMITED', retryAfterSeconds: expect.any(Number) },
     });
+  });
+  it('counts a signed-in wallet by its account, so a shared IP that ran out of guest turns does not stop it', async () => {
+    const strict = { ...env, AGENT_GUEST_TURNS_PER_15_MIN: '1', AGENT_ACCOUNT_TURNS_PER_15_MIN: '2' };
+    const ip = '203.0.113.42';
+    const cookie = await sessionCookie('limits-test.near');
+    const send = async (signedIn: boolean) => {
+      const conversationId = await createConversation();
+      return createApp().request(
+        `/api/agent/conversations/${conversationId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'cf-connecting-ip': ip,
+            ...(signedIn ? { cookie } : {}),
+          },
+          body: JSON.stringify({ messageId: crypto.randomUUID(), text: 'Hi' }),
+        },
+        strict,
+      );
+    };
+
+    expect((await send(false)).status).toBe(202);
+    const guest = await send(false);
+    expect(guest.status).toBe(429);
+    expect(await guest.json()).toMatchObject({ error: { message: expect.stringContaining('Connect your wallet') } });
+
+    expect((await send(true)).status).toBe(202);
+    expect((await send(true)).status).toBe(202);
+    expect((await send(true)).status).toBe(429);
   });
 });
 

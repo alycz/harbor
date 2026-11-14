@@ -13,7 +13,8 @@ Local optional values belong in `apps/worker/.dev.vars` (or `.dev.vars.testnet`)
 | `PI_FAUX_SCRIPT` | Required nonempty script when using the faux provider |
 | `ONE_CLICK_JWT` | Optional partner JWT; unauthenticated quotes carry default protocol fee |
 | `NEAR_RPC_URL` | Optional read endpoint; otherwise network public RPC |
-| `AGENT_GUEST_TURNS_PER_15_MIN` | `5` |
+| `AGENT_GUEST_TURNS_PER_15_MIN` | `30`: chat messages per 15 minutes for a visitor without a wallet, counted per IP |
+| `AGENT_ACCOUNT_TURNS_PER_15_MIN` | `100`: the same for a signed-in wallet, counted per account; defaults to the guest limit |
 | `AGENT_MAX_ACTIVE_RUNS` | `4` |
 
 Invalid configuration reports the failed variable names, not values. Empty optional template values are treated as unset.
