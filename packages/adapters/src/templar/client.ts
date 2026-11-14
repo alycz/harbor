@@ -1,7 +1,14 @@
 import { z } from 'zod';
 
-const Account = z.string().min(2).max(64).regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/);
-const Amount = z.string().regex(/^[1-9][0-9]*$/).refine((value) => BigInt(value) < 2n ** 128n);
+const Account = z
+  .string()
+  .min(2)
+  .max(64)
+  .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/);
+const Amount = z
+  .string()
+  .regex(/^[1-9][0-9]*$/)
+  .refine((value) => BigInt(value) < 2n ** 128n);
 const Asset = z.union([
   z.object({ Nep141: Account }),
   z.object({ Nep245: z.object({ contract_id: Account, token_id: z.string().min(1) }) }),
@@ -10,9 +17,15 @@ const Configuration = z.object({ borrow_asset: Asset, collateral_asset: Asset })
 
 export interface TemplarTransaction {
   receiverId: string;
-  actions: { type: 'FunctionCall'; params: {
-    methodName: string; args: Record<string, unknown>; gas: string; deposit: string;
-  } }[];
+  actions: {
+    type: 'FunctionCall';
+    params: {
+      methodName: string;
+      args: Record<string, unknown>;
+      gas: string;
+      deposit: string;
+    };
+  }[];
 }
 export type TemplarView = (accountId: string, methodName: string, args: Record<string, unknown>) => Promise<unknown>;
 
@@ -25,7 +38,13 @@ export type TemplarView = (accountId: string, methodName: string, args: Record<s
  * https://github.com/Templar-Protocol/contracts/blob/dev/common/src/asset.rs
  */
 export class TemplarClient {
-  constructor(private readonly view: TemplarView, private readonly allowedMarkets: ReadonlySet<string>) {}
+  private readonly view: TemplarView;
+  private readonly allowedMarkets: ReadonlySet<string>;
+
+  constructor(view: TemplarView, allowedMarkets: ReadonlySet<string>) {
+    this.view = view;
+    this.allowedMarkets = allowedMarkets;
+  }
 
   async configuration(marketId: string) {
     this.market(marketId);
@@ -42,7 +61,13 @@ export class TemplarClient {
       return null;
     }
     const bounds = z.object({ min: Amount }).parse(await this.view(marketId, 'storage_balance_bounds', {}));
-    return call(marketId, 'storage_deposit', { account_id: accountId, registration_only: true }, bounds.min, '10000000000000');
+    return call(
+      marketId,
+      'storage_deposit',
+      { account_id: accountId, registration_only: true },
+      bounds.min,
+      '10000000000000',
+    );
   }
 
   async collateralize(marketId: string, amountAtomic: string): Promise<TemplarTransaction> {
@@ -72,12 +97,29 @@ export class TemplarClient {
   }
 }
 
-function call(receiverId: string, methodName: string, args: Record<string, unknown>, deposit = '0', gas = '100000000000000'): TemplarTransaction {
+function call(
+  receiverId: string,
+  methodName: string,
+  args: Record<string, unknown>,
+  deposit = '0',
+  gas = '100000000000000',
+): TemplarTransaction {
   return { receiverId, actions: [{ type: 'FunctionCall', params: { methodName, args, gas, deposit } }] };
 }
 
-function transfer(asset: z.infer<typeof Asset>, marketId: string, amount: string, operation: 'Collateralize' | 'Repay'): TemplarTransaction {
+function transfer(
+  asset: z.infer<typeof Asset>,
+  marketId: string,
+  amount: string,
+  operation: 'Collateralize' | 'Repay',
+): TemplarTransaction {
   const args = { receiver_id: marketId, amount, msg: JSON.stringify(operation) };
   if ('Nep141' in asset) return call(asset.Nep141, 'ft_transfer_call', args, '1');
-  return call(asset.Nep245.contract_id, 'mt_transfer_call', { ...args, token_id: asset.Nep245.token_id }, '1', '150000000000000');
+  return call(
+    asset.Nep245.contract_id,
+    'mt_transfer_call',
+    { ...args, token_id: asset.Nep245.token_id },
+    '1',
+    '150000000000000',
+  );
 }
