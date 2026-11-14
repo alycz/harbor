@@ -11,6 +11,7 @@ import { Chip, EmptyState, Panel } from './workspace.tsx';
 
 interface Alert {
   id: string;
+  kind: 'price_alert' | 'spread_alert';
   name: string;
   status: 'draft' | 'active' | 'paused' | 'completed';
   revision: number;
@@ -167,64 +168,66 @@ export function PriceAlerts() {
           {change.error.message}
         </p>
       ) : null}
-      {list.isSuccess && list.data.automations.length === 0 ? (
+      {list.isSuccess && list.data.automations.filter((alert) => alert.kind === 'price_alert').length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
           No saved monitors yet. Create your first quote alert above.
         </p>
       ) : null}
       <ul className="mt-4 divide-y divide-border border-t border-border">
-        {(list.data?.automations ?? []).map((alert) => (
-          <li key={alert.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13.5px]">
-            <span className="min-w-0">
-              <span className="font-medium">{alert.name}</span>
-              <span className="block text-[12.5px] text-muted-foreground">
-                {alert.lastAlertAt
-                  ? `Reached ${formatUtc(alert.lastAlertAt)}`
-                  : alert.lastEvaluatedAt
-                    ? `Checked ${formatUtc(alert.lastEvaluatedAt)}: ${alert.lastResult === 'unknown' ? 'no quote' : alert.lastResult === 'true' ? 'target met' : 'not yet'}`
-                    : 'Not checked yet'}
+        {(list.data?.automations ?? [])
+          .filter((alert) => alert.kind === 'price_alert')
+          .map((alert) => (
+            <li key={alert.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13.5px]">
+              <span className="min-w-0">
+                <span className="font-medium">{alert.name}</span>
+                <span className="block text-[12.5px] text-muted-foreground">
+                  {alert.lastAlertAt
+                    ? `Reached ${formatUtc(alert.lastAlertAt)}`
+                    : alert.lastEvaluatedAt
+                      ? `Checked ${formatUtc(alert.lastEvaluatedAt)}: ${alert.lastResult === 'unknown' ? 'no quote' : alert.lastResult === 'true' ? 'target met' : 'not yet'}`
+                      : 'Not checked yet'}
+                </span>
               </span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              {alert.unacknowledgedAlerts > 0 ? (
-                <Chip tone="success" dot>
-                  {alert.unacknowledgedAlerts} new
-                </Chip>
-              ) : null}
-              <Chip tone={alert.status === 'active' ? 'accent' : 'neutral'}>{alert.status}</Chip>
-              {alert.status === 'active' ? (
+              <span className="flex items-center gap-1.5">
+                {alert.unacknowledgedAlerts > 0 ? (
+                  <Chip tone="success" dot>
+                    {alert.unacknowledgedAlerts} new
+                  </Chip>
+                ) : null}
+                <Chip tone={alert.status === 'active' ? 'accent' : 'neutral'}>{alert.status}</Chip>
+                {alert.status === 'active' ? (
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-9 p-0"
+                    disabled={change.isPending}
+                    aria-label="Pause"
+                    onClick={() => change.mutate({ action: 'pause', alert })}
+                  >
+                    <Pause />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-9 p-0"
+                    disabled={change.isPending}
+                    aria-label="Resume"
+                    onClick={() => change.mutate({ action: 'activate', alert })}
+                  >
+                    <Play />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   className="h-9 w-9 p-0"
                   disabled={change.isPending}
-                  aria-label="Pause"
-                  onClick={() => change.mutate({ action: 'pause', alert })}
+                  aria-label="Delete"
+                  onClick={() => change.mutate({ action: 'remove', alert })}
                 >
-                  <Pause />
+                  <Trash2 />
                 </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  className="h-9 w-9 p-0"
-                  disabled={change.isPending}
-                  aria-label="Resume"
-                  onClick={() => change.mutate({ action: 'activate', alert })}
-                >
-                  <Play />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                className="h-9 w-9 p-0"
-                disabled={change.isPending}
-                aria-label="Delete"
-                onClick={() => change.mutate({ action: 'remove', alert })}
-              >
-                <Trash2 />
-              </Button>
-            </span>
-          </li>
-        ))}
+              </span>
+            </li>
+          ))}
       </ul>
       <p className="mt-3 text-[12.5px] text-muted-foreground">Alerts only read quotes. They never trade.</p>
     </Panel>
