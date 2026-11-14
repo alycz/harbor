@@ -12,7 +12,7 @@ const REGISTRY = 'v1.tmplr.near';
 export async function activeTemplarMarkets(): Promise<Set<string>> {
   const response = await fetch('https://docs.templarfi.org/guide/addresses.html', {
     signal: AbortSignal.timeout(8000),
-    redirect: 'error',
+    redirect: 'manual',
   });
   if (!response.ok) throw new AppError('UNAVAILABLE', 'Templar active-market catalogue unavailable.');
   const html = await response.text();
@@ -41,12 +41,30 @@ export async function verifyTemplarMarket(view: TemplarView, marketId: string, r
       params: { request_type: 'view_account', finality: 'final', account_id: marketId },
     }),
     signal: AbortSignal.timeout(8000),
-    redirect: 'error',
+    redirect: 'manual',
   });
   if (!response.ok) throw new AppError('UNAVAILABLE', 'Templar code verification unavailable.');
   const account = z.object({ result: z.object({ code_hash: z.string() }) }).parse(await response.json());
-  if (account.result.code_hash !== deployment.code_hash)
-    throw new AppError('FORBIDDEN', 'Market code no longer matches its registry deployment.');
+  // Markets are upgraded in place, so the deploy-time hash goes stale; the running code must match a
+  // version Templar's registry still offers.
+  const versions = z
+    .array(z.string())
+    .max(64)
+    .parse(await view(REGISTRY, 'list_versions', {}));
+  const offered = await Promise.all(
+    versions.map(async (key) =>
+      z
+        .object({ code_hash: z.string(), availability: z.string() })
+        .nullable()
+        .parse(await view(REGISTRY, 'get_version', { version_key: key })),
+    ),
+  );
+  if (
+    !offered.some(
+      (version) => version && version.availability !== 'Removed' && version.code_hash === account.result.code_hash,
+    )
+  )
+    throw new AppError('FORBIDDEN', 'Market code is not a version Templar currently offers.');
   const client = new TemplarClient(view, new Set([marketId]));
   const configuration = await client.configuration(marketId);
   return { deployment, configuration, client };
