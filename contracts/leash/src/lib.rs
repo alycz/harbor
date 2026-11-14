@@ -251,7 +251,11 @@ impl Leash {
             limits: vault.limits.clone(),
             balance: U128(vault.balance),
             frozen: vault.frozen,
-            spent_today: U128(vault.spent_today),
+            spent_today: U128(if env::block_timestamp().saturating_sub(vault.day_started_ns) >= DAY_NS {
+                0
+            } else {
+                vault.spent_today
+            }),
         })
     }
 
