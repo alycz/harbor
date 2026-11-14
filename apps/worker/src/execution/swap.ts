@@ -439,9 +439,12 @@ export function swapPlanView(deps: ExecutionDeps, row: PlanRow, intent: IntentRo
 function fundingRequest(deps: ExecutionDeps, row: PlanRow, intent: IntentRow, quote: QuoteRow) {
   if (row.status !== 'awaiting_signature' || row.tx_hash !== null || !row.deposit_address) return null;
   const chain = assetOf(deps, intent.sell_asset).chain;
+  const origin = (JSON.parse(row.result ?? '{}') as { origin?: { address?: string } }).origin;
   return {
     chain,
     asset: intent.sell_asset,
+    sender: origin?.address ?? row.account_id,
+    deadline: new Date(quote.expires_at_ms).toISOString(),
     amountRaw: quote.amount_in_raw,
     address: row.deposit_address,
     memo: row.deposit_memo || null,
