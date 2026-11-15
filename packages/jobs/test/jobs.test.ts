@@ -3,7 +3,17 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { claim, complete, enqueue, fail, failExhausted, release, renew, Superseded } from '../src/jobs.ts';
+import {
+  claim,
+  complete,
+  enqueue,
+  fail,
+  failExhausted,
+  pruneFinished,
+  release,
+  renew,
+  Superseded,
+} from '../src/jobs.ts';
 import { jobs, outbox } from '../src/schema.ts';
 
 const LEASE_MS = 30_000;
@@ -112,5 +122,38 @@ describe('fail and release', () => {
     expect(await failExhausted(db, 2_000 + LEASE_MS + 1)).toBe(1);
     const [row] = await db.select().from(jobs).where(eq(jobs.id, id));
     expect(row?.status).toBe('failed');
+  });
+});
+
+describe('pruneFinished', () => {
+  async function finish(
+    dedupeKey: string,
+    at: number,
+    message?: { topic: string; dedupeKey: string; payload: unknown },
+  ) {
+    const { id } = await enqueue(db, { kind: 'ingest', payload: {}, dedupeKey }, at);
+    const lease = await claim(db, { owner: 'a', leaseMs: LEASE_MS, nowMs: at });
+    if (!lease) throw new Error('expected a lease');
+    await complete(db, lease, at, message);
+    return id;
+  }
+
+  it('drops old finished jobs and keeps recent, open and outbox-linked ones', async () => {
+    const old = await finish('old', 1_000);
+    const recent = await finish('recent', 9_000);
+    const linked = await finish('linked', 1_000, { topic: 'alert', dedupeKey: 'alert:1', payload: {} });
+    const { id: open } = await enqueue(db, { kind: 'ingest', payload: {}, dedupeKey: 'open' }, 1_000);
+
+    expect(await pruneFinished(db, 5_000)).toBe(1);
+
+    const left = (await db.select({ id: jobs.id }).from(jobs)).map((row) => row.id).sort();
+    expect(left).toEqual([recent, linked, open].sort());
+    expect(left).not.toContain(old);
+  });
+
+  it('removes at most one batch at a time', async () => {
+    for (const key of ['a', 'b', 'c']) await finish(key, 1_000);
+    expect(await pruneFinished(db, 5_000, 2)).toBe(2);
+    expect(await pruneFinished(db, 5_000, 2)).toBe(1);
   });
 });

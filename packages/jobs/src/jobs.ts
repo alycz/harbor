@@ -189,6 +189,21 @@ export async function failExhausted(db: Db, nowMs: number): Promise<number> {
   return result.meta.changes;
 }
 
+/**
+ * Deletes finished jobs that ended before `beforeMs`, in a batch. A done job is never read again, but the
+ * table is scanned every time work is claimed, so left to grow it makes every tick read more rows than the
+ * last. A job whose outbox message still points at it is kept.
+ */
+export async function pruneFinished(db: Db, beforeMs: number, batch = 500): Promise<number> {
+  const result = await db.run(sql`
+    DELETE FROM jobs WHERE id IN (
+      SELECT id FROM jobs
+      WHERE status IN ('done', 'failed', 'cancelled') AND finished_at_ms < ${beforeMs}
+        AND NOT EXISTS (SELECT 1 FROM outbox WHERE outbox.job_id = jobs.id)
+      LIMIT ${batch})`);
+  return result.meta.changes;
+}
+
 function owned(lease: Lease) {
   return and(
     eq(jobs.id, lease.id),

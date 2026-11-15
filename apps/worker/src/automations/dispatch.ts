@@ -1,5 +1,14 @@
 import { formatRawAmount, MAX_U128_RAW, parseDecimalAmount } from '@harbor/domain/amount';
-import { claim, complete, enqueue, fail, failExhausted, type Lease, Superseded } from '@harbor/jobs/jobs';
+import {
+  claim,
+  complete,
+  enqueue,
+  fail,
+  failExhausted,
+  type Lease,
+  pruneFinished,
+  Superseded,
+} from '@harbor/jobs/jobs';
 import { tokenContractOf } from '@harbor/near/chain';
 import { drizzle } from 'drizzle-orm/d1';
 import { z } from 'zod';
@@ -14,6 +23,8 @@ import type { AutomationDeps, RuleRow } from './rules.ts';
 const JOB_KIND = 'automation.evaluate';
 /** Long enough for a quote with its timeout; an expired lease lets another tick retry the check. */
 const LEASE_MS = 45_000;
+/** Finished jobs are dropped after this: claiming scans the table, so it has to stay small. */
+const FINISHED_JOB_KEEP_MS = 30 * 60_000;
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 15_000;
 /** Bounds one scheduled invocation so it stays inside the Worker's time and subrequest budgets. */
@@ -118,6 +129,7 @@ export async function runAutomations(deps: AutomationDeps) {
   const db = drizzle(deps.db);
   const startedAtMs = deps.now();
   await failExhausted(db, startedAtMs);
+  await pruneFinished(db, startedAtMs - FINISHED_JOB_KEEP_MS);
 
   const { results: due } = await deps.db
     .prepare(
