@@ -102,8 +102,11 @@ Everything here is implemented and unit-tested. None of it is claimed as working
 |---|---|---|
 | AI Security & Defense | Spending limits, a fail-closed policy engine, a sandboxed agent wallet (the Leash contract at `harbor-leash.near`, which the agent reaches with an `execute`-only function-call key), and a prompt-injection defence proven against a model that obeys the attack | `pnpm demo:attack`, [`packages/policy`](packages/policy), [`contracts/leash`](contracts/leash) |
 | Unstoppable DeFi | Cross-chain swaps settled through NEAR Intents with every step verified: quote signature, deposit, delivery. Also Earn vault deposits, Rhea lending, Templar borrowing and quote monitors | [`apps/worker/src/execution`](apps/worker/src/execution), [`packages/adapters`](packages/adapters) |
+| Agent Economy | An agent that spends through NEAR Intents from a budget its owner funds and limits on chain. `harbor-agent.near` has paid two 1Click deposits through the Leash contract, each delivered to the vault's owner | [docs/evidence.md](docs/evidence.md), [`contracts/leash`](contracts/leash), [`apps/leash-signer`](apps/leash-signer) |
 
-Harbor is not offered for Privacy & Private AI (no attestation is verified) or Agent Economy (the agent does not pay or hire other agents).
+For Agent Economy, Harbor covers one part of the track: how an agent is given money to spend safely. The agent does not earn, negotiate, hire other agents or pay for APIs, compute or data.
+
+Harbor is not offered for Privacy & Private AI: no attestation is verified.
 
 ## What else is built
 
