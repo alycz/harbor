@@ -18,7 +18,7 @@ What Harbor does with money, step by step, and where each rule lives.
 
 1. Intent: assets from the verified registry, raw amount, optional recipient.
 2. Dry quote from 1Click, signature verified.
-3. Plan checks: sold asset on NEAR, recipient known and owned, quote fresh, minimum output valid, Harbor fee zero. A failure blocks the plan.
+3. Plan checks: origin on NEAR or a supported EVM chain and owned by the account, recipient known and owned, quote fresh, minimum output valid, Harbor fee zero. A failure blocks the plan.
 4. With execution on: token registrations present, then an executable quote for the owner's recipient and refund account, checked again.
 5. Signed-policy check, spend counted from approved plans.
 6. Digest over intent, quote, account, amounts, recipient, refund account, deposit address, memo, quote hash and deadline.
@@ -37,8 +37,8 @@ Statuses: `awaiting_review` → `awaiting_signature` → `submitted` → `confir
 
 ## Agent (`apps/worker/src/agent`)
 
-- Tools: `list_markets` (dated snapshot), `read_feed` (sample posts), `propose_intent`. All outside text arrives in an `<untrusted>` envelope. The model can only create intents; it cannot approve, sign or submit.
-- Models: NEAR AI Cloud (attested models on NEAR AI's own TEE fleet only) or free OpenRouter models; scripted without a key.
+- Tools: `list_markets` (dated snapshot), `list_deposit_opportunities` and `list_borrow_markets` (current Earn and Templar figures), `review_protocol_action`, `read_feed` (sample posts), `propose_intent`. All outside text arrives in an `<untrusted>` envelope. The model can only create intents; it cannot approve, sign or submit.
+- Models: OpenRouter (GLM 5.3 Flash by default, or its free models), or NEAR AI Cloud limited to an allowlist of models on NEAR AI's own TEE fleet. Harbor does not verify attestations. Without a key, chat returns one fixed sentence.
 
 ## Gates
 

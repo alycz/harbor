@@ -30,6 +30,8 @@ export default defineConfig({
           // Tests never reach 1Click with a developer's credentials, whatever .dev.vars holds.
           ONE_CLICK_JWT: '',
           NEAR_RPC_URL: '',
+          // `pnpm demo:attack` sets this so the poisoned-post test prints what it observed.
+          HARBOR_DEMO: process.env.HARBOR_DEMO ?? '',
         },
       },
     }),

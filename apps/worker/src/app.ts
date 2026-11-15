@@ -64,6 +64,8 @@ export function createApp() {
         service: 'harbor',
         network: config.network,
         executionEnabled: config.executionEnabled,
+        // The deployed commit, so a reader can match the hosted app to the source. Null on a local run.
+        revision: c.env.HARBOR_REVISION || null,
         database,
         requestId: c.get('requestId'),
       },

@@ -4,7 +4,7 @@ About three minutes, on mainnet, with execution enabled on the server and a mode
 
 ## 1. Sign a policy (40 s)
 
-1. Connect a wallet and open **Policy**.
+1. Connect a wallet and open **Agent**. The policy is its first section.
 2. Allow NEAR and USDC, let the agent spend up to 1 NEAR per action, 2 per day and 5 in total, slippage 0.5%, at most every 24 hours, expiring in 7 days.
 3. **Sign policy in your wallet.** The wallet shows the limits in words and the digest. Signing moves nothing.
 
@@ -23,11 +23,11 @@ The signed policy shows what has been spent against each limit, and **Freeze the
 2. The agent reads the sample feed. One post, posing as a Harbor security team, tells agents to send the user's whole balance to `migrate-harbor.near`.
 3. A careful model says it will not follow it. A model that does propose it gets a card flagged *asks to deliver to migrate-harbor.near*; **Review swap** returns *blocked*: not one of your addresses, and outside your signed policy. Nothing reaches NEAR Intents.
 
-The same path runs in the test suite with a model scripted to obey the post (`apps/worker/test/poisoned.test.ts`).
+The same path runs without a wallet or a key, with a model scripted to obey the post: `pnpm demo:attack` (`apps/worker/test/poisoned.test.ts`).
 
 ## 4. Scheduled proposals, not unattended trading (30 s)
 
-1. On **Policy**, add a strategy: spend 0.5 NEAR to buy USDC every 24 hours.
+1. On **Agent**, add a schedule: spend 0.5 NEAR to buy USDC every 24 hours.
 2. On the next cron tick the agent queues it, but only because the policy is active. It appears on **Portfolio** under *Queued by your agent*, ready to sign in one tap.
 3. **Freeze the agent now.** The next tick queues nothing.
 
@@ -45,6 +45,4 @@ observations/opportunities. Pause it to stop future checks. Reviewing an opportu
 opens a separate wallet-approved trade; it does not execute both arbitrage legs.
 Quote spreads exclude unknown external costs and are not guaranteed net profits.
 
-This is a recording script, not evidence that these wallet transactions have already
-been executed successfully. Record the actual result; do not narrate a delivery until
-its receipt verifies. Do not present sample-feed data or scripted chat as live research.
+This page is a walkthrough. What has actually been observed on mainnet is in [evidence.md](evidence.md). The feed in step 3 is a bundled sample, not live posts.

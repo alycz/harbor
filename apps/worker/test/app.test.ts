@@ -20,6 +20,13 @@ describe('GET /api/health', () => {
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
   });
 
+  it('names the deployed commit when the deployment recorded one, and null otherwise', async () => {
+    const local = await createApp().request('/api/health', {}, env);
+    expect(await local.json()).toMatchObject({ revision: null });
+    const deployed = await createApp().request('/api/health', {}, { ...env, HARBOR_REVISION: 'ecca236' });
+    expect(await deployed.json()).toMatchObject({ revision: 'ecca236' });
+  });
+
   it('reports the Testnet binding when configured for it', async () => {
     const response = await createApp().request('/api/health', {}, { ...env, NEAR_NETWORK: 'testnet' });
     expect(await response.json()).toMatchObject({ network: 'testnet' });

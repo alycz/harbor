@@ -2,9 +2,9 @@
 
 ## Ask for research
 
-Harbor's agent has a `list_markets` tool for dated market research and a `propose_intent` tool for swap proposals. Use a prompt such as “Show me research on NEAR yield pools” to explore available observations. Results depend on the committed snapshot and model configuration.
+Harbor's agent has six tools: `list_markets` for the dated research snapshot, `list_deposit_opportunities` and `list_borrow_markets` for current Earn and Templar figures, `review_protocol_action`, `read_feed` for the bundled sample posts, and `propose_intent` for swap proposals. Use a prompt such as “Show me research on NEAR yield pools” to explore available observations. Results depend on the committed snapshot and model configuration.
 
-With no `OPENROUTER_API_KEY`, the response is scripted. Adding a key enables the configured OpenRouter model (GLM 5.3 Flash, a paid model billed to your OpenRouter credits); a key does not enable financial execution.
+With no model key, chat returns one fixed sentence saying so. Adding a key enables the configured OpenRouter model (GLM 5.3 Flash, a paid model billed to your OpenRouter credits); a key does not enable financial execution.
 
 ## Read research correctly
 
@@ -18,7 +18,7 @@ A proposal creates typed intent data for the execution lifecycle. The model cann
 
 ## Limits and interruptions
 
-The default guest allowance is five turns per fifteen minutes; global active runs default to four. A busy conversation returns a conflict rather than starting a second answer. Event streams support resuming after an event ID, and a run can be stopped through the abort endpoint.
+The default guest allowance is thirty turns per fifteen minutes; global active runs default to four. A busy conversation returns a conflict rather than starting a second answer. Event streams support resuming after an event ID, and a run can be stopped through the abort endpoint.
 
 Never send seed phrases or secret keys. The route rejects NEAR secret-key-shaped text before storage or model use, but pattern detection is not a general secret sanitizer.
 

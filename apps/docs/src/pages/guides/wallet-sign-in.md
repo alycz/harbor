@@ -12,7 +12,7 @@ Harbor uses NEAR Connect and NEP-413 message signing to establish a session. A s
 
 The recipient is the request host, so a message signed for another host must not verify here. Cookies use `SameSite=Lax` and are secure on HTTPS. Session reads disable caching.
 
-The full-access check refers to the **public key's permission on the account**. Harbor must never request the private full-access key or seed phrase. Signing in does not activate a strategy policy or enable execution.
+The full-access check refers to the **public key's permission on the account**. Harbor must never request the private full-access key or seed phrase. Signing in does not sign a policy or enable execution.
 
 ## Validation scope
 

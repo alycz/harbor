@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { cp, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,6 +80,16 @@ if (!(await stat(path.join(docsBuild, 'index.html')).catch(() => null))) {
 await cp(docsBuild, path.join(path.resolve(path.dirname(sourcePath), source.assets.directory), 'docs'), {
   recursive: true,
 });
+// The commit being deployed, reported by /api/health. Uncommitted changes are marked, never hidden.
+function git(...args) {
+  try {
+    return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+const head = git('rev-parse', 'HEAD');
+const revision = head && git('status', '--porcelain') ? `${head}-dirty` : head;
 const config = {
   name: network === 'mainnet' ? 'harbor' : 'harbor-testnet',
   main: path.resolve(path.dirname(sourcePath), source.main),
@@ -97,6 +108,7 @@ const config = {
     NEAR_NETWORK: network,
     EXECUTION_ENABLED: String(execution),
     ENABLED_WRITE_ADAPTERS: adapters,
+    HARBOR_REVISION: revision,
     ...(leashParts
       ? {
           LEASH_CONTRACT_ID: leashParts[0],

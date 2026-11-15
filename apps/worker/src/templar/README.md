@@ -1,8 +1,6 @@
 # Templar borrow lifecycle
 
-Depends on the preparation adapter in PR #11. Apply migration 0004_templar_borrow_plans.sql through the normal D1 migration workflow before using these endpoints.
-
-No runtime settings are changed by this PR. Borrowing requires all of:
+Borrowing requires all of:
 - NEAR_NETWORK=mainnet
 - EXECUTION_ENABLED=true
 - ENABLED_WRITE_ADAPTERS contains templar
@@ -18,4 +16,4 @@ The server never signs, broadcasts or holds keys. Frontend wallet submission alw
 
 Confirmation means successful finalized loan origination, not repayment, closure, health monitoring, or an independently reconstructed ongoing debt balance. Collateral deposits, repayments and withdrawals remain preparation-only. This flow is separate from swap policy/autopilot and cannot be autonomously invoked as a swap.
 
-No tests or live transactions were run, as requested. Migration, merge, deployment and runtime enablement remain operator tasks.
+Tests: `apps/worker/test/templar*.test.ts`. No live Templar transaction is recorded; see [docs/evidence.md](../../../../docs/evidence.md).

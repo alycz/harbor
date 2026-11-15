@@ -25,6 +25,6 @@ For local development, while the app is running:
 pnpm --filter @harbor/worker cron:local
 ```
 
-Monitoring is separate from the planned autonomous trading policy. Activating an alert does not authorize a recurring swap.
+Monitoring is separate from the signed policy and from scheduled buys. Activating an alert does not authorize a recurring swap.
 
 Sources: [monitor schema](https://github.com/alycz/harbor/blob/main/apps/worker/src/automations/config.ts), [routes](https://github.com/alycz/harbor/blob/main/apps/worker/src/automations/routes.ts), [dispatcher](https://github.com/alycz/harbor/blob/main/apps/worker/src/automations/dispatch.ts).

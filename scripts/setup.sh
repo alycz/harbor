@@ -6,7 +6,8 @@ cd "$(dirname "$0")/.."
 
 node_major="$(node -p 'process.versions.node.split(".")[0]')"
 if [ "$node_major" -lt 24 ]; then
-  echo "Node 24 or later is required (found $(node -v)). Run: nvm use" >&2
+  echo "Node 24 or later is required (found $(node -v))." >&2
+  echo "With nvm: nvm install 24 && nvm use. Without it: https://nodejs.org/en/download" >&2
   exit 1
 fi
 

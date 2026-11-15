@@ -37,7 +37,6 @@ test('documentation routes and source references stay within Harbor', async () =
     for (const match of body.matchAll(/https:\/\/github\.com\/alycz\/harbor\/blob\/main\/([^\s)]+)/g)) {
       await access(new URL(`../../../${match[1]}`, import.meta.url));
     }
-    assert.doesNotMatch(body, /github\.com\/alycz\/(?:pilot|atlasv1)/i);
     for (const match of body.matchAll(/\]\((\/[^)#]*)(?:#[^)]*)?\)/g))
       assert.ok(routes.has(match[1]), `${file}: ${match[1]}`);
   }

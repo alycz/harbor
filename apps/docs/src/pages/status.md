@@ -1,18 +1,18 @@
 # Current capabilities
 
-These docs were checked against Harbor's source, not just its product description. "Tested" means automated tests in workerd with recorded or simulated provider and chain answers; "live" means checked against the real service.
+"Tested" means automated tests in workerd with recorded or simulated provider and chain answers; "live" means checked against the real service.
 
 | Area | Implemented behavior | Limit |
 | --- | --- | --- |
-| Wallet sign-in | NEP-413 challenge, verification, full-access key check, cookie session | Real-wallet end-to-end verification is not documented here |
+| Wallet sign-in | NEP-413 challenge, verification, full-access key check, cookie session | Tested with an independent NEP-413 signer |
 | Account isolation | Plans, alerts, policies and strategies belong to the signed-in account; another account's record reads as not found | — |
 | Signed policy | Per-asset spend limits (per action, per day, total), allowed assets, own destinations, slippage, quote age, agent schedule and expiry, signed with NEP-413 and a full-access key; freeze and revoke at once | Signing needs a real wallet; tested with an independent NEP-413 signer |
 | Plan checks | Supported NEAR/EVM origin, recipient known and owned, quote fresh, minimum output, zero Harbor fee; then the signed policy check | A failed signed-policy check leaves the plan for the owner's own approval |
-| Mainnet swaps | Executable 1Click quote made out to the owner's recipient and refund account; one wallet transaction (register, wrap, transfer); deposit accepted only after decoding to exactly the planned transfer | Executable quotes checked live; a completed real signed deposit is not documented here |
+| Mainnet swaps | Executable 1Click quote made out to the owner's recipient and refund account; one wallet transaction (register, wrap, transfer); deposit accepted only after decoding to exactly the planned transfer | USDC to NEAR has completed on mainnet twice; other routes are tested only |
 | Settlement | Verified 1Click status; `confirmed` only after the delivery is measured on the destination chain (NEAR balance, or EVM transfer receipt); refunds stay refunds; unknown stays unknown | Solana deliveries cannot be verified and stay unconfirmed |
-| Autonomy | Recurring buys queued by the agent only under an active policy, each still checked against it, signed by the owner in one tap | Leash contract and Worker integration building blocks exist; deployed signer and end-to-end unattended execution are not verified |
+| Autonomy | Recurring buys queued by the agent only under an active policy, each still checked against it, signed by the owner in one tap | The Leash contract is deployed at `harbor-leash.near` and has paid two small owner-approved 1Click deposits; it is not audited, and nothing runs unattended |
 | Chat | Durable Object conversation; research, sample-feed and swap-proposal tools; outside text is wrapped as untrusted data; earlier chats kept in the browser | Scripted fallback without a model key |
-| Models | OpenRouter (free models or GLM 5.3 Flash), or NEAR AI Cloud with an allowlist of attested models on NEAR AI's own TEE fleet | Per-response signature verification is not shown yet |
+| Models | OpenRouter (free models or GLM 5.3 Flash), or NEAR AI Cloud with an allowlist of attested models on NEAR AI's own TEE fleet | Harbor does not verify attestations or response signatures |
 | Research and Earn | Dated snapshot with source and capture time shown; Earn deposits into two 1Click Earn vaults as a swap into their receipt token | Not live rates; vault deposits start at about 50 USDC and withdraw on the vault's own chain |
 | Venue comparison | Rhea route price beside 1Click for pairs on NEAR | For comparison only; this comparison is separate from the wallet-approved Rhea lending path |
 | Price alerts | Set, pause and delete on Trade; scheduled checks against a dry venue quote; alerts | Monitoring only; never trades |
@@ -27,10 +27,8 @@ Sources: [plan checks](https://github.com/alycz/harbor/blob/main/apps/worker/src
 
 Rhea lending and Templar borrowing have wallet-approved transaction paths. They need
 the matching deployed write-adapter flags, current supported markets, liquidity and
-account prerequisites. Source implementation does not establish that the hosted demo
-has those flags or that a real-wallet flow has completed.
+account prerequisites. A Rhea supply has been made on mainnet; no Templar transaction is recorded.
 
 Automations can periodically monitor quotes and record opportunities. They do not
 perform unattended swaps or guarantee profitable atomic cross-chain arbitrage.
-See [submission checklist](https://github.com/alycz/harbor/blob/main/docs/submission-checklist.md)
-for evidence to collect before making live-demo claims.
+See [mainnet evidence](https://github.com/alycz/harbor/blob/main/docs/evidence.md) for what has been observed on mainnet and how to re-check it.

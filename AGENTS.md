@@ -30,4 +30,4 @@ Harbor handles other people's money. These rules apply to every change, by peopl
 - An asset is resolved from the verified registry, never from a ticker alone.
 - Policy rules fail closed: a rule that throws or returns something malformed blocks.
 - Worker-side tests run inside workerd, so what passes there runs as deployed. Tests never reach a live service unless opted in through an environment variable.
-- Everything that lets the agent act on its own goes under `apps/worker/src/autopilot/`, so it can be removed in one commit.
+- Everything that lets the agent act on its own goes under `apps/worker/src/autopilot/` and `apps/worker/src/leash/`, so it can be removed in one commit.

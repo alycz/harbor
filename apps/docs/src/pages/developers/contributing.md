@@ -23,7 +23,7 @@ HARBOR_LIVE_ONECLICK=1 pnpm --filter @harbor/adapters test
 HARBOR_LIVE_NEAR=1 pnpm --filter @harbor/near test
 ```
 
-These opt-ins contact external services; do not claim to have run them unless you actually did.
+These opt-ins contact external services and are skipped by default.
 
 ## Editing documentation
 

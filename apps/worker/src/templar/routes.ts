@@ -35,8 +35,15 @@ export function createTemplarRoutes() {
       if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10000)
         throw new AppError('INVALID_REQUEST', 'Invalid offset.');
       const view = reader(config.rpcUrl);
-      const deployments = z.array(z.string()).parse(await view(REGISTRY, 'list_deployments', { offset, count: 100 }));
-      const active = await activeTemplarMarkets();
+      // The registry and Templar's catalogue are outside services: when either cannot be read, say so
+      // instead of failing as an internal error.
+      const [deployments, active] = await Promise.all([
+        view(REGISTRY, 'list_deployments', { offset, count: 100 }).then((value) => z.array(z.string()).parse(value)),
+        activeTemplarMarkets(),
+      ]).catch((error: unknown) => {
+        if (error instanceof AppError) throw error;
+        throw new AppError('UNAVAILABLE', 'Templar markets could not be read right now.');
+      });
       const markets = deployments.filter((id) => Market.safeParse(id).success && active.has(id));
       return c.json({
         markets,

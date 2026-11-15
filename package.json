@@ -19,7 +19,8 @@
     "knip": "knip",
     "check": "biome ci . && turbo run typecheck test build && knip",
     "deploy:mainnet": "pnpm build && node scripts/prepare-deployment.mjs mainnet $HARBOR_D1_ID && pnpm --filter @harbor/web exec wrangler d1 migrations apply harbor-mainnet --remote --config ../../.wrangler/deploy/mainnet/wrangler.json && pnpm --filter @harbor/web exec wrangler deploy --config ../../.wrangler/deploy/mainnet/wrangler.json",
-    "prepare": "lefthook install",
+    "demo:attack": "HARBOR_DEMO=1 pnpm --filter @harbor/worker exec vitest run test/poisoned.test.ts --reporter=verbose",
+    "prepare": "node scripts/install-hooks.mjs",
     "docs:dev": "pnpm --filter @harbor/docs dev",
     "docs:build": "pnpm --filter @harbor/docs build",
     "docs:preview": "pnpm --filter @harbor/docs preview"

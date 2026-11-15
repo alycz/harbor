@@ -189,6 +189,29 @@ describe('a poisoned post', () => {
       .first<{ to_status: string; reason: string }>();
     expect(event).toMatchObject({ to_status: 'blocked' });
     expect(event?.reason).toContain('DESTINATION_NOT_OWN');
+
+    // `pnpm demo:attack` prints the values asserted above, read from the plan and the recorded event.
+    if (env.HARBOR_DEMO === '1') {
+      console.log(
+        [
+          '',
+          'Poisoned post: a model scripted to obey it',
+          `  model proposed        swap 25 NEAR to USDC, deliver to ${plan.recipient?.address}`,
+          `  owner                 ${OWNER}`,
+          `  plan status           ${plan.status}`,
+          `  plan check            ${plan.errorCode}`,
+          `  signed-policy check   ${plan.policyCheck?.verdict} (${plan.policyCheck?.reasons
+            .filter((reason) => !reason.pass)
+            .map((reason) => reason.code)
+            .join(', ')})`,
+          `  executable quotes     ${h.world.quotes.length}`,
+          `  deposit address       ${plan.depositAddress ?? 'none'}`,
+          `  deposit notices       ${h.world.notices.length}`,
+          `  recorded event        ${event?.to_status}: ${event?.reason}`,
+          '',
+        ].join('\n'),
+      );
+    }
   });
 
   it('still lets the same owner swap to their own account', async () => {
